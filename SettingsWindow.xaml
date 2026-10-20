@@ -1,0 +1,158 @@
+<Window
+    x:Class="Machitan.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Machitan Settings">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="28,20,28,28" Spacing="12">
+
+                <TextBlock Text="Personalization"
+                           Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock Text="Make Machitan feel like your space."
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Margin="0,0,0,10" />
+
+                <TextBlock Text="Theme"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <ComboBox x:Name="ThemeCombo" HorizontalAlignment="Stretch" SelectedIndex="0">
+                    <ComboBoxItem Content="Light" />
+                    <ComboBoxItem Content="Dark" />
+                </ComboBox>
+
+                <TextBlock Text="Taskbar mode"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Margin="0,6,0,0" />
+                <ComboBox x:Name="TaskbarModeCombo" HorizontalAlignment="Stretch" SelectedIndex="0">
+                    <ComboBoxItem Content="Dock" />
+                    <ComboBoxItem Content="Segmented" />
+                    <ComboBoxItem Content="Classic" />
+                </ComboBox>
+
+                <TextBlock Text="Acrylic effect"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Margin="0,6,0,0" />
+                <ToggleSwitch x:Name="AcrylicToggle"
+                              OnContent="On"
+                              OffContent="Off" />
+
+                <TextBlock Text="Transparency"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Margin="0,6,0,0" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Slider x:Name="OpacitySlider"
+                            Minimum="0.35"
+                            Maximum="1"
+                            SmallChange="0.05"
+                            LargeChange="0.1" />
+                    <TextBlock x:Name="OpacityValue"
+                               Grid.Column="1"
+                               Width="52"
+                               Margin="10,0,0,0"
+                               Foreground="{ThemeResource BarAccent}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </Grid>
+
+                <TextBlock Text="Dock edge"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Margin="0,6,0,0" />
+                <ComboBox x:Name="DockEdgeCombo" HorizontalAlignment="Stretch" SelectedIndex="0">
+                    <ComboBoxItem Content="Top" />
+                    <ComboBoxItem Content="Bottom" />
+                </ComboBox>
+
+                <TextBlock Text="Dock alignment"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Margin="0,6,0,0" />
+                <ComboBox x:Name="DockAlignmentCombo" HorizontalAlignment="Stretch" SelectedIndex="1">
+                    <ComboBoxItem Content="Left" />
+                    <ComboBoxItem Content="Center" />
+                    <ComboBoxItem Content="Right" />
+                </ComboBox>
+
+                <TextBlock Text="Sizing"
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           Margin="0,10,0,0" />
+
+                <TextBlock Text="Bar size"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Slider x:Name="BarSizeSlider"
+                            Minimum="56"
+                            Maximum="120"
+                            SmallChange="4"
+                            LargeChange="8" />
+                    <TextBlock x:Name="BarSizeValue"
+                               Grid.Column="1"
+                               Width="60"
+                               Margin="10,0,0,0"
+                               Foreground="{ThemeResource BarAccent}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </Grid>
+
+                <TextBlock Text="App icon size"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Slider x:Name="IconSizeSlider"
+                            Minimum="20"
+                            Maximum="48"
+                            SmallChange="2"
+                            LargeChange="4" />
+                    <TextBlock x:Name="IconSizeValue"
+                               Grid.Column="1"
+                               Width="60"
+                               Margin="10,0,0,0"
+                               Foreground="{ThemeResource BarAccent}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </Grid>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Spacing="8"
+                            Margin="0,14,0,0">
+                    <Button Content="Reset defaults"
+                            Click="Reset_Click"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Button Content="Done"
+                            Click="Close_Click"
+                            Style="{StaticResource AccentButtonStyle}" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

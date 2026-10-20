@@ -1,0 +1,33 @@
+# ===== Build results =====
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+artifacts/
+TestResults/
+
+# ===== Visual Studio =====
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ===== WinUI 3 / MSIX packaging =====
+AppPackages/
+BundleArtifacts/
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.appinstaller
+*_TemporaryKey.pfx
+
+# ===== NuGet =====
+*.nupkg
+*.snupkg
+
+# ===== Misc =====
+*.tmp
+*.cache
+Thumbs.db
+Desktop.ini

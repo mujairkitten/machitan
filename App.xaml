@@ -1,0 +1,84 @@
+<Application
+    x:Class="Machitan.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Machitan">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="BarTextPrimary" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="BarTextSecondary" Color="#B3FFFFFF" />
+                    <SolidColorBrush x:Key="BarTextTertiary" Color="#73FFFFFF" />
+                    <SolidColorBrush x:Key="BarDivider" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="BarAccent" Color="#FF60CDFF" />
+                    <SolidColorBrush x:Key="BarPillStroke" Color="#1FFFFFFF" />
+                    <SolidColorBrush x:Key="BarSearchFill" Color="#12FFFFFF" />
+                    <SolidColorBrush x:Key="BarSearchStroke" Color="#1AFFFFFF" />
+                    <SolidColorBrush x:Key="BarTileHover" Color="#1FFFFFFF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="BarTextPrimary" Color="#FF1B1B1B" />
+                    <SolidColorBrush x:Key="BarTextSecondary" Color="#99000000" />
+                    <SolidColorBrush x:Key="BarTextTertiary" Color="#66000000" />
+                    <SolidColorBrush x:Key="BarDivider" Color="#1A000000" />
+                    <SolidColorBrush x:Key="BarAccent" Color="#FF0067C0" />
+                    <SolidColorBrush x:Key="BarPillStroke" Color="#22000000" />
+                    <SolidColorBrush x:Key="BarSearchFill" Color="#0D000000" />
+                    <SolidColorBrush x:Key="BarSearchStroke" Color="#1A000000" />
+                    <SolidColorBrush x:Key="BarTileHover" Color="#14000000" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <local:BoolToVisibilityConverter x:Key="BoolToVis" />
+
+            <Style x:Key="BarIconButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="40" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
+            <Style x:Key="BarTaskButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="42" />
+                <Setter Property="Height" Value="44" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
+            <Style x:Key="BarNavRailButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="56" />
+                <Setter Property="Height" Value="52" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
+            <Style x:Key="BarPinnedTileStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="80" />
+                <Setter Property="Height" Value="88" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -21,9 +21,14 @@ public enum DockAlignment
 
 public enum TaskbarMode
 {
-    Dock,
-    Segmented,
-    Classic,
+    // Numeric values deliberately preserve the old layout (Dock=0,
+    // Segmented=1, Classic=2) so existing settings.json files migrate:
+    // old Dock users get Joined (the same single pill), and anyone who
+    // picked the never-implemented Segmented finally gets the real thing.
+    Joined = 0,
+    Default = 1,
+    Classic = 2,
+    Compact = 3,
 }
 
 public sealed class MachitanSettings
@@ -35,7 +40,7 @@ public sealed class MachitanSettings
     public double IconSize { get; set; } = 28;
     public DockEdge DockEdge { get; set; } = DockEdge.Bottom;
     public DockAlignment DockAlignment { get; set; } = DockAlignment.Center;
-    public TaskbarMode TaskbarMode { get; set; } = TaskbarMode.Dock;
+    public TaskbarMode TaskbarMode { get; set; } = TaskbarMode.Default;
 
     public void Normalize()
     {
@@ -46,7 +51,7 @@ public sealed class MachitanSettings
         if (!Enum.IsDefined(typeof(DockAlignment), DockAlignment))
             DockAlignment = DockAlignment.Center;
         if (!Enum.IsDefined(typeof(TaskbarMode), TaskbarMode))
-            TaskbarMode = TaskbarMode.Dock;
+            TaskbarMode = TaskbarMode.Default;
 
         Opacity = double.IsFinite(Opacity) ? Math.Clamp(Opacity, 0.35, 1) : 0.9;
         BarSize = double.IsFinite(BarSize) ? Math.Clamp(BarSize, 56, 120) : 72;

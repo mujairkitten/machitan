@@ -7,7 +7,7 @@
 
     <Grid x:Name="RootGrid" Background="Transparent">
         <Border x:Name="PillBorder"
-                CornerRadius="20"
+                CornerRadius="8"
                 BorderThickness="1"
                 BorderBrush="{ThemeResource BarPillStroke}"
                 Background="Transparent">
@@ -38,138 +38,179 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Left: start + search -->
-                <StackPanel Grid.Column="0"
+                <!-- Left: weather cluster (icon + real temp/condition text,
+                     fed by WeatherService; text stays hidden until real
+                     data arrives — never placeholder values) -->
+                <StackPanel x:Name="WeatherCluster"
+                            Grid.Column="0"
                             Orientation="Horizontal"
-                            Spacing="10"
+                            Spacing="8"
+                            Margin="2,0,8,0"
+                            VerticalAlignment="Center">
+                    <FontIcon x:Name="WeatherIcon"
+                              Glyph="&#xE753;"
+                              FontFamily="Segoe Fluent Icons"
+                              FontSize="18"
+                              Foreground="{ThemeResource BarAccent}"
+                              VerticalAlignment="Center" />
+                    <StackPanel x:Name="WeatherTextStack"
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed">
+                        <TextBlock x:Name="WeatherText"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{ThemeResource BarTextPrimary}" />
+                        <TextBlock x:Name="WeatherConditionText"
+                                   FontSize="10"
+                                   Foreground="{ThemeResource BarTextSecondary}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Center: Start + Search + Task View + running apps
+                     (the Build 28000 walkthrough's center cluster) -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            HorizontalAlignment="Center"
                             VerticalAlignment="Center">
                     <Button x:Name="StartButton"
                             Style="{StaticResource BarIconButtonStyle}"
-                            Width="44"
-                            Height="44"
                             Click="StartButton_Click"
-                            ToolTipService.ToolTip="Start">
+                            ToolTipService.ToolTip="Start"
+                            AutomationProperties.Name="Start">
                         <FontIcon Glyph="&#xE700;"
                                   FontFamily="Segoe Fluent Icons"
                                   FontSize="18"
                                   Foreground="{ThemeResource BarAccent}" />
                     </Button>
 
-                    <Border x:Name="SearchBorder"
-                            Width="230"
-                            Height="36"
-                            CornerRadius="18"
-                            Background="{ThemeResource BarSearchFill}"
-                            BorderBrush="{ThemeResource BarSearchStroke}"
-                            BorderThickness="1"
-                            VerticalAlignment="Center"
-                            PointerPressed="SearchBorder_PointerPressed">
-                        <Grid VerticalAlignment="Center" Margin="0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon Grid.Column="0"
-                                      Glyph="&#xE721;"
-                                      FontFamily="Segoe Fluent Icons"
-                                      FontSize="13"
-                                      Foreground="{ThemeResource BarTextSecondary}"
-                                      Margin="12,0,6,0"
-                                      VerticalAlignment="Center" />
-                            <TextBox x:Name="SearchBox"
-                                     Grid.Column="1"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     Foreground="{ThemeResource BarTextPrimary}"
-                                     PlaceholderText="Search"
-                                     PlaceholderForeground="{ThemeResource BarTextTertiary}"
-                                     FontSize="12"
-                                     Padding="0,0,12,0"
-                                     Margin="0"
-                                     MinHeight="0"
-                                     Height="32"
-                                     VerticalAlignment="Center"
-                                     VerticalContentAlignment="Center"
-                                     KeyDown="SearchBox_KeyDown">
-                                <TextBox.Resources>
-                                    <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
-                                </TextBox.Resources>
-                            </TextBox>
-                        </Grid>
-                    </Border>
+                    <Button x:Name="SearchButton"
+                            Style="{StaticResource BarIconButtonStyle}"
+                            Click="SearchButton_Click"
+                            ToolTipService.ToolTip="Search"
+                            AutomationProperties.Name="Search">
+                        <FontIcon Glyph="&#xE721;"
+                                  FontFamily="Segoe Fluent Icons"
+                                  FontSize="16"
+                                  Foreground="{ThemeResource BarTextPrimary}" />
+                    </Button>
+
+                    <Button x:Name="TaskViewButton"
+                            Style="{StaticResource BarIconButtonStyle}"
+                            Click="TaskViewButton_Click"
+                            ToolTipService.ToolTip="Task view"
+                            AutomationProperties.Name="Task view">
+                        <FontIcon Glyph="&#xE7C4;"
+                                  FontFamily="Segoe Fluent Icons"
+                                  FontSize="16"
+                                  Foreground="{ThemeResource BarTextPrimary}" />
+                    </Button>
+
+                    <Rectangle Width="1"
+                               Height="22"
+                               Fill="{ThemeResource BarDivider}"
+                               Margin="3,0" />
+
+                    <ItemsRepeater x:Name="TaskRepeater"
+                                   VerticalAlignment="Center">
+                        <ItemsRepeater.Layout>
+                            <StackLayout Orientation="Horizontal" Spacing="6" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="local:TaskWindowItem">
+                                <Button Style="{StaticResource BarTaskButtonStyle}"
+                                        Width="{x:Bind local:MainWindow.GetTaskButtonWidth(), Mode=OneTime}"
+                                        Height="{x:Bind local:MainWindow.GetTaskButtonHeight(), Mode=OneTime}"
+                                        DataContext="{x:Bind}"
+                                        Click="TaskButton_Click"
+                                        RightTapped="TaskButton_RightTapped"
+                                        ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}"
+                                        AutomationProperties.Name="{x:Bind Title, Mode=OneWay}">
+                                    <Grid Width="{x:Bind local:MainWindow.GetTaskButtonWidth(), Mode=OneTime}"
+                                          Height="{x:Bind local:MainWindow.GetTaskButtonHeight(), Mode=OneTime}">
+                                        <!-- Pill highlight behind the active app -->
+                                        <Border CornerRadius="10"
+                                                Background="{ThemeResource BarTileHover}"
+                                                Visibility="{x:Bind local:BoolToVisibilityConverter.ToVis(IsActive), Mode=OneWay}" />
+                                        <Image Source="{x:Bind IconSource, Mode=OneWay}"
+                                               Width="{x:Bind local:MainWindow.GetTaskIconSize(), Mode=OneTime}"
+                                               Height="{x:Bind local:MainWindow.GetTaskIconSize(), Mode=OneTime}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Margin="0,-4,0,0" />
+                                        <!-- Running indicator: accent bar when
+                                             focused, grey bar when not -->
+                                        <Border Width="16"
+                                                Height="3"
+                                                CornerRadius="1.5"
+                                                Background="{ThemeResource BarTextTertiary}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Bottom"
+                                                Margin="0,0,0,4"
+                                                Visibility="{x:Bind local:BoolToVisibilityConverter.ToVisInverse(IsActive), Mode=OneWay}" />
+                                        <Border Width="16"
+                                                Height="3"
+                                                CornerRadius="1.5"
+                                                Background="{ThemeResource BarAccent}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Bottom"
+                                                Margin="0,0,0,4"
+                                                Visibility="{x:Bind local:BoolToVisibilityConverter.ToVis(IsActive), Mode=OneWay}" />
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
                 </StackPanel>
 
-                <!-- Center: running apps -->
-                <ItemsRepeater x:Name="TaskRepeater"
-                               Grid.Column="1"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center">
-                    <ItemsRepeater.Layout>
-                        <StackLayout Orientation="Horizontal" Spacing="6" />
-                    </ItemsRepeater.Layout>
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate x:DataType="local:TaskWindowItem">
-                            <Button Style="{StaticResource BarTaskButtonStyle}"
-                                    Width="{x:Bind local:MainWindow.GetTaskButtonWidth(), Mode=OneTime}"
-                                    Height="{x:Bind local:MainWindow.GetTaskButtonHeight(), Mode=OneTime}"
-                                    DataContext="{x:Bind}"
-                                    Click="TaskButton_Click"
-                                    ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}">
-                                <Grid Width="{x:Bind local:MainWindow.GetTaskButtonWidth(), Mode=OneTime}"
-                                      Height="{x:Bind local:MainWindow.GetTaskButtonHeight(), Mode=OneTime}">
-                                    <Image Source="{x:Bind IconSource, Mode=OneWay}"
-                                           Width="{x:Bind local:MainWindow.GetTaskIconSize(), Mode=OneTime}"
-                                           Height="{x:Bind local:MainWindow.GetTaskIconSize(), Mode=OneTime}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           Margin="0,-4,0,0" />
-                                    <Border Width="16"
-                                            Height="3"
-                                            CornerRadius="1.5"
-                                            Background="{ThemeResource BarAccent}"
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Bottom"
-                                            Margin="0,0,0,4"
-                                            Visibility="{x:Bind local:BoolToVisibilityConverter.ToVis(IsActive), Mode=OneWay}" />
-                                </Grid>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
-
-                <!-- Right: weather, clock, tray -->
-                <StackPanel Grid.Column="2"
+                <!-- Right: quick-settings pill (volume + network), battery,
+                     clock (time over date), notifications, settings -->
+                <StackPanel x:Name="TrayCluster"
+                            Grid.Column="2"
                             Orientation="Horizontal"
                             Spacing="4"
                             VerticalAlignment="Center">
-                    <!-- Weather: hidden for V1 (out of scope) -->
-                    <StackPanel Orientation="Horizontal"
-                                Spacing="8"
-                                Margin="0,0,10,0"
-                                VerticalAlignment="Center"
-                                Visibility="Collapsed">
-                        <FontIcon Glyph="&#xE753;"
-                                  FontFamily="Segoe Fluent Icons"
-                                  FontSize="16"
-                                  Foreground="{ThemeResource BarAccent}"
-                                  VerticalAlignment="Center" />
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock x:Name="WeatherText"
-                                       Text="72°F"
-                                       FontSize="12"
-                                       FontWeight="SemiBold"
-                                       Foreground="{ThemeResource BarTextPrimary}" />
-                            <TextBlock x:Name="WeatherConditionText"
-                                       Text="Sunny"
-                                       FontSize="10"
-                                       Foreground="{ThemeResource BarTextSecondary}" />
+                    <Button x:Name="QuickSettingsButton"
+                            Height="36"
+                            Padding="12,0"
+                            CornerRadius="8"
+                            Background="{ThemeResource BarSearchFill}"
+                            BorderThickness="0"
+                            Click="QuickSettings_Click"
+                            ToolTipService.ToolTip="Quick settings"
+                            AutomationProperties.Name="Quick settings">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE767;"
+                                      FontFamily="Segoe Fluent Icons"
+                                      FontSize="14"
+                                      Foreground="{ThemeResource BarTextPrimary}" />
+                            <FontIcon Glyph="&#xE701;"
+                                      FontFamily="Segoe Fluent Icons"
+                                      FontSize="14"
+                                      Foreground="{ThemeResource BarTextPrimary}" />
                         </StackPanel>
-                    </StackPanel>
+                    </Button>
+
+                    <Button x:Name="BatteryButton"
+                            Style="{StaticResource BarIconButtonStyle}"
+                            Width="Auto"
+                            Padding="8,0"
+                            Click="QuickSettings_Click"
+                            ToolTipService.ToolTip="Battery"
+                            AutomationProperties.Name="Battery"
+                            Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <FontIcon x:Name="BatteryIcon"
+                                      Glyph="&#xE850;"
+                                      FontFamily="Segoe Fluent Icons"
+                                      FontSize="16"
+                                      Foreground="{ThemeResource BarTextPrimary}" />
+                            <TextBlock x:Name="BatteryText"
+                                       FontSize="11"
+                                       Foreground="{ThemeResource BarTextPrimary}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
 
                     <Rectangle Width="1"
                                Height="20"
@@ -180,7 +221,8 @@
                             Style="{StaticResource BarIconButtonStyle}"
                             Width="88"
                             Click="Calendar_Click"
-                            ToolTipService.ToolTip="Calendar">
+                            ToolTipService.ToolTip="Calendar and notifications"
+                            AutomationProperties.Name="Clock, calendar and notifications">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                             <TextBlock x:Name="ClockText"
                                        Text="--:--"
@@ -189,7 +231,7 @@
                                        Foreground="{ThemeResource BarTextPrimary}"
                                        HorizontalAlignment="Center" />
                             <TextBlock x:Name="DateText"
-                                       Text="--- --/--"
+                                       Text="---"
                                        FontSize="10"
                                        Foreground="{ThemeResource BarTextSecondary}"
                                        HorizontalAlignment="Center" />
@@ -198,18 +240,10 @@
 
                     <Button x:Name="NotificationButton"
                             Style="{StaticResource BarIconButtonStyle}"
-                            ToolTipService.ToolTip="Notifications">
+                            Click="Notification_Click"
+                            ToolTipService.ToolTip="Notifications"
+                            AutomationProperties.Name="Notifications">
                         <FontIcon Glyph="&#xE7E7;"
-                                  FontFamily="Segoe Fluent Icons"
-                                  FontSize="16"
-                                  Foreground="{ThemeResource BarTextSecondary}" />
-                    </Button>
-
-                    <Button x:Name="QuickSettingsButton"
-                            Style="{StaticResource BarIconButtonStyle}"
-                            Click="QuickSettings_Click"
-                            ToolTipService.ToolTip="Quick settings">
-                        <FontIcon Glyph="&#xE701;"
                                   FontFamily="Segoe Fluent Icons"
                                   FontSize="16"
                                   Foreground="{ThemeResource BarTextSecondary}" />
@@ -218,7 +252,8 @@
                     <Button x:Name="SettingsButton"
                             Style="{StaticResource BarIconButtonStyle}"
                             Click="SettingsButton_Click"
-                            ToolTipService.ToolTip="Machitan settings">
+                            ToolTipService.ToolTip="Machitan settings"
+                            AutomationProperties.Name="Machitan settings">
                         <FontIcon Glyph="&#xE713;"
                                   FontFamily="Segoe Fluent Icons"
                                   FontSize="16"

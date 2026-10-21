@@ -22,8 +22,10 @@ public static class Program
         if (!isNewInstance)
             return;
 
-        ExplorerTaskbarController.Hide();
+        // Guardian first: if anything below dies before the finally block
+        // can run, the watchdog is already watching.
         using var guardian = GuardianMode.Launch();
+        ExplorerTaskbarController.Hide();
         DiagnosticsLog.Write("Program start");
 
         try

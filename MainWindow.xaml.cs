@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -15,7 +15,7 @@ namespace Machitan;
 
 public sealed partial class MainWindow : Window
 {
-    private const int PillRadiusDip = 20;
+    private const int PillRadiusDip = 8;
 
     public static double CurrentIconSize { get; private set; } = 28;
     public static double GetTaskIconSize() => CurrentIconSize;
@@ -28,12 +28,24 @@ public sealed partial class MainWindow : Window
 
     private IntPtr _hwnd;
     private StartMenuWindow? _menu;
+    private SegmentWindow? _widgetsSegment;
+    private SegmentWindow? _traySegment;
+    private bool _segmentsShown;
+    private bool _segmentsFailed;
+    private WeatherInfo? _lastWeather;
+    private int _lastBatteryPercent = -1;
+    private bool _lastBatteryCharging;
+    private bool _hasBattery;
     private DateTime _menuClosedAt = DateTime.MinValue;
     private SettingsWindow? _settingsWindow;
 
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _taskTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _repositionTimer = new() { Interval = TimeSpan.FromSeconds(1.5) };
+    private readonly DispatcherTimer _weatherTimer = new() { Interval = TimeSpan.FromMinutes(30) };
+
+    private bool _touchMode;
+    private bool _touchDetectionFailed;
 
     public MainWindow()
     {
@@ -41,13 +53,32 @@ public sealed partial class MainWindow : Window
         this.InitializeComponent();
         DiagnosticsLog.Write("MainWindow ctor: after InitializeComponent");
 
+        CurrentIconSize = _settings.IconSize;
         TaskRepeater.ItemsSource = _tasks;
 
         _hwnd = WindowNative.GetWindowHandle(this);
         ApplyWindowStyle();
         DiagnosticsLog.Write("MainWindow ctor: after ApplyWindowStyle");
 
-        _clockTimer.Tick += (_, _) => Safe("clock tick", UpdateClock);
+        // If Explorer restarts while Machitan runs, its new taskbar appears
+        // next to ours — hide it again and re-register the appbar.
+        ShellEvents.InstallTaskbarCreatedHook(_hwnd, () => Safe("taskbar created", () =>
+        {
+            ExplorerTaskbarController.Rehide();
+            AppBarController.Register(_hwnd, BarHeightPx(), _settings.DockEdge);
+            EnsurePosition();
+        }));
+
+        // Apply the saved settings once at startup: before this, the saved
+        // icon size and Classic-mode chrome only took effect after the user
+        // changed something in the settings window.
+        ApplySettings(_settings);
+
+        UpdateBattery();
+        _ = RefreshWeatherAsync();
+
+        _clockTimer.Tick += (_, _) => { Safe("clock tick", UpdateClock); Safe("battery tick", UpdateBattery); };
+        _weatherTimer.Tick += (_, _) => Safe("weather tick", () => _ = RefreshWeatherAsync());
         _taskTimer.Tick += (_, _) => Safe("task tick", RefreshTasks);
         _repositionTimer.Tick += (_, _) => Safe("reposition tick", EnsurePosition);
 
@@ -58,6 +89,7 @@ public sealed partial class MainWindow : Window
         _clockTimer.Start();
         _taskTimer.Start();
         _repositionTimer.Start();
+        _weatherTimer.Start();
 
         // Position after the window has been shown by Activate().
         DispatcherQueue.TryEnqueue(() =>
@@ -66,6 +98,7 @@ public sealed partial class MainWindow : Window
             {
                 AppBarController.Register(_hwnd, BarHeightPx(), _settings.DockEdge);
                 AppBarController.Reposition(_hwnd, BarHeightPx(), _settings.DockEdge, ComputeDesiredWidthDip(), _settings.DockAlignment, _settings.TaskbarMode);
+                PositionSegments();
             });
             DiagnosticsLog.Write("MainWindow ctor: after initial reposition");
         });
@@ -85,7 +118,44 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private int BarHeightPx() => (int)Math.Round(_settings.BarSize);
+    private int BarHeightPx()
+    {
+        double size = _settings.TaskbarMode == TaskbarMode.Compact
+            ? _settings.BarSize * 0.8
+            : _settings.BarSize;
+        return (int)Math.Round(size) + (_touchMode ? 10 : 0);
+    }
+
+    // The icon size actually rendered: Compact steps it down, and a crowded
+    // bar steps it down further instead of overflowing.
+    private double EffectiveIconSize()
+    {
+        double size = _settings.IconSize;
+        if (_settings.TaskbarMode == TaskbarMode.Compact)
+            size -= 6;
+        if (_tasks.Count > 10)
+            size -= Math.Min(8, _tasks.Count - 10);
+        return Math.Max(18, size);
+    }
+
+    // Touch interaction mode gets a slightly taller bar (the reference
+    // video's tablet behavior). Detection is best-effort: if the API is
+    // unavailable unpackaged, it is tried once and never again.
+    private void UpdateTouchMode()
+    {
+        if (_touchDetectionFailed)
+            return;
+
+        try
+        {
+            _touchMode = Windows.UI.ViewManagement.UIViewSettings.GetForCurrentView()
+                .UserInteractionMode == Windows.UI.ViewManagement.UserInteractionMode.Touch;
+        }
+        catch
+        {
+            _touchDetectionFailed = true;
+        }
+    }
 
     private double DpiScale()
     {
@@ -99,7 +169,7 @@ public sealed partial class MainWindow : Window
         ApplyBackdrop();
         DiagnosticsLog.Write("ApplyWindowStyle: borderless");
         WindowChrome.MakeBorderless(_hwnd, topmost: true);
-        WindowChrome.SetCornerPreference(_hwnd, NativeMethods.DWMWCP_DONOTROUND);
+        WindowChrome.SetCornerPreference(_hwnd, NativeMethods.DWMWCP_ROUND);
 
         RootGrid.RequestedTheme = _settings.Theme == ShellTheme.Dark ? ElementTheme.Dark : ElementTheme.Light;
 
@@ -141,30 +211,153 @@ public sealed partial class MainWindow : Window
         if (_settings.TaskbarMode == TaskbarMode.Classic)
             return 9999;
 
-        int leftWidth = 44 + 10 + 230; // StartButton + Spacing + SearchBorder = 284
-        int rightWidth = 88 + 4 + 40 + 4 + 40 + 4 + 40 + 20; // Clock + spacing + 3 buttons = 240
+        double taskButtonW = GetTaskButtonWidth();
+        int tasksOnlyWidth = (int)Math.Round(_tasks.Count * (taskButtonW + 6));
+        int centerChromeOnly = 44 * 3 + 6 * 3 + 8;
+
+        if (_settings.TaskbarMode == TaskbarMode.Default)
+        {
+            // Center segment only: the weather capsule and tray live in
+            // their own floating segment windows.
+            return Math.Clamp(centerChromeOnly + tasksOnlyWidth + 28, 320, 1920);
+        }
+
+        // Joined / Compact: all zones inside the single pill.
+        // Zones: weather (left) | Start/Search/TaskView + tasks (center) |
+        // quick settings + battery + clock + bell + settings (right).
+        int leftWidth = WeatherTextStack.Visibility == Visibility.Visible ? 128 : 40;
+        int centerChrome = 44 * 3 + 6 * 3 + 8;
         double buttonW = GetTaskButtonWidth();
         int tasksWidth = (int)Math.Round(_tasks.Count * (buttonW + 6));
-        int paddingAndGaps = 60;
+        int rightWidth = 76 + 4 + 88 + 4 + 44 + 4 + 44 + 10;
+        if (BatteryButton.Visibility == Visibility.Visible)
+            rightWidth += 70;
+        int paddingAndGaps = 40;
 
-        int total = leftWidth + rightWidth + tasksWidth + paddingAndGaps;
-        return Math.Clamp(total, 640, 1920);
+        int total = leftWidth + centerChrome + tasksWidth + rightWidth + paddingAndGaps;
+        // (centerChrome/tasksWidth above already include the center zone)
+        double scale = DpiScale();
+        int screenDip = scale > 0
+            ? (int)Math.Round(NativeMethods.GetSystemMetrics(NativeMethods.SM_CXSCREEN) / scale)
+            : 1920;
+        int maxWidth = Math.Max(720, (int)Math.Round(screenDip * 0.96));
+        return Math.Clamp(total, 720, maxWidth);
     }
 
     private void EnsurePosition()
     {
+        UpdateTouchMode();
         int desiredWidth = ComputeDesiredWidthDip();
         if (!AppBarController.IsAtDesiredPosition(_hwnd, BarHeightPx(), _settings.DockEdge, desiredWidth, _settings.DockAlignment, _settings.TaskbarMode))
         {
             AppBarController.Reposition(_hwnd, BarHeightPx(), _settings.DockEdge, desiredWidth, _settings.DockAlignment, _settings.TaskbarMode);
+        }
+
+        PositionSegments();
+    }
+
+    // Default mode's side segments: same top/height as the main pill,
+    // widgets pinned to the left screen edge, tray to the right.
+    private void PositionSegments()
+    {
+        if (_settings.TaskbarMode != TaskbarMode.Default)
+            return;
+
+        // Self-heal: if a segment window was closed, recreate the pair.
+        if (_widgetsSegment == null || _traySegment == null)
+        {
+            _segmentsShown = false;
+            UpdateSegmentMode();
+            if (_widgetsSegment == null || _traySegment == null)
+                return;
+        }
+
+        if (!NativeMethods.GetWindowRect(_hwnd, out NativeMethods.RECT main))
+            return;
+
+        int height = main.Bottom - main.Top;
+        if (height <= 0)
+            return;
+
+        double scale = DpiScale();
+        int margin = (int)Math.Round(12 * scale);
+        int screenW = NativeMethods.GetSystemMetrics(NativeMethods.SM_CXSCREEN);
+
+        int widgetsW = (int)Math.Round(_widgetsSegment.WidthDip * scale);
+        NativeMethods.MoveWindow(_widgetsSegment.Hwnd, margin, main.Top, widgetsW, height, true);
+
+        int trayW = (int)Math.Round(_traySegment.WidthDip * scale);
+        NativeMethods.MoveWindow(_traySegment.Hwnd, screenW - margin - trayW, main.Top, trayW, height, true);
+    }
+
+    private void UpdateSegmentMode()
+    {
+        bool wantSegments = _settings.TaskbarMode == TaskbarMode.Default;
+
+        if (wantSegments)
+        {
+            // Segment creation must never take the shell down with it: on
+            // failure we stay a single center pill (clusters stay visible
+            // there — ApplySettings only collapses them when both segments
+            // exist) and retry on the next settings change.
+            if (_widgetsSegment == null && !_segmentsFailed)
+            {
+                try
+                {
+                    _widgetsSegment = new SegmentWindow(SegmentKind.Widgets, _settings);
+                    _widgetsSegment.Closed += (_, _) => _widgetsSegment = null;
+                    if (_lastWeather != null)
+                        _widgetsSegment.SetWeather(_lastWeather);
+                }
+                catch (Exception ex)
+                {
+                    DiagnosticsLog.WriteException("widgets segment create", ex);
+                    _segmentsFailed = true;
+                }
+            }
+
+            if (_traySegment == null && !_segmentsFailed)
+            {
+                try
+                {
+                    _traySegment = new SegmentWindow(SegmentKind.Tray, _settings);
+                    _traySegment.Closed += (_, _) => _traySegment = null;
+                    _traySegment.SetClock(DateTime.Now);
+                    _traySegment.SetBattery(_lastBatteryPercent, _lastBatteryCharging, _hasBattery);
+                }
+                catch (Exception ex)
+                {
+                    DiagnosticsLog.WriteException("tray segment create", ex);
+                    _segmentsFailed = true;
+                }
+            }
+
+            if (_widgetsSegment == null || _traySegment == null)
+                return;
+
+            PositionSegments();
+
+            if (!_segmentsShown)
+            {
+                _widgetsSegment.Activate();
+                _traySegment.Activate();
+                _segmentsShown = true;
+            }
+        }
+        else if (_segmentsShown)
+        {
+            _widgetsSegment?.AppWindow.Hide();
+            _traySegment?.AppWindow.Hide();
+            _segmentsShown = false;
         }
     }
 
     private void UpdateClock()
     {
         var now = DateTime.Now;
-        DateText.Text = now.ToString("ddd MM/dd");
-        ClockText.Text = now.ToString("HH:mm");
+        ClockText.Text = now.ToString("t");
+        DateText.Text = now.ToString("ddd d MMM");
+        _traySegment?.SetClock(now);
     }
 
     private void RefreshTasks()
@@ -294,6 +487,14 @@ public sealed partial class MainWindow : Window
             }
         }
 
+        double effectiveIconSize = EffectiveIconSize();
+        if (Math.Abs(effectiveIconSize - CurrentIconSize) > 0.01)
+        {
+            CurrentIconSize = effectiveIconSize;
+            TaskRepeater.ItemsSource = null;
+            TaskRepeater.ItemsSource = _tasks;
+        }
+
         EnsurePosition();
     }
 
@@ -324,20 +525,11 @@ public sealed partial class MainWindow : Window
         ShowStartMenu(null);
     }
 
-    private void SearchBorder_PointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        SearchBox.Focus(FocusState.Programmatic);
-    }
+    private void SearchButton_Click(object sender, RoutedEventArgs e) => ShowStartMenu(null);
 
-    private void SearchBox_KeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == Windows.System.VirtualKey.Enter)
-        {
-            var query = SearchBox.Text.Trim();
-            ShowStartMenu(string.IsNullOrWhiteSpace(query) ? null : query);
-            e.Handled = true;
-        }
-    }
+    private void TaskViewButton_Click(object sender, RoutedEventArgs e) => ShellPanels.OpenTaskView();
+
+    private void Notification_Click(object sender, RoutedEventArgs e) => ShellPanels.OpenNotifications();
 
     private void ShowStartMenu(string? initialSearch)
     {
@@ -350,15 +542,9 @@ public sealed partial class MainWindow : Window
         _menu.Activate();
     }
 
-    private void Calendar_Click(object sender, RoutedEventArgs e)
-    {
-        // TODO: Show a custom calendar flyout.
-    }
+    private void Calendar_Click(object sender, RoutedEventArgs e) => ShellPanels.OpenNotifications();
 
-    private void QuickSettings_Click(object sender, RoutedEventArgs e)
-    {
-        // TODO: Show a custom quick-settings flyout.
-    }
+    private void QuickSettings_Click(object sender, RoutedEventArgs e) => ShellPanels.OpenQuickSettings();
 
     private void TaskManager_Click(object sender, RoutedEventArgs e)
     {
@@ -396,12 +582,14 @@ public sealed partial class MainWindow : Window
         {
             if (item.IsActive)
             {
-                // App is active -> minimize it!
-                foreach (var wnd in item.Windows)
-                {
-                    if (NativeMethods.IsWindow(wnd))
-                        NativeMethods.ShowWindow(wnd, NativeMethods.SW_MINIMIZE);
-                }
+                // Minimize just the foreground window of the group, like the
+                // real taskbar — not every window the app has open.
+                var target = item.Hwnd;
+                if (!NativeMethods.IsWindow(target) && item.Windows.Count > 0)
+                    target = item.Windows[0];
+
+                if (NativeMethods.IsWindow(target))
+                    NativeMethods.ShowWindow(target, NativeMethods.SW_MINIMIZE);
                 item.IsActive = false;
             }
             else
@@ -410,25 +598,140 @@ public sealed partial class MainWindow : Window
                 if (!NativeMethods.IsWindow(target) && item.Windows.Count > 0)
                     target = item.Windows[0];
 
-                if (NativeMethods.IsWindow(target))
-                {
-                    if (NativeMethods.IsIconic(target))
-                        NativeMethods.ShowWindow(target, NativeMethods.SW_RESTORE);
-
-                    NativeMethods.BringWindowToTop(target);
-                    NativeMethods.SwitchToThisWindow(target, true);
-                    NativeMethods.SetForegroundWindow(target);
-                }
+                ActivateWindow(target);
             }
 
             RefreshTasks();
         }
     }
 
+    private void TaskButton_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: TaskWindowItem item } button)
+            return;
+
+        var flyout = new MenuFlyout();
+
+        foreach (var wnd in item.Windows)
+        {
+            if (!NativeMethods.IsWindow(wnd))
+                continue;
+
+            var sb = new StringBuilder(512);
+            NativeMethods.GetWindowText(wnd, sb, sb.Capacity);
+            var windowItem = new MenuFlyoutItem { Text = sb.Length > 0 ? sb.ToString() : item.Title };
+            var captured = wnd;
+            windowItem.Click += (_, _) => ActivateWindow(captured);
+            flyout.Items.Add(windowItem);
+        }
+
+        if (item.Windows.Count > 1)
+        {
+            flyout.Items.Add(new MenuFlyoutSeparator());
+            var closeAll = new MenuFlyoutItem { Text = "Close all windows" };
+            closeAll.Click += (_, _) =>
+            {
+                foreach (var wnd in item.Windows)
+                {
+                    if (NativeMethods.IsWindow(wnd))
+                        NativeMethods.PostMessage(wnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                }
+            };
+            flyout.Items.Add(closeAll);
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.IconPath))
+        {
+            flyout.Items.Add(new MenuFlyoutSeparator());
+            var pinItem = new MenuFlyoutItem { Text = IsAppPinned(item.IconPath) ? "Unpin from Start" : "Pin to Start" };
+            pinItem.Click += (_, _) => TogglePin(item);
+            flyout.Items.Add(pinItem);
+        }
+
+        flyout.ShowAt(button);
+        e.Handled = true;
+    }
+
+    private void ActivateWindow(IntPtr target)
+    {
+        if (!NativeMethods.IsWindow(target))
+            return;
+
+        if (NativeMethods.IsIconic(target))
+            NativeMethods.ShowWindow(target, NativeMethods.SW_RESTORE);
+
+        NativeMethods.BringWindowToTop(target);
+        NativeMethods.SwitchToThisWindow(target, true);
+        NativeMethods.SetForegroundWindow(target);
+    }
+
+    private static bool IsAppPinned(string path) =>
+        PinnedStore.Load().Exists(p => string.Equals(p.Path, path, StringComparison.OrdinalIgnoreCase));
+
+    private void TogglePin(TaskWindowItem item)
+    {
+        var pins = PinnedStore.Load();
+        if (pins.Exists(p => string.Equals(p.Path, item.IconPath, StringComparison.OrdinalIgnoreCase)))
+            pins.RemoveAll(p => string.Equals(p.Path, item.IconPath, StringComparison.OrdinalIgnoreCase));
+        else
+            pins.Add(new PinnedApp { Name = item.Title, Path = item.IconPath! });
+        PinnedStore.Save(pins);
+    }
+
+    private void UpdateBattery()
+    {
+        if (BatteryStatus.TryGet(out int percent, out bool charging, out bool hasBattery) && hasBattery)
+        {
+            _lastBatteryPercent = percent;
+            _lastBatteryCharging = charging;
+            _hasBattery = true;
+            _traySegment?.SetBattery(percent, charging, true);
+
+            BatteryButton.Visibility = Visibility.Visible;
+            int bucket = percent < 0 ? 5 : Math.Clamp(percent / 10, 0, 10);
+            BatteryIcon.Glyph = ((char)(0xE850 + bucket)).ToString();
+            BatteryText.Text = percent >= 0 ? $"{percent}%" : "";
+            ToolTipService.SetToolTip(BatteryButton,
+                percent >= 0
+                    ? (charging ? $"Battery {percent}% (charging)" : $"Battery {percent}%")
+                    : "Battery");
+        }
+        else
+        {
+            _hasBattery = false;
+            _traySegment?.SetBattery(0, false, false);
+            BatteryButton.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async System.Threading.Tasks.Task RefreshWeatherAsync()
+    {
+        var info = await WeatherService.TryGetCurrentAsync();
+        if (info == null)
+            return;
+
+        _lastWeather = info;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            WeatherIcon.Glyph = info.Glyph;
+            WeatherText.Text = info.TemperatureText;
+            WeatherConditionText.Text = info.ConditionLabel;
+            WeatherTextStack.Visibility = Visibility.Visible;
+            _widgetsSegment?.SetWeather(info);
+        });
+    }
+
+    // Public entry so the start menu's footer can open settings too.
+    public void OpenSettings() => SettingsButton_Click(this, new RoutedEventArgs());
+
+    // Public entry so segment windows can offer Task Manager too.
+    public void ShowTaskManager() => TaskManager_Click(this, new RoutedEventArgs());
+
     public void ApplySettings(MachitanSettings settings)
     {
         _settings = settings.Clone();
-        CurrentIconSize = _settings.IconSize;
+        bool iconSizeChanged = Math.Abs(CurrentIconSize - EffectiveIconSize()) > 0.01;
+        CurrentIconSize = EffectiveIconSize();
 
         RootGrid.RequestedTheme = _settings.Theme == ShellTheme.Dark ? ElementTheme.Dark : ElementTheme.Light;
         ApplyBackdrop();
@@ -444,7 +747,29 @@ public sealed partial class MainWindow : Window
             PillBorder.BorderThickness = new Thickness(1);
         }
 
+        if (iconSizeChanged)
+        {
+            // Task-button sizes are OneTime bindings: re-realize the
+            // repeater so existing buttons pick up the new size.
+            TaskRepeater.ItemsSource = null;
+            TaskRepeater.ItemsSource = _tasks;
+        }
+
+        _widgetsSegment?.ApplySettings(_settings);
+        _traySegment?.ApplySettings(_settings);
+        _segmentsFailed = false;
+        UpdateSegmentMode();
+
+        // In Default mode the weather/tray clusters move out into their own
+        // segment windows; in the joined modes they live in this pill. Only
+        // collapse them here when the segments actually exist.
+        bool segmented = _settings.TaskbarMode == TaskbarMode.Default
+            && _widgetsSegment != null && _traySegment != null;
+        WeatherCluster.Visibility = segmented ? Visibility.Collapsed : Visibility.Visible;
+        TrayCluster.Visibility = segmented ? Visibility.Collapsed : Visibility.Visible;
+
         AppBarController.Reposition(_hwnd, BarHeightPx(), _settings.DockEdge, ComputeDesiredWidthDip(), _settings.DockAlignment, _settings.TaskbarMode);
+        PositionSegments();
     }
 
     public void CloseStartMenu() => _menu?.Close();
@@ -454,8 +779,11 @@ public sealed partial class MainWindow : Window
         _clockTimer.Stop();
         _taskTimer.Stop();
         _repositionTimer.Stop();
+        _weatherTimer.Stop();
 
         try { _menu?.Close(); } catch { }
+        try { _widgetsSegment?.Close(); } catch { }
+        try { _traySegment?.Close(); } catch { }
         AppBarController.Unregister(_hwnd);
     }
 }

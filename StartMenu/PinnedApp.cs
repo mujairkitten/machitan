@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
 using Microsoft.UI.Xaml.Media;
 
 namespace Machitan.StartMenu;
@@ -11,6 +12,7 @@ public sealed class PinnedApp : INotifyPropertyChanged
     public string Name { get; set; } = "";
     public string Path { get; set; } = "";
 
+    [JsonIgnore]
     public ImageSource? IconSource
     {
         get => _iconSource;

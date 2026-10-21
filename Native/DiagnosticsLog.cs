@@ -12,12 +12,22 @@ internal static class DiagnosticsLog
     {
         try
         {
+            RotateIfNeeded();
             File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff}  {message}{Environment.NewLine}");
         }
         catch
         {
             // Diagnostics must never throw.
         }
+    }
+
+    private static void RotateIfNeeded()
+    {
+        // Single .old generation, ~256 KB cap — diagnostics must not become
+        // an unbounded file in %TEMP% over weeks of uptime.
+        var info = new FileInfo(LogPath);
+        if (info.Exists && info.Length > 256 * 1024)
+            File.Move(LogPath, LogPath + ".old", overwrite: true);
     }
 
     public static void WriteException(string context, Exception ex)

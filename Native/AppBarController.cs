@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using Machitan.Native;
 
-namespace Machitan;
+namespace Machitan.Native;
 
 internal static class AppBarController
 {
@@ -41,7 +41,7 @@ internal static class AppBarController
     }
 
     /// <summary>The floating pill window itself, positioned inside the reserved strip.</summary>
-    public static NativeMethods.RECT ComputeVisualRect(IntPtr hwnd, int barHeight, DockEdge edge, int widthDip, DockAlignment alignment = DockAlignment.Center, TaskbarMode mode = TaskbarMode.Dock)
+    public static NativeMethods.RECT ComputeVisualRect(IntPtr hwnd, int barHeight, DockEdge edge, int widthDip, DockAlignment alignment = DockAlignment.Center, TaskbarMode mode = TaskbarMode.Joined)
     {
         int screenW = NativeMethods.GetSystemMetrics(NativeMethods.SM_CXSCREEN);
         int screenH = NativeMethods.GetSystemMetrics(NativeMethods.SM_CYSCREEN);
@@ -94,7 +94,7 @@ internal static class AppBarController
         };
     }
 
-    public static bool IsAtDesiredPosition(IntPtr hwnd, int barHeight, DockEdge edge, int widthDip, DockAlignment alignment = DockAlignment.Center, TaskbarMode mode = TaskbarMode.Dock)
+    public static bool IsAtDesiredPosition(IntPtr hwnd, int barHeight, DockEdge edge, int widthDip, DockAlignment alignment = DockAlignment.Center, TaskbarMode mode = TaskbarMode.Joined)
     {
         if (!NativeMethods.GetWindowRect(hwnd, out NativeMethods.RECT actual))
             return false;
@@ -106,7 +106,7 @@ internal static class AppBarController
             && Math.Abs(actual.Bottom - want.Bottom) <= 1;
     }
 
-    public static void Reposition(IntPtr hwnd, int barHeight, DockEdge edge, int widthDip = MaxPillWidth, DockAlignment alignment = DockAlignment.Center, TaskbarMode mode = TaskbarMode.Dock)
+    public static void Reposition(IntPtr hwnd, int barHeight, DockEdge edge, int widthDip = MaxPillWidth, DockAlignment alignment = DockAlignment.Center, TaskbarMode mode = TaskbarMode.Joined)
     {
         var reserved = ComputeReservedRect(hwnd, barHeight, edge);
         var data = new NativeMethods.APPBARDATA
@@ -125,10 +125,11 @@ internal static class AppBarController
         int height = visual.Bottom - visual.Top;
         NativeMethods.MoveWindow(hwnd, visual.Left, visual.Top, width, height, true);
 
-        uint dpi = NativeMethods.GetDpiForWindow(hwnd);
-        double scale = dpi == 0 ? 1 : dpi / 96d;
-        int cornerRadius = mode == TaskbarMode.Classic ? 0 : (int)Math.Round(20 * scale);
-        WindowChrome.ApplyRoundedRegion(hwnd, cornerRadius);
+        // Corners come from DWM now (anti-aliased): rounded in Dock mode,
+        // square in Classic. This used to clip the window with a GDI region
+        // (CreateRoundRectRgn) — the aliased-corner look is gone with it.
+        WindowChrome.SetCornerPreference(hwnd,
+            mode == TaskbarMode.Classic ? NativeMethods.DWMWCP_DONOTROUND : NativeMethods.DWMWCP_ROUND);
     }
 
     public static void Unregister(IntPtr hwnd)

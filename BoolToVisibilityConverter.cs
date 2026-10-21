@@ -8,6 +8,8 @@ public sealed class BoolToVisibilityConverter : IValueConverter
 {
     public static Visibility ToVis(bool b) => b ? Visibility.Visible : Visibility.Collapsed;
 
+    public static Visibility ToVisInverse(bool b) => b ? Visibility.Collapsed : Visibility.Visible;
+
     public object Convert(object value, Type targetType, object parameter, string language)
     {
         return value is bool b && b ? Visibility.Visible : Visibility.Collapsed;

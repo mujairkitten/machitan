@@ -16,16 +16,21 @@ internal static class PinnedStore
 
     public static List<PinnedApp> Load()
     {
-        try
+        if (File.Exists(FilePath))
         {
-            if (File.Exists(FilePath))
+            try
             {
                 var apps = JsonSerializer.Deserialize<List<PinnedApp>>(File.ReadAllText(FilePath));
                 if (apps != null)
                     return apps.Where(a => File.Exists(a.Path)).ToList();
             }
+            catch { }
+
+            // The file exists but cannot be read right now. Fall back to the
+            // seed list for THIS session only — never save over the user's
+            // pins because of one bad read.
+            return SeedDefaults();
         }
-        catch { }
 
         var seeded = SeedDefaults();
         Save(seeded);
@@ -37,8 +42,10 @@ internal static class PinnedStore
         try
         {
             Directory.CreateDirectory(DirPath);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(
-                apps, new JsonSerializerOptions { WriteIndented = true }));
+            var json = JsonSerializer.Serialize(apps, new JsonSerializerOptions { WriteIndented = true });
+            var temporaryPath = FilePath + ".tmp";
+            File.WriteAllText(temporaryPath, json);
+            File.Move(temporaryPath, FilePath, overwrite: true);
         }
         catch { }
     }

@@ -56,7 +56,11 @@ internal static class GuardianMode
         try
         {
             using var main = Process.GetProcessById(mainPid);
-            main.WaitForExit();
+            // PID-reuse guard: if the PID now belongs to some other program,
+            // the real main process is already gone — restore right away
+            // instead of waiting on a stranger.
+            if (string.Equals(main.ProcessName, Process.GetCurrentProcess().ProcessName, StringComparison.OrdinalIgnoreCase))
+                main.WaitForExit();
         }
         catch
         {

@@ -30,9 +30,10 @@
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            Margin="0,6,0,0" />
                 <ComboBox x:Name="TaskbarModeCombo" HorizontalAlignment="Stretch" SelectedIndex="0">
-                    <ComboBoxItem Content="Dock" />
-                    <ComboBoxItem Content="Segmented" />
+                    <ComboBoxItem Content="Default" />
+                    <ComboBoxItem Content="Joined" />
                     <ComboBoxItem Content="Classic" />
+                    <ComboBoxItem Content="Compact" />
                 </ComboBox>
 
                 <TextBlock Text="Acrylic effect"

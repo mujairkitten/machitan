@@ -10,6 +10,11 @@ public sealed partial class SettingsWindow : Window
     private MachitanSettings _settings;
     private bool _isInitializing = true;
 
+    // Combo order (Default, Joined, Classic, Compact) differs from the enum
+    // values, which preserve the old settings.json numbering.
+    private static readonly TaskbarMode[] ModeByComboIndex =
+        { TaskbarMode.Default, TaskbarMode.Joined, TaskbarMode.Classic, TaskbarMode.Compact };
+
     public SettingsWindow(MachitanSettings settings)
     {
         this.InitializeComponent();
@@ -18,7 +23,7 @@ public sealed partial class SettingsWindow : Window
         AppWindow.Resize(new SizeInt32(480, 760));
 
         ThemeCombo.SelectedIndex = (int)_settings.Theme;
-        TaskbarModeCombo.SelectedIndex = (int)_settings.TaskbarMode;
+        TaskbarModeCombo.SelectedIndex = Math.Max(0, Array.IndexOf(ModeByComboIndex, _settings.TaskbarMode));
         DockEdgeCombo.SelectedIndex = (int)_settings.DockEdge;
         DockAlignmentCombo.SelectedIndex = (int)_settings.DockAlignment;
         AcrylicToggle.IsOn = _settings.EnableAcrylic;
@@ -47,7 +52,7 @@ public sealed partial class SettingsWindow : Window
         }
 
         _settings.Theme = (ShellTheme)ThemeCombo.SelectedIndex;
-        _settings.TaskbarMode = (TaskbarMode)TaskbarModeCombo.SelectedIndex;
+        _settings.TaskbarMode = ModeByComboIndex[TaskbarModeCombo.SelectedIndex];
         _settings.DockEdge = (DockEdge)DockEdgeCombo.SelectedIndex;
         _settings.DockAlignment = (DockAlignment)DockAlignmentCombo.SelectedIndex;
         _settings.EnableAcrylic = AcrylicToggle.IsOn;
@@ -80,7 +85,7 @@ public sealed partial class SettingsWindow : Window
         _settings = new MachitanSettings();
 
         ThemeCombo.SelectedIndex = (int)_settings.Theme;
-        TaskbarModeCombo.SelectedIndex = (int)_settings.TaskbarMode;
+        TaskbarModeCombo.SelectedIndex = Math.Max(0, Array.IndexOf(ModeByComboIndex, _settings.TaskbarMode));
         DockEdgeCombo.SelectedIndex = (int)_settings.DockEdge;
         DockAlignmentCombo.SelectedIndex = (int)_settings.DockAlignment;
         AcrylicToggle.IsOn = _settings.EnableAcrylic;

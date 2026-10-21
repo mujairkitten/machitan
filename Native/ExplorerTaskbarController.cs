@@ -22,7 +22,11 @@ internal static class ExplorerTaskbarController
         {
             var className = new StringBuilder(64);
             GetClassName(hWnd, className, className.Capacity);
-            if (className.ToString() is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
+            // Primary taskbar only. Secondary taskbars (Shell_SecondaryTrayWnd)
+            // stay visible: Machitan renders its bar on the primary display
+            // only, and a secondary monitor with NO taskbar is worse than one
+            // with Explorer's.
+            if (className.ToString() is "Shell_TrayWnd")
             {
                 bool wasVisible = IsWindowVisible(hWnd);
                 TaskbarVisibility[hWnd] = wasVisible;
@@ -34,6 +38,17 @@ internal static class ExplorerTaskbarController
         }, IntPtr.Zero);
 
         _isHidden = true;
+    }
+
+    /// <summary>
+    /// Re-runs the hide pass even though the taskbars are already recorded as
+    /// hidden. Needed after Explorer restarts: the new Shell_TrayWnd is a
+    /// fresh, visible window that Hide() would otherwise skip.
+    /// </summary>
+    public static void Rehide()
+    {
+        _isHidden = false;
+        Hide();
     }
 
     public static void Restore()

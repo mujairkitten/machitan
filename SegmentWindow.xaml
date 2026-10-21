@@ -1,0 +1,160 @@
+<Window
+    x:Class="Machitan.SegmentWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Machitan segment">
+
+    <Grid x:Name="RootGrid" Background="Transparent">
+        <Border x:Name="SegmentBorder"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="{ThemeResource BarPillStroke}"
+                Background="Transparent">
+            <Border.ContextFlyout>
+                <MenuFlyout>
+                    <MenuFlyoutItem Text="Task Manager" Click="TaskManager_Click">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon Glyph="&#xE9D9;" FontFamily="Segoe Fluent Icons" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem Text="Taskbar settings" Click="Settings_Click">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon Glyph="&#xE713;" FontFamily="Segoe Fluent Icons" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Text="Exit Machitan" Click="Exit_Click">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon Glyph="&#xE7E8;" FontFamily="Segoe Fluent Icons" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                </MenuFlyout>
+            </Border.ContextFlyout>
+          <Grid>
+            <!-- Widgets capsule (Default mode, left segment) -->
+            <StackPanel x:Name="WidgetsGrid"
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        Margin="14,0"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Center">
+                <FontIcon x:Name="WeatherIcon"
+                          Glyph="&#xE753;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="18"
+                          Foreground="{ThemeResource BarAccent}"
+                          VerticalAlignment="Center" />
+                <StackPanel x:Name="WeatherTextStack"
+                            VerticalAlignment="Center"
+                            Visibility="Collapsed">
+                    <TextBlock x:Name="WeatherText"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{ThemeResource BarTextPrimary}" />
+                    <TextBlock x:Name="WeatherConditionText"
+                               FontSize="10"
+                               Foreground="{ThemeResource BarTextSecondary}" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Tray segment (Default mode, right segment) -->
+            <StackPanel x:Name="TrayGrid"
+                        Orientation="Horizontal"
+                        Spacing="4"
+                        Margin="10,0"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Center">
+                <Button x:Name="QuickSettingsButton"
+                        Height="36"
+                        Padding="12,0"
+                        CornerRadius="8"
+                        Background="{ThemeResource BarSearchFill}"
+                        BorderThickness="0"
+                        Click="QuickSettings_Click"
+                        ToolTipService.ToolTip="Quick settings"
+                        AutomationProperties.Name="Quick settings">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE767;"
+                                  FontFamily="Segoe Fluent Icons"
+                                  FontSize="14"
+                                  Foreground="{ThemeResource BarTextPrimary}" />
+                        <FontIcon Glyph="&#xE701;"
+                                  FontFamily="Segoe Fluent Icons"
+                                  FontSize="14"
+                                  Foreground="{ThemeResource BarTextPrimary}" />
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="BatteryButton"
+                        Style="{StaticResource BarIconButtonStyle}"
+                        Width="Auto"
+                        Padding="8,0"
+                        Click="QuickSettings_Click"
+                        ToolTipService.ToolTip="Battery"
+                        AutomationProperties.Name="Battery"
+                        Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <FontIcon x:Name="BatteryIcon"
+                                  Glyph="&#xE850;"
+                                  FontFamily="Segoe Fluent Icons"
+                                  FontSize="16"
+                                  Foreground="{ThemeResource BarTextPrimary}" />
+                        <TextBlock x:Name="BatteryText"
+                                   FontSize="11"
+                                   Foreground="{ThemeResource BarTextPrimary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Rectangle Width="1"
+                           Height="20"
+                           Fill="{ThemeResource BarDivider}"
+                           Margin="4,0" />
+
+                <Button x:Name="ClockButton"
+                        Style="{StaticResource BarIconButtonStyle}"
+                        Width="88"
+                        Click="Calendar_Click"
+                        ToolTipService.ToolTip="Calendar and notifications"
+                        AutomationProperties.Name="Clock, calendar and notifications">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock x:Name="ClockText"
+                                   Text="--:--"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{ThemeResource BarTextPrimary}"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock x:Name="DateText"
+                                   Text="---"
+                                   FontSize="10"
+                                   Foreground="{ThemeResource BarTextSecondary}"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="NotificationButton"
+                        Style="{StaticResource BarIconButtonStyle}"
+                        Click="Notification_Click"
+                        ToolTipService.ToolTip="Notifications"
+                        AutomationProperties.Name="Notifications">
+                    <FontIcon Glyph="&#xE7E7;"
+                              FontFamily="Segoe Fluent Icons"
+                              FontSize="16"
+                              Foreground="{ThemeResource BarTextSecondary}" />
+                </Button>
+
+                <Button x:Name="SettingsButton"
+                        Style="{StaticResource BarIconButtonStyle}"
+                        Click="Settings_Click"
+                        ToolTipService.ToolTip="Machitan settings"
+                        AutomationProperties.Name="Machitan settings">
+                    <FontIcon Glyph="&#xE713;"
+                              FontFamily="Segoe Fluent Icons"
+                              FontSize="16"
+                              Foreground="{ThemeResource BarTextSecondary}" />
+                </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+    </Grid>
+</Window>

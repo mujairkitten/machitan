@@ -69,6 +69,15 @@
                                VerticalAlignment="Center" />
                 </Grid>
 
+                <TextBlock Text="Weather in the bar"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Margin="0,6,0,0" />
+                <ToggleSwitch x:Name="WeatherToggle"
+                              OnContent="On"
+                              OffContent="Off" />
+
                 <TextBlock Text="Dock edge"
                            FontSize="12"
                            FontWeight="SemiBold"

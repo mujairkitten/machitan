@@ -27,6 +27,7 @@ public sealed partial class SettingsWindow : Window
         DockEdgeCombo.SelectedIndex = (int)_settings.DockEdge;
         DockAlignmentCombo.SelectedIndex = (int)_settings.DockAlignment;
         AcrylicToggle.IsOn = _settings.EnableAcrylic;
+        WeatherToggle.IsOn = _settings.ShowWeather;
         OpacitySlider.Value = _settings.Opacity;
         BarSizeSlider.Value = _settings.BarSize;
         IconSizeSlider.Value = _settings.IconSize;
@@ -37,6 +38,7 @@ public sealed partial class SettingsWindow : Window
         DockEdgeCombo.SelectionChanged += SettingsChangedHandler;
         DockAlignmentCombo.SelectionChanged += SettingsChangedHandler;
         AcrylicToggle.Toggled += SettingsChangedHandler;
+        WeatherToggle.Toggled += SettingsChangedHandler;
         OpacitySlider.ValueChanged += SettingsChangedHandler;
         BarSizeSlider.ValueChanged += SettingsChangedHandler;
         IconSizeSlider.ValueChanged += SettingsChangedHandler;
@@ -56,6 +58,7 @@ public sealed partial class SettingsWindow : Window
         _settings.DockEdge = (DockEdge)DockEdgeCombo.SelectedIndex;
         _settings.DockAlignment = (DockAlignment)DockAlignmentCombo.SelectedIndex;
         _settings.EnableAcrylic = AcrylicToggle.IsOn;
+        _settings.ShowWeather = WeatherToggle.IsOn;
         _settings.Opacity = OpacitySlider.Value;
         _settings.BarSize = BarSizeSlider.Value;
         _settings.IconSize = IconSizeSlider.Value;
@@ -89,6 +92,7 @@ public sealed partial class SettingsWindow : Window
         DockEdgeCombo.SelectedIndex = (int)_settings.DockEdge;
         DockAlignmentCombo.SelectedIndex = (int)_settings.DockAlignment;
         AcrylicToggle.IsOn = _settings.EnableAcrylic;
+        WeatherToggle.IsOn = _settings.ShowWeather;
         OpacitySlider.Value = _settings.Opacity;
         BarSizeSlider.Value = _settings.BarSize;
         IconSizeSlider.Value = _settings.IconSize;

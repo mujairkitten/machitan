@@ -30,7 +30,8 @@ public sealed partial class MainWindow : Window
     private StartMenuWindow? _menu;
     private SegmentWindow? _widgetsSegment;
     private SegmentWindow? _traySegment;
-    private bool _segmentsShown;
+    private bool _widgetsShown;
+    private bool _trayShown;
     private bool _segmentsFailed;
     private WeatherInfo? _lastWeather;
     private int _lastBatteryPercent = -1;
@@ -225,7 +226,9 @@ public sealed partial class MainWindow : Window
         // Joined / Compact: all zones inside the single pill.
         // Zones: weather (left) | Start/Search/TaskView + tasks (center) |
         // quick settings + battery + clock + bell + settings (right).
-        int leftWidth = WeatherTextStack.Visibility == Visibility.Visible ? 128 : 40;
+        int leftWidth = WeatherCluster.Visibility != Visibility.Visible
+            ? 0
+            : WeatherTextStack.Visibility == Visibility.Visible ? 128 : 40;
         int centerChrome = 44 * 3 + 6 * 3 + 8;
         double buttonW = GetTaskButtonWidth();
         int tasksWidth = (int)Math.Round(_tasks.Count * (buttonW + 6));
@@ -263,14 +266,10 @@ public sealed partial class MainWindow : Window
         if (_settings.TaskbarMode != TaskbarMode.Default)
             return;
 
-        // Self-heal: if a segment window was closed, recreate the pair.
-        if (_widgetsSegment == null || _traySegment == null)
-        {
-            _segmentsShown = false;
+        // Self-heal: if a wanted segment window was closed, recreate it.
+        bool wantWidgets = _settings.ShowWeather;
+        if (((wantWidgets && _widgetsSegment == null) || _traySegment == null) && !_segmentsFailed)
             UpdateSegmentMode();
-            if (_widgetsSegment == null || _traySegment == null)
-                return;
-        }
 
         if (!NativeMethods.GetWindowRect(_hwnd, out NativeMethods.RECT main))
             return;
@@ -283,29 +282,35 @@ public sealed partial class MainWindow : Window
         int margin = (int)Math.Round(12 * scale);
         int screenW = NativeMethods.GetSystemMetrics(NativeMethods.SM_CXSCREEN);
 
-        int widgetsW = (int)Math.Round(_widgetsSegment.WidthDip * scale);
-        NativeMethods.MoveWindow(_widgetsSegment.Hwnd, margin, main.Top, widgetsW, height, true);
+        if (_widgetsSegment != null && wantWidgets)
+        {
+            int widgetsW = (int)Math.Round(_widgetsSegment.WidthDip * scale);
+            NativeMethods.MoveWindow(_widgetsSegment.Hwnd, margin, main.Top, widgetsW, height, true);
+        }
 
-        int trayW = (int)Math.Round(_traySegment.WidthDip * scale);
-        NativeMethods.MoveWindow(_traySegment.Hwnd, screenW - margin - trayW, main.Top, trayW, height, true);
+        if (_traySegment != null)
+        {
+            int trayW = (int)Math.Round(_traySegment.WidthDip * scale);
+            NativeMethods.MoveWindow(_traySegment.Hwnd, screenW - margin - trayW, main.Top, trayW, height, true);
+        }
     }
 
     private void UpdateSegmentMode()
     {
-        bool wantSegments = _settings.TaskbarMode == TaskbarMode.Default;
+        bool wantTray = _settings.TaskbarMode == TaskbarMode.Default;
+        bool wantWidgets = wantTray && _settings.ShowWeather;
 
-        if (wantSegments)
+        if (wantTray || wantWidgets)
         {
             // Segment creation must never take the shell down with it: on
-            // failure we stay a single center pill (clusters stay visible
-            // there — ApplySettings only collapses them when both segments
-            // exist) and retry on the next settings change.
-            if (_widgetsSegment == null && !_segmentsFailed)
+            // failure the affected cluster simply stays in the center pill,
+            // and creation is retried on the next settings change.
+            if (wantWidgets && _widgetsSegment == null && !_segmentsFailed)
             {
                 try
                 {
                     _widgetsSegment = new SegmentWindow(SegmentKind.Widgets, _settings);
-                    _widgetsSegment.Closed += (_, _) => _widgetsSegment = null;
+                    _widgetsSegment.Closed += (_, _) => { _widgetsSegment = null; _widgetsShown = false; };
                     if (_lastWeather != null)
                         _widgetsSegment.SetWeather(_lastWeather);
                 }
@@ -316,12 +321,12 @@ public sealed partial class MainWindow : Window
                 }
             }
 
-            if (_traySegment == null && !_segmentsFailed)
+            if (wantTray && _traySegment == null && !_segmentsFailed)
             {
                 try
                 {
                     _traySegment = new SegmentWindow(SegmentKind.Tray, _settings);
-                    _traySegment.Closed += (_, _) => _traySegment = null;
+                    _traySegment.Closed += (_, _) => { _traySegment = null; _trayShown = false; };
                     _traySegment.SetClock(DateTime.Now);
                     _traySegment.SetBattery(_lastBatteryPercent, _lastBatteryCharging, _hasBattery);
                 }
@@ -332,23 +337,31 @@ public sealed partial class MainWindow : Window
                 }
             }
 
-            if (_widgetsSegment == null || _traySegment == null)
-                return;
-
             PositionSegments();
 
-            if (!_segmentsShown)
+            if (wantWidgets && _widgetsSegment != null && !_widgetsShown)
             {
                 _widgetsSegment.Activate();
+                _widgetsShown = true;
+            }
+
+            if (wantTray && _traySegment != null && !_trayShown)
+            {
                 _traySegment.Activate();
-                _segmentsShown = true;
+                _trayShown = true;
             }
         }
-        else if (_segmentsShown)
+
+        if (!wantWidgets && _widgetsShown)
         {
             _widgetsSegment?.AppWindow.Hide();
+            _widgetsShown = false;
+        }
+
+        if (!wantTray && _trayShown)
+        {
             _traySegment?.AppWindow.Hide();
-            _segmentsShown = false;
+            _trayShown = false;
         }
     }
 
@@ -706,6 +719,9 @@ public sealed partial class MainWindow : Window
 
     private async System.Threading.Tasks.Task RefreshWeatherAsync()
     {
+        if (!_settings.ShowWeather)
+            return;
+
         var info = await WeatherService.TryGetCurrentAsync();
         if (info == null)
             return;
@@ -763,10 +779,13 @@ public sealed partial class MainWindow : Window
         // In Default mode the weather/tray clusters move out into their own
         // segment windows; in the joined modes they live in this pill. Only
         // collapse them here when the segments actually exist.
-        bool segmented = _settings.TaskbarMode == TaskbarMode.Default
-            && _widgetsSegment != null && _traySegment != null;
-        WeatherCluster.Visibility = segmented ? Visibility.Collapsed : Visibility.Visible;
-        TrayCluster.Visibility = segmented ? Visibility.Collapsed : Visibility.Visible;
+        bool traySegmented = _settings.TaskbarMode == TaskbarMode.Default && _traySegment != null;
+        bool widgetsSegmented = _settings.TaskbarMode == TaskbarMode.Default
+            && _widgetsSegment != null && _settings.ShowWeather;
+        TrayCluster.Visibility = traySegmented ? Visibility.Collapsed : Visibility.Visible;
+        WeatherCluster.Visibility = (!_settings.ShowWeather || widgetsSegmented)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         AppBarController.Reposition(_hwnd, BarHeightPx(), _settings.DockEdge, ComputeDesiredWidthDip(), _settings.DockAlignment, _settings.TaskbarMode);
         PositionSegments();

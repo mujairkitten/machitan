@@ -1,85 +1,99 @@
-# Machitan — Windows 11 style taskbar redesign
+# Machitan
 
-A custom Windows taskbar written in **WPF** (.NET 8). It runs **alongside**
-Explorer — zero risk to your system, nothing is replaced.
+A new taskbar for Windows 11. It looks and feels like part of Windows, not an overlay.
 
-Redesigned to match the Windows 11 shellbar look: floating acrylic pills,
-rounded corners, Fluent sheen, and three taskbar modes.
+Machitan is **early software**. It is already usable day to day, but some parts are still missing (see [Known limits](#known-limits)).
+
+Built with **WinUI 3** on **.NET 8**. Free and open source under the **GPL-3.0** license.
 
 ## What it does
 
-- **Three taskbar modes** (set in Settings):
-  - **Dock**: one centered floating pill with Start + Search + tasks + tray
-  - **Segmented**: three separate pills across the width (Start/Search left,
-    tasks center, weather/clock/tray right)
-  - **Classic**: one full-width bar spanning the screen
-- **Start menu**: avatar + search header, **Pinned** grid on the left,
-  **Recently used** and **All apps** on the right, theme-aware light/dark
-  translucency. Click Start to toggle it.
-- **Taskbar** (Windows 11 style): Start button and running apps as icons-only
-  buttons, refreshed every 2 seconds. Active window gets an accent underline;
-  drag to reorder. Click to bring a window forward (restores if minimized).
-- **Weather pill**: temperature and condition on the right side of the bar.
-- **Clock + date**: date and time in the right segment.
-- **Quick settings & notification center**: Win+A and Win+N shortcuts from the
-  tray buttons.
-- **Explorer taskbar takeover with a safety net**: while Machitan runs, the
-  real Windows taskbar is hidden; it comes back on exit. A hidden *guardian*
-  copy watches the main process and restores the real taskbar even if Machitan
-  is hard-killed.
+- **Four taskbar modes** (change them in Settings):
+  - **Default**: three floating pills. Widgets on the left, Start and apps in the center, tray area on the right.
+  - **Joined**: one floating pill.
+  - **Classic**: one full-width bar, edge to edge.
+  - **Compact**: like Joined, but smaller (0.8× height, smaller icons).
+- **Smart sizing**: the bar grows as you open apps. When it gets crowded, icons shrink instead of spilling out.
+- **Start menu**: your name and search at the top, a pinned grid, recently used apps, and an All apps list. Power options and Machitan settings sit at the bottom.
+- **Running apps**: windows are grouped per app. The active app gets an accent underline. Click to open or minimize. Right-click for more options (pick a window, close all, pin or unpin).
+- **Real weather**: shown only when real data is available (from Open-Meteo, at your device location). If there is no data, you see just the icon. You can turn it off in Settings.
+- **Battery**: shown only on devices that have one.
+- **Windows panels**: the clock opens the notification center, and the quick settings area opens quick settings. Task View works too.
+- **Looks**: light or dark theme, acrylic blur with an opacity slider, or a solid color.
+- **Safe by design**: while Machitan runs, the Explorer taskbar is hidden. A small helper process watches Machitan and brings the Explorer taskbar back if Machitan closes or crashes.
 
 ## Run it
 
-1. Unzip this folder anywhere on your Windows PC.
-2. Open `Machitan.csproj` in Visual Studio 2026
-   (you need the **.NET desktop development** workload).
+You need Windows 11 and Visual Studio 2026 with the **.NET desktop development** workload.
+
+1. Clone or download this repo.
+2. Open `Machitan.slnx` (or `Machitan.csproj`) in Visual Studio.
 3. Press **F5**.
 
-That's it. No installer, no registry changes, no admin needed.
+No installer. No admin rights. No registry changes.
 
-## Project tour (file by file)
+**If the Windows taskbar ever stays hidden:** press `Ctrl + Shift + Esc`, choose *Run new task*, and run `explorer.exe`.
 
-| File | What it is |
+## Settings
+
+Open Settings from the bar's right-click menu or the Start menu footer.
+
+| Setting | Choices |
 |---|---|
-| `Machitan.csproj` | Project file: .NET 8, WPF enabled. |
-| `App.xaml` / `App.xaml.cs` | App entry point, single-instance mutex, shared Win11 styles. |
-| `MainWindow.xaml` | The bar's layout: three segments (Start/Search, tasks, tray) arranged by taskbar mode. |
-| `MainWindow.xaml.cs` | Bar behavior: three taskbar modes, clock, weather, task list, appbar registration, settings. |
-| `Native/NativeMethods.cs` | All raw Win32 declarations (`DllImport`) in one place. |
-| `Native/AppBar.cs` | Registers the window as an appbar (`SHAppBarMessage`). |
-| `Native/FluentBackdrop.cs` | Fluent Design backdrop acrylic (DWM API + legacy fallback). |
-| `Native/GuardianMode.cs` | Watchdog: restores Explorer taskbar if Machitan dies. |
-| `Models/MachitanSettings.cs` | Settings model: theme, opacity, size, dock edge/alignment, taskbar mode. |
-| `Models/MachitanSettingsStore.cs` | Saves/loads settings as JSON in `%AppData%\Machitan\settings.json`. |
-| `Models/TaskWindowItem.cs` | One task button: window handle + title + icon + sizing. |
-| `SettingsWindow.xaml` / `SettingsWindow.xaml.cs` | Settings UI: theme, taskbar mode, transparency, dock edge/alignment, sizing. |
-| `StartMenu/StartMenuWindow.xaml` | Start menu look: search box, pinned grid, all-apps list. |
-| `StartMenu/StartMenuWindow.xaml.cs` | Start menu behavior: toggle, search, pin/unpin, launching. |
+| Theme | Light or Dark |
+| Taskbar mode | Default, Joined, Classic, Compact |
+| Acrylic effect | On or off |
+| Transparency | Slider |
+| Weather in the bar | On or off |
+| Dock edge | Top or Bottom |
+| Dock alignment | Left, Center, Right |
+| Bar size, App icon size | Sliders |
 
-## Customizing
+## Where Machitan saves things
 
-Open Settings (gear button on the bar) to change:
+| What | Where |
+|---|---|
+| Settings | `%AppData%\Machitan\settings.json` |
+| Pinned apps | `%AppData%\Machitan\pinned.json` |
+| Recently used | `%AppData%\Machitan\recent.json` |
+| App order on the bar | `%AppData%\Machitan\task-order.json` |
+| Debug log | `%TEMP%\Machitan.log` |
 
-- **Theme**: Light or Dark
-- **Taskbar mode**: Dock, Segmented, or Classic
-- **Transparency**: opacity of the bar background
-- **Dock edge**: Top or Bottom of screen
-- **Dock alignment**: Left, Center, or Right (Dock mode only)
-- **Bar size** and **App icon size**: sliders
+## Known limits
 
-Pins are stored in `%AppData%\Machitan\pinned.json`.
+- **No system tray icons yet.** Icons from other apps are not shown. This is the hardest part and is being studied first.
+- **Primary screen only.** Machitan draws one bar. Other monitors keep the Windows taskbar.
+- **Scaling.** Spacing can look slightly off at some display scaling levels (125%, 150%). This is being worked on.
+- **No installer.** Run it from Visual Studio for now.
 
-## Known limitations
+## Project tour
 
-- Assumes 100% display scaling for the docked position. On 125%/150% the
-  bar still shows, but the reserved strip can be slightly off.
-- Weather is a placeholder reading (72°F Sunny) — a real provider can be
-  wired into `UpdateWeather()`.
-- No multi-monitor support yet; docks to the primary screen.
-- No system tray icon hosting yet (deferred to a later phase).
+| File or folder | What it is |
+|---|---|
+| `Program.cs` | Starts the app. One copy at a time. Launches the helper that restores the Explorer taskbar. |
+| `App.xaml` / `App.xaml.cs` | App startup and shared styles. |
+| `MainWindow.xaml` / `.cs` | The bar: modes, clock, running apps, weather, battery. |
+| `SegmentWindow.xaml` / `.cs` | The side pills used by Default mode. |
+| `SettingsWindow.xaml` / `.cs` | The Settings window. |
+| `StartMenu/` | Start menu window, installed app scan, pinned and recent lists. |
+| `Models/` | Settings, saving and loading, task order, one task button. |
+| `Native/AppBarController.cs` | Reserves screen space for the bar. |
+| `Native/WindowChrome.cs` | Borderless windows with smooth rounded corners. |
+| `Native/FluentBackdrop.cs` | Acrylic blur. |
+| `Native/ExplorerTaskbarController.cs` | Hides and restores the Explorer taskbar. |
+| `Native/GuardianMode.cs` | The helper that restores the Explorer taskbar if Machitan dies. |
+| `Native/ShellEvents.cs` | Notices when Explorer restarts. |
+| `Native/ShellPanels.cs` | Opens Windows panels (notifications, quick settings, Task View). |
+| `Native/WeatherService.cs` | Real weather from Open-Meteo. |
+| `Native/BatteryStatus.cs` | Battery level. |
+| `Native/IconLoader.cs` | Loads app icons. |
+| `Native/NativeMethods.cs` | Windows API declarations in one place. |
+| `Native/DiagnosticsLog.cs` | Debug log. |
 
-## What's next
+## Design notes
 
-- Real weather provider integration.
-- System tray icon hosting.
-- Multi-monitor support.
+Machitan follows the Windows 11 Fluent look and takes ideas from concept designs by Addy Visuals and Avdan. It never shows made-up content: no fake meetings, no fake weather. If something is not available, it shows less.
+
+## License
+
+Machitan is licensed under the [GNU General Public License v3.0](LICENSE).

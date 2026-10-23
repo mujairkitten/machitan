@@ -170,6 +170,19 @@
                             Orientation="Horizontal"
                             Spacing="4"
                             VerticalAlignment="Center">
+                    <Button x:Name="TrayChevronButton"
+                            Style="{StaticResource BarIconButtonStyle}"
+                            Width="32"
+                            Click="TrayChevron_Click"
+                            ToolTipService.ToolTip="Show tray icons"
+                            AutomationProperties.Name="Show tray icons"
+                            Visibility="Collapsed">
+                        <FontIcon Glyph="&#xE70E;"
+                                  FontFamily="Segoe Fluent Icons"
+                                  FontSize="12"
+                                  Foreground="{ThemeResource BarTextSecondary}" />
+                    </Button>
+
                     <Button x:Name="QuickSettingsButton"
                             Height="36"
                             Padding="12,0"

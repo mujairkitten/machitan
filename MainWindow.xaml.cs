@@ -65,6 +65,11 @@ public sealed partial class MainWindow : Window
         // next to ours — hide it again and re-register the appbar.
         ShellEvents.InstallTaskbarCreatedHook(_hwnd, () => Safe("taskbar created", () =>
         {
+            // The tray spike broadcasts this message itself; that is not an
+            // Explorer restart and must not trigger a re-hide.
+            if (TrayListener.IsSuppressingTaskbarCreated)
+                return;
+
             ExplorerTaskbarController.Rehide();
             AppBarController.Register(_hwnd, BarHeightPx(), _settings.DockEdge);
             EnsurePosition();
@@ -82,6 +87,7 @@ public sealed partial class MainWindow : Window
         _weatherTimer.Tick += (_, _) => Safe("weather tick", () => _ = RefreshWeatherAsync());
         _taskTimer.Tick += (_, _) => Safe("task tick", RefreshTasks);
         _repositionTimer.Tick += (_, _) => Safe("reposition tick", EnsurePosition);
+        TrayIconStore.Changed += OnTrayIconsChanged;
 
         UpdateClock();
         RefreshTasks();
@@ -102,6 +108,9 @@ public sealed partial class MainWindow : Window
                 PositionSegments();
             });
             DiagnosticsLog.Write("MainWindow ctor: after initial reposition");
+
+            // Opt-in tray spike (flag file); a no-op unless the file exists.
+            TrayListener.StartIfEnabled(DispatcherQueue);
         });
 
         Closed += OnClosed;
@@ -235,6 +244,8 @@ public sealed partial class MainWindow : Window
         int rightWidth = 76 + 4 + 88 + 4 + 44 + 4 + 44 + 10;
         if (BatteryButton.Visibility == Visibility.Visible)
             rightWidth += 70;
+        if (TrayChevronButton.Visibility == Visibility.Visible)
+            rightWidth += 36;
         int paddingAndGaps = 40;
 
         int total = leftWidth + centerChrome + tasksWidth + rightWidth + paddingAndGaps;
@@ -329,6 +340,7 @@ public sealed partial class MainWindow : Window
                     _traySegment.Closed += (_, _) => { _traySegment = null; _trayShown = false; };
                     _traySegment.SetClock(DateTime.Now);
                     _traySegment.SetBattery(_lastBatteryPercent, _lastBatteryCharging, _hasBattery);
+                    _traySegment.SetTrayChevron(TrayChevronButton.Visibility == Visibility.Visible, TrayIconStore.VisibleCount);
                 }
                 catch (Exception ex)
                 {
@@ -691,6 +703,31 @@ public sealed partial class MainWindow : Window
         PinnedStore.Save(pins);
     }
 
+    // Tray icons (opt-in spike): the chevron appears only while at least one
+    // app icon is present; it widens the tray area, so re-place the bar now.
+    private void OnTrayIconsChanged()
+    {
+        // Raised while an app's tray message is being handled: let that app
+        // go first and do the layout work right after.
+        DispatcherQueue.TryEnqueue(() => Safe("tray icons changed", ApplyTrayChevron));
+    }
+
+    private void ApplyTrayChevron()
+    {
+        int count = TrayIconStore.VisibleCount;
+        bool show = TrayListener.IsActive && count > 0;
+
+        DiagnosticsLog.Write($"Tray chevron: {count} icon(s) shown, chevron {(show ? "visible" : "hidden")}");
+        TrayChevronButton.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        ToolTipService.SetToolTip(TrayChevronButton, count > 0 ? $"Show tray icons ({count})" : "Show tray icons");
+        _traySegment?.SetTrayChevron(show, count);
+
+        Safe("tray chevron layout", EnsurePosition);
+    }
+
+    private void TrayChevron_Click(object sender, RoutedEventArgs e)
+        => TrayFlyout.Show((FrameworkElement)sender, _settings.DockEdge);
+
     private void UpdateBattery()
     {
         if (BatteryStatus.TryGet(out int percent, out bool charging, out bool hasBattery) && hasBattery)
@@ -803,6 +840,8 @@ public sealed partial class MainWindow : Window
         try { _menu?.Close(); } catch { }
         try { _widgetsSegment?.Close(); } catch { }
         try { _traySegment?.Close(); } catch { }
+        TrayIconStore.Changed -= OnTrayIconsChanged;
+        TrayListener.Stop();
         AppBarController.Unregister(_hwnd);
     }
 }

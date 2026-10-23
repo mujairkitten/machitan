@@ -26,12 +26,14 @@ public sealed partial class SegmentWindow : Window
     private const double WidgetsWidthIconOnlyDip = 58;
     private const double TrayBaseWidthDip = 284;
     private const double TrayBatteryExtraDip = 64;
+    private const double TrayChevronExtraDip = 36;
 
     private readonly SegmentKind _kind;
     private MachitanSettings _settings;
     private readonly IntPtr _hwnd;
     private bool _weatherTextVisible;
     private bool _batteryVisible;
+    private bool _chevronVisible;
 
     public SegmentWindow(SegmentKind kind, MachitanSettings settings)
     {
@@ -64,7 +66,7 @@ public sealed partial class SegmentWindow : Window
 
     public double WidthDip => _kind == SegmentKind.Widgets
         ? (_weatherTextVisible ? WidgetsWidthWithTextDip : WidgetsWidthIconOnlyDip)
-        : TrayBaseWidthDip + (_batteryVisible ? TrayBatteryExtraDip : 0);
+        : TrayBaseWidthDip + (_batteryVisible ? TrayBatteryExtraDip : 0) + (_chevronVisible ? TrayChevronExtraDip : 0);
 
     public void ApplySettings(MachitanSettings settings)
     {
@@ -118,11 +120,21 @@ public sealed partial class SegmentWindow : Window
                 : "Battery");
     }
 
+    /// <summary>Shows or hides the tray chevron (tray icons pop-up); it widens the segment.</summary>
+    public void SetTrayChevron(bool visible, int count)
+    {
+        _chevronVisible = visible;
+        TrayChevronButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        ToolTipService.SetToolTip(TrayChevronButton, count > 0 ? $"Show tray icons ({count})" : "Show tray icons");
+    }
+
     public void SetClock(DateTime now)
     {
         ClockText.Text = now.ToString("t");
         DateText.Text = now.ToString("ddd d MMM");
     }
+
+    private void TrayChevron_Click(object sender, RoutedEventArgs e) => TrayFlyout.Show((FrameworkElement)sender, _settings.DockEdge);
 
     private void QuickSettings_Click(object sender, RoutedEventArgs e) => ShellPanels.OpenQuickSettings();
 

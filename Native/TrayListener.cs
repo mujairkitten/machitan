@@ -67,6 +67,9 @@ internal static class TrayListener
     private static int _eventsLogged;
     private static int _iconOk, _iconFail;
     private static int _onTopLogged, _appBarAtLastCheck;
+    private static int _raisedAtLastTick, _resyncs;
+    private static bool _resyncPending;
+    private static DateTime _lastBroadcast = DateTime.MinValue;
     private static string _lastSummary = "";
     private static readonly HashSet<string> _modifySeen = new();
     private static readonly HashSet<string> _appsSeen = new();
@@ -222,6 +225,8 @@ internal static class TrayListener
             _tick++;
             EnsureOnTop();
             TrayIconStore.Prune(owner => TrayNative.IsWindow(new IntPtr(unchecked((int)owner))));
+            TrayIconStore.FlushPending();
+            ResyncAfterTopSpotLoss();
             _appBarAtLastCheck = _appBar;
 
             // Tick 1 (~2 s after start): apps normally re-send their icons
@@ -236,6 +241,27 @@ internal static class TrayListener
         catch (Exception ex)
         {
             DiagnosticsLog.WriteException("TrayListener tick", ex);
+        }
+    }
+
+    // While Explorer's window was first, apps' icon messages went to Explorer
+    // and we missed them. Once we are back on top (a tick with no new loss),
+    // ask apps to send their icons again so the list catches up. At most once
+    // every 30 seconds.
+    private static void ResyncAfterTopSpotLoss()
+    {
+        if (_raised != _raisedAtLastTick)
+        {
+            _raisedAtLastTick = _raised;
+            _resyncPending = true;
+            return;
+        }
+
+        if (_resyncPending && (DateTime.UtcNow - _lastBroadcast).TotalSeconds >= 30)
+        {
+            _resyncPending = false;
+            _resyncs++;
+            BroadcastTaskbarCreated();
         }
     }
 
@@ -298,6 +324,7 @@ internal static class TrayListener
         if (msg == 0)
             return;
 
+        _lastBroadcast = DateTime.UtcNow;
         _suppressUntil = DateTime.UtcNow.AddSeconds(6);
         TrayNative.SendNotifyMessageW(new IntPtr(0xFFFF), msg, IntPtr.Zero, IntPtr.Zero);
         DiagnosticsLog.Write("TrayListener: broadcast TaskbarCreated (apps should re-send icons)");
@@ -309,7 +336,8 @@ internal static class TrayListener
             $"icons add={_adds} modify={_modifies} delete={_deletes} other={_otherIcon}; " +
             $"appbar={_appBar} (re-marshaled {_appBarRemarshaled}); rect-queries={_rectQueries}; " +
             $"command={_commandFwd} private={_privateFwd}; bad-data={_badData}; " +
-            $"forward-failed={_forwardFailed}; raised-to-top={_raised}; icon-read ok={_iconOk} failed={_iconFail}; " +
+            $"forward-failed={_forwardFailed}; raised-to-top={_raised}; resyncs={_resyncs}; icon-read ok={_iconOk} failed={_iconFail}; " +
+            $"picture-time=[{TrayIconStore.TimingSummary}]; " +
             $"apps=[{string.Join(", ", _appsSeen)}]";
 
         if (!force && summary == _lastSummary)
@@ -530,7 +558,7 @@ internal static class TrayListener
 
     // i7: is the app that owns this icon running as administrator? Clicks from
     // a normal process to an elevated one may be blocked, so we need to know.
-    private static string ElevationOf(uint hwndRaw)
+    internal static string ElevationOf(uint hwndRaw)
     {
         uint pid = 0;
         try

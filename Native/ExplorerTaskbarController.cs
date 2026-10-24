@@ -29,7 +29,11 @@ internal static class ExplorerTaskbarController
             if (className.ToString() is "Shell_TrayWnd")
             {
                 bool wasVisible = IsWindowVisible(hWnd);
-                TaskbarVisibility[hWnd] = wasVisible;
+                // A window we already hid reports "not visible": never let that
+                // overwrite an earlier "was visible", or Restore() would leave
+                // the Explorer taskbar hidden after a clean exit.
+                TaskbarVisibility[hWnd] = wasVisible
+                    || (TaskbarVisibility.TryGetValue(hWnd, out bool before) && before);
                 if (wasVisible)
                     ShowWindow(hWnd, SW_HIDE);
             }

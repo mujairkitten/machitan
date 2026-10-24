@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
@@ -15,15 +16,18 @@ internal sealed class TrayIconEntry
     public uint Uid;
     public Guid Guid;
     public uint Callback;         // callback message the owner wants clicks on (used from i9)
-    public uint Version;          // NOTIFYICON_VERSION the owner asked for (used from i9)
+    public uint Version;          // NOTIFYICON_VERSION the owner asked for
+    public bool VersionAnnounced; // true once we saw its NIM_SETVERSION (apps that started before us never tell us again)
     public uint State;
     public string Tip = "";
     public string Owner = "?";
     public bool Hidden;           // NIS_HIDDEN
     public bool IsSystem;         // Windows' own volume / network / power icons
     public uint IconHandle;
+    public uint PendingIcon;      // newest handle seen during a burst; read on the next tick
     public byte[]? Png;
     public DateTime IconReadAt = DateTime.MinValue;
+    public DateTime LastLeftDown = DateTime.MinValue;   // for double-click detection, per icon
 
     private ImageSource? _image;
     private byte[]? _imagePng;
@@ -91,6 +95,14 @@ internal static class TrayIconStore
 
     private static readonly List<TrayIconEntry> Entries = new();
     private static int _lastVisibleCount;
+    private const double MinIconReadGapMs = 200;
+    private static int _pngCount;
+    private static double _pngTotalMs, _pngMaxMs;
+
+    /// <summary>How long turning icon handles into pictures took (for the log).</summary>
+    public static string TimingSummary => _pngCount == 0
+        ? "none"
+        : FormattableString.Invariant($"{_pngCount} reads, avg {_pngTotalMs / _pngCount:F1} ms, max {_pngMaxMs:F1} ms");
 
     /// <summary>Raised (UI thread) when the number of shown icons changes.</summary>
     public static event Action? Changed;
@@ -164,7 +176,10 @@ internal static class TrayIconStore
 
             case 4: // NIM_SETVERSION
                 if (entry != null && cb >= 812)
+                {
                     entry.Version = U32(p, cb, 808);
+                    entry.VersionAnnounced = true;
+                }
                 break;
         }
 
@@ -214,23 +229,65 @@ internal static class TrayIconStore
         {
             e.Png = null;
             e.IconHandle = 0;
+            e.PendingIcon = 0;
             return;
         }
 
-        // Same picture again: nothing to do. A burst of changes: skip, the
-        // next message carries the newer picture.
+        // Same picture again: nothing to do.
         if (handle == e.IconHandle && e.Png != null)
+        {
+            e.PendingIcon = 0;
             return;
-        if (e.Png != null && (DateTime.UtcNow - e.IconReadAt).TotalMilliseconds < 200)
-            return;
+        }
 
+        // A burst of changes: keep only the newest handle and read it on the
+        // next tick (FlushPending), so the last picture is never lost.
+        if (e.Png != null && (DateTime.UtcNow - e.IconReadAt).TotalMilliseconds < MinIconReadGapMs)
+        {
+            e.PendingIcon = handle;
+            return;
+        }
+
+        e.PendingIcon = 0;
+        ReadIcon(e, handle);
+    }
+
+    private static void ReadIcon(TrayIconEntry e, uint handle)
+    {
         e.IconReadAt = DateTime.UtcNow;
+
+        var watch = Stopwatch.StartNew();
         byte[]? png = TrayIconPicture.ToPng(handle);
+        watch.Stop();
+
+        double ms = watch.Elapsed.TotalMilliseconds;
+        _pngCount++;
+        _pngTotalMs += ms;
+        if (ms > _pngMaxMs)
+            _pngMaxMs = ms;
+
+        // If the handle is already gone, keep the picture we have.
         if (png != null)
         {
             e.Png = png;
             e.IconHandle = handle;
         }
+    }
+
+    /// <summary>Reads the newest picture of icons that changed during a burst. Called every tick.</summary>
+    public static void FlushPending()
+    {
+        foreach (var e in Entries)
+        {
+            if (e.PendingIcon == 0)
+                continue;
+
+            uint handle = e.PendingIcon;
+            e.PendingIcon = 0;
+            ReadIcon(e, handle);
+        }
+
+        NotifyIfCountChanged();
     }
 
     private static void NotifyIfCountChanged()

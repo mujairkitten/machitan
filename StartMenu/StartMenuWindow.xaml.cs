@@ -16,8 +16,8 @@ namespace Machitan.StartMenu;
 
 public sealed partial class StartMenuWindow : Window
 {
-    private const int WidthDip = 700;
-    private const int HeightDip = 610;
+    private const int WidthDip = 760;
+    private const int HeightDip = 700;
 
     private readonly MachitanSettings _settings;
     private readonly ObservableCollection<PinnedApp> _pinned = new();
@@ -25,6 +25,7 @@ public sealed partial class StartMenuWindow : Window
     private readonly List<PinnedApp> _allApps = new();
     private readonly IntPtr _hwnd;
     private bool _activatedOnce;
+    private bool _showAllApps;
 
     public StartMenuWindow(MachitanSettings settings, string? initialSearch = null)
     {
@@ -38,7 +39,7 @@ public sealed partial class StartMenuWindow : Window
         WindowChrome.SetCornerPreference(_hwnd, NativeMethods.DWMWCP_ROUND);
 
         PinnedRepeater.ItemsSource = _pinned;
-        RecentRepeater.ItemsSource = _recents;
+        RecentlyUsedRepeater.ItemsSource = _recents;
         RootGrid.RequestedTheme = settings.Theme == ShellTheme.Dark ? ElementTheme.Dark : ElementTheme.Light;
 
         LoadData();
@@ -64,8 +65,6 @@ public sealed partial class StartMenuWindow : Window
         PositionWindow();
     }
 
-    // Same tint math as the main bar, and — unlike before — the
-    // EnableAcrylic setting is honored here too.
     private void ApplyBackdrop()
     {
         if (_settings.EnableAcrylic)
@@ -74,8 +73,8 @@ public sealed partial class StartMenuWindow : Window
             byte alpha = (byte)Math.Clamp(Math.Round(180 * _settings.Opacity), 0, 255);
             var tint = _settings.Theme == ShellTheme.Dark
                 ? new Windows.UI.Color { A = alpha, R = 21, G = 24, B = 28 }
-                : new Windows.UI.Color { A = alpha, R = 243, G = 243, B = 243 };
-            TintBorder.Background = new SolidColorBrush(tint);
+                : new Windows.UI.Color { A = alpha, R = 245, G = 245, B = 247 };
+            RootGrid.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(tint);
         }
         else
         {
@@ -83,7 +82,7 @@ public sealed partial class StartMenuWindow : Window
             var solid = _settings.Theme == ShellTheme.Dark
                 ? new Windows.UI.Color { A = 255, R = 32, G = 32, B = 32 }
                 : new Windows.UI.Color { A = 255, R = 243, G = 243, B = 243 };
-            TintBorder.Background = new SolidColorBrush(solid);
+            RootGrid.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(solid);
         }
     }
 
@@ -119,7 +118,6 @@ public sealed partial class StartMenuWindow : Window
             app.IconSource = IconLoader.Load(app.Path);
             _pinned.Add(app);
         }
-        PinnedEmptyText.Visibility = _pinned.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         _recents.Clear();
         foreach (var app in RecentStore.Load())
@@ -127,29 +125,23 @@ public sealed partial class StartMenuWindow : Window
             app.IconSource = IconLoader.Load(app.Path);
             _recents.Add(app);
         }
-        RecentEmptyText.Visibility = _recents.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         _allApps.Clear();
         foreach (var scanned in AppScanner.GetAllApps())
             _allApps.Add(new PinnedApp { Name = scanned.Name, Path = scanned.LinkPath });
-        AllAppsList.ItemsSource = _allApps;
 
-        // Icons for the full list load in the background (IconLoader caches,
-        // so repeat opens are instant).
-        var queue = DispatcherQueue;
-        var snapshot = _allApps.ToList();
-        _ = System.Threading.Tasks.Task.Run(() =>
-        {
-            foreach (var app in snapshot)
-            {
-                if (app.IconSource == null)
-                {
-                    var icon = IconLoader.Load(app.Path);
-                    if (icon != null)
-                        queue.TryEnqueue(() => app.IconSource = icon);
-                }
-            }
-        });
+        UpdateRecentsRepeater();
+        UpdatePinnedRepeater();
+    }
+
+    private void UpdateRecentsRepeater()
+    {
+        RecentlyUsedRepeater.ItemsSource = _recents.Count > 0 ? _recents : null;
+    }
+
+    private void UpdatePinnedRepeater()
+    {
+        PinnedRepeater.ItemsSource = _pinned.Count > 0 ? _pinned : null;
     }
 
     private void ApplyFilter(string query)
@@ -158,17 +150,27 @@ public sealed partial class StartMenuWindow : Window
 
         if (query.Length == 0)
         {
-            StartView.Visibility = Visibility.Visible;
-            SearchView.Visibility = Visibility.Collapsed;
+            StartViewVisibility();
             return;
         }
 
         var filtered = _allApps
             .Where(a => a.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
             .ToList();
-        SearchResultsList.ItemsSource = filtered;
-        StartView.Visibility = Visibility.Collapsed;
-        SearchView.Visibility = Visibility.Visible;
+
+        _pinned.Clear();
+        foreach (var app in filtered)
+        {
+            app.IconSource = IconLoader.Load(app.Path);
+            _pinned.Add(app);
+        }
+        UpdatePinnedRepeater();
+    }
+
+    private void StartViewVisibility()
+    {
+        UpdateRecentsRepeater();
+        UpdatePinnedRepeater();
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilter(SearchBox.Text);
@@ -177,10 +179,9 @@ public sealed partial class StartMenuWindow : Window
     {
         if (e.Key == Windows.System.VirtualKey.Enter)
         {
-            // Enter launches the top search result.
-            if (SearchResultsList.ItemsSource is IEnumerable<PinnedApp> results && results.FirstOrDefault() is { } top)
+            if (_pinned.Count > 0)
             {
-                LaunchAndClose(top);
+                LaunchAndClose(_pinned[0]);
                 e.Handled = true;
             }
         }
@@ -204,6 +205,12 @@ public sealed partial class StartMenuWindow : Window
     }
 
     private void PinnedTile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: PinnedApp app })
+            LaunchAndClose(app);
+    }
+
+    private void RecentTile_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: PinnedApp app })
             LaunchAndClose(app);
@@ -235,16 +242,6 @@ public sealed partial class StartMenuWindow : Window
         if (sender is Button { DataContext: PinnedApp app } button)
         {
             ShowAppFlyout(app, button, fromRecents: true);
-            e.Handled = true;
-        }
-    }
-
-    private void AppList_RightTapped(object sender, RightTappedRoutedEventArgs e)
-    {
-        var app = FindAppContext(e.OriginalSource);
-        if (app != null && e.OriginalSource is FrameworkElement anchor)
-        {
-            ShowAppFlyout(app, anchor, fromRecents: false);
             e.Handled = true;
         }
     }
@@ -299,7 +296,7 @@ public sealed partial class StartMenuWindow : Window
         var pin = new PinnedApp { Name = app.Name, Path = app.Path, IconSource = app.IconSource ?? IconLoader.Load(app.Path) };
         _pinned.Add(pin);
         PinnedStore.Save(_pinned.ToList());
-        PinnedEmptyText.Visibility = Visibility.Collapsed;
+        UpdatePinnedRepeater();
     }
 
     private void UnpinApp(string path)
@@ -310,14 +307,14 @@ public sealed partial class StartMenuWindow : Window
                 _pinned.RemoveAt(i);
         }
         PinnedStore.Save(_pinned.ToList());
-        PinnedEmptyText.Visibility = _pinned.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdatePinnedRepeater();
     }
 
     private void RemoveRecent(PinnedApp app)
     {
         _recents.Remove(app);
         RecentStore.Save(_recents.ToList());
-        RecentEmptyText.Visibility = _recents.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateRecentsRepeater();
     }
 
     private void LaunchAndClose(PinnedApp app)
@@ -365,5 +362,42 @@ public sealed partial class StartMenuWindow : Window
     {
         try { Process.Start(new ProcessStartInfo { FileName = "shutdown.exe", Arguments = "/l", UseShellExecute = true }); } catch { }
         Close();
+    }
+
+    private void StartNavButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Start button clicked - refresh pinned list
+        _pinned.Clear();
+        foreach (var app in PinnedStore.Load())
+        {
+            app.IconSource = IconLoader.Load(app.Path);
+            _pinned.Add(app);
+        }
+        UpdatePinnedRepeater();
+    }
+
+    private void AllAppsNavButton_Click(object sender, RoutedEventArgs e)
+    {
+        _showAllApps = !_showAllApps;
+        if (_showAllApps)
+        {
+            _pinned.Clear();
+            foreach (var app in _allApps)
+            {
+                app.IconSource = app.IconSource ?? IconLoader.Load(app.Path);
+                _pinned.Add(app);
+            }
+            UpdatePinnedRepeater();
+        }
+        else
+        {
+            _pinned.Clear();
+            foreach (var app in PinnedStore.Load())
+            {
+                app.IconSource = IconLoader.Load(app.Path);
+                _pinned.Add(app);
+            }
+            UpdatePinnedRepeater();
+        }
     }
 }

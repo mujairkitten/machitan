@@ -37,6 +37,7 @@ public sealed class MachitanSettings
     public double Opacity { get; set; } = 0.9;
     public bool EnableAcrylic { get; set; } = true;
     public bool ShowWeather { get; set; } = true;
+    public bool EnableGlobalHotkeys { get; set; } = true;
     public double BarSize { get; set; } = 72;
     public double IconSize { get; set; } = 28;
     public DockEdge DockEdge { get; set; } = DockEdge.Bottom;
@@ -65,6 +66,7 @@ public sealed class MachitanSettings
         Opacity = Opacity,
         EnableAcrylic = EnableAcrylic,
         ShowWeather = ShowWeather,
+        EnableGlobalHotkeys = EnableGlobalHotkeys,
         BarSize = BarSize,
         IconSize = IconSize,
         DockEdge = DockEdge,

@@ -30,6 +30,7 @@ public sealed partial class MainWindow : Window
     private StartMenuWindow? _menu;
     private SegmentWindow? _widgetsSegment;
     private SegmentWindow? _traySegment;
+    private MachitanTray? _tray;
     private bool _widgetsShown;
     private bool _trayShown;
     private bool _segmentsFailed;
@@ -58,7 +59,7 @@ public sealed partial class MainWindow : Window
         TaskRepeater.ItemsSource = _tasks;
 
         _hwnd = WindowNative.GetWindowHandle(this);
-        ApplyWindowStyle();
+        Safe("apply window style", ApplyWindowStyle);
         DiagnosticsLog.Write("MainWindow ctor: after ApplyWindowStyle");
 
         // If Explorer restarts while Machitan runs, its new taskbar appears
@@ -75,6 +76,19 @@ public sealed partial class MainWindow : Window
             EnsurePosition();
         }));
 
+        // Machitan's own icon in the notification area (left-click toggles
+        // Start, right-click opens Start for settings/exit).
+        // Failure-latched: if the tray icon can't be created, the shell still works.
+        try
+        {
+            _tray = new MachitanTray(this, DispatcherQueue);
+            DiagnosticsLog.Write("MachitanTray started");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticsLog.WriteException("MachitanTray start", ex);
+        }
+
         // Apply the saved settings once at startup: before this, the saved
         // icon size and Classic-mode chrome only took effect after the user
         // changed something in the settings window.
@@ -90,7 +104,7 @@ public sealed partial class MainWindow : Window
         TrayIconStore.Changed += OnTrayIconsChanged;
 
         UpdateClock();
-        RefreshTasks();
+        Safe("refresh tasks", RefreshTasks);
         DiagnosticsLog.Write("MainWindow ctor: after initial refresh");
 
         _clockTimer.Start();
@@ -109,8 +123,16 @@ public sealed partial class MainWindow : Window
             });
             DiagnosticsLog.Write("MainWindow ctor: after initial reposition");
 
-            // Opt-in tray spike (flag file); a no-op unless the file exists.
-            TrayListener.StartIfEnabled(DispatcherQueue);
+            // App tray: always on. Shows notification-area icons from other
+            // apps behind the tray chevron.
+            try
+            {
+                TrayListener.Start(DispatcherQueue);
+            }
+            catch (Exception ex)
+            {
+                DiagnosticsLog.WriteException("TrayListener start", ex);
+            }
         });
 
         Closed += OnClosed;
@@ -536,36 +558,13 @@ public sealed partial class MainWindow : Window
         return icon;
     }
 
-    private void StartButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_menu != null)
-        {
-            _menu.Close();
-            return;
-        }
-
-        if ((DateTime.UtcNow - _menuClosedAt).TotalMilliseconds < 350)
-            return;
-
-        ShowStartMenu(null);
-    }
+    private void StartButton_Click(object sender, RoutedEventArgs e) => ShowStartMenu(null);
 
     private void SearchButton_Click(object sender, RoutedEventArgs e) => ShowStartMenu(null);
 
     private void TaskViewButton_Click(object sender, RoutedEventArgs e) => ShellPanels.OpenTaskView();
 
     private void Notification_Click(object sender, RoutedEventArgs e) => ShellPanels.OpenNotifications();
-
-    private void ShowStartMenu(string? initialSearch)
-    {
-        _menu = new StartMenuWindow(_settings, initialSearch);
-        _menu.Closed += (_, _) =>
-        {
-            _menu = null;
-            _menuClosedAt = DateTime.UtcNow;
-        };
-        _menu.Activate();
-    }
 
     private void Calendar_Click(object sender, RoutedEventArgs e) => ShellPanels.OpenNotifications();
 
@@ -828,7 +827,135 @@ public sealed partial class MainWindow : Window
         PositionSegments();
     }
 
-    public void CloseStartMenu() => _menu?.Close();
+    public void CloseStartMenu()
+    {
+        DiagnosticsLog.Write("MainWindow: CloseStartMenu called");
+        _menu?.Close();
+    }
+
+    /// <summary>Called from MachitanTray when the user right-clicks the tray icon.</summary>
+    public void ShowStartMenuFromTray() => ShowStartMenu(null);
+
+    internal void ShowStartMenu(string? initialSearch)
+    {
+        DiagnosticsLog.Write($"MainWindow: ShowStartMenu called, _menu={_menu != null}");
+        if (_menu != null)
+        {
+            _menu.Close();
+            return;
+        }
+
+        if ((DateTime.UtcNow - _menuClosedAt).TotalMilliseconds < 350)
+        {
+            DiagnosticsLog.Write("MainWindow: ShowStartMenu ignored (cooldown)");
+            return;
+        }
+
+        _menu = new StartMenuWindow(_settings, initialSearch);
+        _menu.Closed += (_, _) =>
+        {
+            _menu = null;
+            _menuClosedAt = DateTime.UtcNow;
+            DiagnosticsLog.Write("MainWindow: StartMenu closed");
+        };
+        _menu.Activate();
+        DiagnosticsLog.Write("MainWindow: StartMenu activated");
+    }
+
+    /// <summary>
+    /// Activates the taskbar app at the given zero-based index, like Win+1..9.
+    /// If that app is already the foreground window, it is minimized instead.
+    /// </summary>
+    public void SwitchTaskbarAppByIndex(int index)
+    {
+        DiagnosticsLog.Write($"MainWindow: SwitchTaskbarAppByIndex({index})");
+        if (index < 0 || index >= _tasks.Count)
+            return;
+
+        var item = _tasks[index];
+        var target = item.Hwnd;
+        if (!NativeMethods.IsWindow(target) && item.Windows.Count > 0)
+            target = item.Windows[0];
+
+        if (!NativeMethods.IsWindow(target))
+            return;
+
+        var foreground = NativeMethods.GetForegroundWindow();
+        if (foreground == target)
+        {
+            // Already active: minimize it (Win+1 toggles like the real taskbar).
+            NativeMethods.ShowWindow(target, NativeMethods.SW_MINIMIZE);
+        }
+        else
+        {
+            ActivateWindow(target);
+        }
+
+        RefreshTasks();
+    }
+
+    /// <summary>
+    /// Launches a new instance of the taskbar app at the given zero-based index
+    /// (Win+Shift+1..9 behavior).
+    /// </summary>
+    public void LaunchTaskbarApp(int index)
+    {
+        if (index < 0 || index >= _tasks.Count)
+            return;
+
+        var item = _tasks[index];
+        if (string.IsNullOrWhiteSpace(item.IconPath))
+            return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = item.IconPath,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            DiagnosticsLog.WriteException($"LaunchTaskbarApp({index})", ex);
+        }
+    }
+
+    /// <summary>
+    /// Moves focus to the next window in the taskbar list (Alt+Esc behavior).
+    /// </summary>
+    public void CycleNextWindow()
+    {
+        DiagnosticsLog.Write("MainWindow: CycleNextWindow called");
+        if (_tasks.Count == 0)
+            return;
+
+        var foreground = NativeMethods.GetForegroundWindow();
+        int current = -1;
+
+        for (int i = 0; i < _tasks.Count; i++)
+        {
+            var item = _tasks[i];
+            var hwnd = item.Hwnd;
+            if (!NativeMethods.IsWindow(hwnd) && item.Windows.Count > 0)
+                hwnd = item.Windows[0];
+
+            if (hwnd == foreground)
+            {
+                current = i;
+                break;
+            }
+        }
+
+        int next = (current + 1) % _tasks.Count;
+        var nextItem = _tasks[next];
+        var nextHwnd = nextItem.Hwnd;
+        if (!NativeMethods.IsWindow(nextHwnd) && nextItem.Windows.Count > 0)
+            nextHwnd = nextItem.Windows[0];
+
+        if (NativeMethods.IsWindow(nextHwnd))
+            ActivateWindow(nextHwnd);
+    }
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
@@ -843,5 +970,7 @@ public sealed partial class MainWindow : Window
         TrayIconStore.Changed -= OnTrayIconsChanged;
         TrayListener.Stop();
         AppBarController.Unregister(_hwnd);
+        _tray?.Dispose();
+        App._hotkeys?.Dispose();
     }
 }

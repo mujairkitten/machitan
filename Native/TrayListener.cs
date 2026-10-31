@@ -44,10 +44,6 @@ internal static class TrayListener
     private const int MaxLoggedEvents = 400;
     private const uint ForwardTimeoutMs = 2000;
 
-    private static readonly string FlagPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "Machitan", "tray-spike.flag");
-
     // The OS calls these delegates: keep them alive for the process lifetime.
     private static TrayNative.WndProcDelegate? _proc;
     private static TrayNative.WndProcDelegate? _childProc;
@@ -68,6 +64,7 @@ internal static class TrayListener
     private static int _iconOk, _iconFail;
     private static int _onTopLogged, _appBarAtLastCheck;
     private static int _raisedAtLastTick, _resyncs;
+    private static int _relearnAsks, _relearnAnswers;
     private static bool _resyncPending;
     private static DateTime _lastBroadcast = DateTime.MinValue;
     private static string _lastSummary = "";
@@ -88,14 +85,14 @@ internal static class TrayListener
     /// <summary>True while the listener window exists (the opt-in flag file was found and start-up worked).</summary>
     public static bool IsActive => _started && _hwnd != IntPtr.Zero;
 
-    public static void StartIfEnabled(DispatcherQueue queue)
+    public static void Start(DispatcherQueue queue)
     {
-        if (_started || !File.Exists(FlagPath))
+        if (_started)
             return;
 
         try
         {
-            Start(queue);
+            StartCore(queue);
         }
         catch (Exception ex)
         {
@@ -140,9 +137,9 @@ internal static class TrayListener
         }
     }
 
-    private static void Start(DispatcherQueue queue)
+    private static void StartCore(DispatcherQueue queue)
     {
-        DiagnosticsLog.Write("TrayListener: spike ON (flag file found)");
+        DiagnosticsLog.Write("TrayListener: app tray active");
 
         // Mirror Explorer's tray rectangle so apps that read it still get the
         // same numbers they got before.
@@ -336,7 +333,7 @@ internal static class TrayListener
             $"icons add={_adds} modify={_modifies} delete={_deletes} other={_otherIcon}; " +
             $"appbar={_appBar} (re-marshaled {_appBarRemarshaled}); rect-queries={_rectQueries}; " +
             $"command={_commandFwd} private={_privateFwd}; bad-data={_badData}; " +
-            $"forward-failed={_forwardFailed}; raised-to-top={_raised}; resyncs={_resyncs}; icon-read ok={_iconOk} failed={_iconFail}; " +
+            $"forward-failed={_forwardFailed}; raised-to-top={_raised}; resyncs={_resyncs}; relearn asked={_relearnAsks} answered={_relearnAnswers}; icon-read ok={_iconOk} failed={_iconFail}; " +
             $"picture-time=[{TrayIconStore.TimingSummary}]; " +
             $"apps=[{string.Join(", ", _appsSeen)}]";
 
@@ -392,6 +389,7 @@ internal static class TrayListener
 
         var cds = Marshal.PtrToStructure<TrayNative.TrayCopyData>(lParam);
         long kind = cds.dwData.ToInt64();
+        TrayReplyAdvice advice = TrayReplyAdvice.None;
 
         switch (kind)
         {
@@ -399,7 +397,7 @@ internal static class TrayListener
                 return HandleAppBar(wParam, lParam, cds);
 
             case 1: // tray icon add / modify / delete / set version
-                ObserveIcon(cds);
+                advice = ObserveIcon(cds);
                 break;
 
             case 3: // "where is this icon?" queries (Shell_NotifyIconGetRect)
@@ -412,7 +410,22 @@ internal static class TrayListener
                 break;
         }
 
-        return ForwardSend(WM_COPYDATA, wParam, lParam);
+        // Explorer always gets the message first, so its icon state stays right.
+        IntPtr result = ForwardSend(WM_COPYDATA, wParam, lParam);
+
+        switch (advice)
+        {
+            case TrayReplyAdvice.FailModify:
+                _relearnAsks++;
+                return IntPtr.Zero;
+
+            case TrayReplyAdvice.ReportSuccess when result == IntPtr.Zero:
+                _relearnAnswers++;
+                return new IntPtr(1);
+
+            default:
+                return result;
+        }
     }
 
     // ---- Tray icon messages (log only) ------------------------------------
@@ -423,21 +436,28 @@ internal static class TrayListener
     // dwState@288, dwStateMask@292, szInfo@296 (256 wchars), uVersion@808,
     // szInfoTitle@812 (64 wchars), dwInfoFlags@940, guidItem@944 (16 bytes),
     // hBalloonIcon@960. Every read is bounds-checked against cbData.
-    private static void ObserveIcon(TrayNative.TrayCopyData cds)
+    private static TrayReplyAdvice ObserveIcon(TrayNative.TrayCopyData cds)
     {
         int cb = cds.cbData;
         IntPtr p = cds.lpData;
         if (p == IntPtr.Zero || cb < 24)
         {
             _badData++;
-            return;
+            return TrayReplyAdvice.None;
         }
 
         // i8: feed the icon list first. This must never stop the message from
         // being forwarded to Explorer, so any failure is only logged.
+        TrayReplyAdvice advice = TrayReplyAdvice.None;
         try
         {
-            TrayIconStore.ApplyMessage(p, cb, NameOf);
+            advice = TrayIconStore.ApplyMessage(p, cb, NameOf, out string? note);
+            if (advice != TrayReplyAdvice.None)
+            {
+                DiagnosticsLog.Write(advice == TrayReplyAdvice.FailModify
+                    ? $"TrayListener: told an app its modify failed so it adds the icon again ({note})"
+                    : $"TrayListener: answered an app's repeated add with success ({note})");
+            }
         }
         catch (Exception ex)
         {
@@ -463,7 +483,7 @@ internal static class TrayListener
             if (_modifySeen.Count > 2000)
                 _modifySeen.Clear();
             if (!_modifySeen.Add($"{hwndRaw:X}:{uid}"))
-                return;
+                return advice;
         }
 
         string app = NameOf(hwndRaw);
@@ -471,7 +491,7 @@ internal static class TrayListener
             _appsSeen.Add(app);
 
         if (_eventsLogged >= MaxLoggedEvents)
-            return;
+            return advice;
         _eventsLogged++;
 
         string line = $"Tray {NimName(nim)} app={app} elev={ElevationOf(hwndRaw)} id={uid} flags=0x{flags:X}";
@@ -491,6 +511,7 @@ internal static class TrayListener
             line += $" version={U32(p, cb, 808)}";
 
         DiagnosticsLog.Write(line);
+        return advice;
     }
 
     private static uint U32(IntPtr p, int cb, int offset)

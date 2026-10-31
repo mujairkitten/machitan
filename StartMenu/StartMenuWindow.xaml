@@ -5,342 +5,295 @@
     xmlns:local="using:Machitan.StartMenu"
     Title="Start">
 
-    <Grid x:Name="RootGrid" Background="Transparent" KeyDown="RootGrid_KeyDown">
-        <Border x:Name="TintBorder"
-                CornerRadius="8"
-                BorderThickness="1"
-                BorderBrush="{ThemeResource BarPillStroke}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+    <Grid x:Name="RootGrid" Background="Transparent">
 
-                <!-- Header: avatar + username left, search right
-                     (the approved layout — no icon rail) -->
-                <Grid Grid.Row="0" Margin="24,20,24,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0"
-                                Orientation="Horizontal"
-                                Spacing="12"
-                                VerticalAlignment="Center">
-                        <Border Width="40"
-                                Height="40"
-                                CornerRadius="20"
-                                Background="{ThemeResource BarAvatarFill}">
-                            <TextBlock x:Name="AvatarInitial"
-                                       FontSize="15"
-                                       FontWeight="SemiBold"
-                                       Foreground="White"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock x:Name="UserNameText"
-                                   FontSize="14"
-                                   FontWeight="SemiBold"
-                                   Foreground="{ThemeResource BarTextPrimary}"
-                                   VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <Border Grid.Column="1"
-                            Width="300"
-                            Height="38"
-                            CornerRadius="19"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
-                            Background="{ThemeResource BarSearchFill}"
-                            BorderBrush="{ThemeResource BarSearchStroke}"
-                            BorderThickness="1">
-                        <Grid VerticalAlignment="Center">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon Grid.Column="0"
-                                      Glyph="&#xE721;"
+        <Border x:Name="GlassBorder"
+                CornerRadius="20"
+                Background="{ThemeResource StartPaneFill}"
+                BorderBrush="{ThemeResource StartPaneStroke}"
+                BorderThickness="1">
+            <Grid ColumnDefinitions="Auto,*" Padding="20">
+                <Border Grid.Column="0" Width="52" Background="Transparent">
+                    <StackPanel VerticalAlignment="Center" Spacing="16" Margin="0,24,0,24">
+                        <Button x:Name="StartNavButton"
+                                Width="32"
+                                Height="32"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Background="{ThemeResource StartNavButtonBackground}"
+                                CornerRadius="10"
+                                Padding="0"
+                                Click="StartNavButton_Click"
+                                ToolTipService.ToolTip="Start">
+                            <FontIcon Glyph="&#xE700;"
                                       FontFamily="Segoe Fluent Icons"
-                                      FontSize="13"
-                                      Foreground="{ThemeResource BarTextSecondary}"
-                                      Margin="12,0,6,0"
-                                      VerticalAlignment="Center" />
-                            <TextBox x:Name="SearchBox"
-                                     Grid.Column="1"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     Foreground="{ThemeResource BarTextPrimary}"
-                                     PlaceholderText="Search apps"
-                                     PlaceholderForeground="{ThemeResource BarTextTertiary}"
-                                     FontSize="12"
-                                     Padding="0,0,12,0"
-                                     MinHeight="0"
-                                     Height="34"
-                                     VerticalAlignment="Center"
-                                     VerticalContentAlignment="Center"
-                                     TextChanged="SearchBox_TextChanged"
-                                     KeyDown="SearchBox_KeyDown">
-                                <TextBox.Resources>
-                                    <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
-                                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
-                                </TextBox.Resources>
-                            </TextBox>
-                        </Grid>
-                    </Border>
-                </Grid>
+                                      FontSize="16"
+                                      Foreground="{ThemeResource StartNavIconFill}" />
+                        </Button>
 
-                <!-- Body: start view (Pinned | Recently used + All apps)
-                     or search results -->
-                <Grid Grid.Row="1" Margin="24,2,24,4">
-                    <Grid x:Name="StartView">
+                        <Button x:Name="AllAppsNavButton"
+                                Width="32"
+                                Height="32"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                CornerRadius="10"
+                                Padding="0"
+                                Click="AllAppsNavButton_Click"
+                                ToolTipService.ToolTip="All apps">
+                            <FontIcon Glyph="&#xE71D;"
+                                      FontFamily="Segoe Fluent Icons"
+                                      FontSize="14"
+                                      Foreground="{ThemeResource StartNavIconFill}" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <Grid Grid.Column="1" RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0" Margin="0,16,0,12">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="296" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <!-- Pinned -->
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="Pinned"
+                        <StackPanel Grid.Column="0"
+                                    Orientation="Horizontal"
+                                    Spacing="10"
+                                    VerticalAlignment="Center">
+                            <Border Width="36"
+                                    Height="36"
+                                    CornerRadius="10"
+                                    Background="{ThemeResource BarAvatarFill}">
+                                <TextBlock x:Name="AvatarInitial"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="White"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock x:Name="UserNameText"
                                        FontSize="13"
                                        FontWeight="SemiBold"
-                                       Foreground="{ThemeResource BarTextSecondary}"
-                                       Margin="2,0,0,10" />
-                            <ItemsRepeater x:Name="PinnedRepeater">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout MinItemWidth="92"
-                                                       MinItemHeight="98"
-                                                       ItemsStretch="Fill" />
-                                </ItemsRepeater.Layout>
-                                <ItemsRepeater.ItemTemplate>
-                                    <DataTemplate x:DataType="local:PinnedApp">
-                                        <Button Style="{StaticResource BarPinnedTileStyle}"
-                                                Width="88"
-                                                Height="94"
-                                                DataContext="{x:Bind}"
-                                                Click="PinnedTile_Click"
-                                                RightTapped="App_RightTapped"
-                                                ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}"
-                                                AutomationProperties.Name="{x:Bind Name, Mode=OneWay}">
-                                            <StackPanel Spacing="6"
-                                                        HorizontalAlignment="Center"
-                                                        VerticalAlignment="Center">
-                                                <Image Source="{x:Bind IconSource, Mode=OneWay}"
-                                                       Width="32"
-                                                       Height="32"
-                                                       HorizontalAlignment="Center" />
-                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}"
-                                                           FontSize="11"
-                                                           Foreground="{ThemeResource BarTextPrimary}"
-                                                           TextAlignment="Center"
-                                                           TextWrapping="Wrap"
-                                                           MaxLines="2"
-                                                           HorizontalAlignment="Center" />
-                                            </StackPanel>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsRepeater.ItemTemplate>
-                            </ItemsRepeater>
-                            <TextBlock x:Name="PinnedEmptyText"
-                                       Text="Nothing pinned yet. Right-click an app in All apps and choose Pin to Start."
-                                       FontSize="11"
-                                       Foreground="{ThemeResource BarTextTertiary}"
-                                       TextWrapping="Wrap"
-                                       Margin="2,4,12,0"
-                                       Visibility="Collapsed" />
+                                       Foreground="{ThemeResource BarTextPrimary}"
+                                       VerticalAlignment="Center" />
                         </StackPanel>
 
-                        <!-- Recently used + All apps -->
-                        <Grid Grid.Column="1" Margin="20,0,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
+                        <Border Grid.Column="1"
+                                Width="280"
+                                Height="36"
+                                CornerRadius="18"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Background="{ThemeResource BarSearchFill}"
+                                BorderBrush="{ThemeResource BarSearchStroke}"
+                                BorderThickness="1">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Grid.Column="0"
+                                          Glyph="&#xE721;"
+                                          FontFamily="Segoe Fluent Icons"
+                                          FontSize="13"
+                                          Foreground="{ThemeResource BarTextSecondary}"
+                                          Margin="10,0,6,0"
+                                          VerticalAlignment="Center" />
+                                <TextBox x:Name="SearchBox"
+                                         Grid.Column="1"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Foreground="{ThemeResource BarTextPrimary}"
+                                         PlaceholderText="Search apps"
+                                         PlaceholderForeground="{ThemeResource BarTextTertiary}"
+                                         FontSize="12"
+                                         Padding="0,0,8,0"
+                                         MinHeight="0"
+                                         Height="32"
+                                         VerticalAlignment="Center"
+                                         VerticalContentAlignment="Center"
+                                         TextChanged="SearchBox_TextChanged"
+                                         KeyDown="SearchBox_KeyDown">
+                                    <TextBox.Resources>
+                                        <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                                    </TextBox.Resources>
+                                </TextBox>
+                            </Grid>
+                        </Border>
+                    </Grid>
 
-                            <TextBlock Grid.Row="0"
+                    <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Recently used -->
+                        <Grid x:Name="RecentlyUsedGrid" Grid.Row="0" Margin="20,8,20,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
                                        Text="Recently used"
                                        FontSize="13"
                                        FontWeight="SemiBold"
                                        Foreground="{ThemeResource BarTextSecondary}"
-                                       Margin="2,0,0,8" />
-                            <StackPanel Grid.Row="1">
-                                <ItemsRepeater x:Name="RecentRepeater">
-                                    <ItemsRepeater.Layout>
-                                        <StackLayout Orientation="Vertical" Spacing="2" />
-                                    </ItemsRepeater.Layout>
-                                    <ItemsRepeater.ItemTemplate>
-                                        <DataTemplate x:DataType="local:PinnedApp">
-                                            <Button Background="Transparent"
-                                                    BorderThickness="0"
-                                                    CornerRadius="8"
-                                                    Padding="8,5"
-                                                    HorizontalAlignment="Stretch"
-                                                    HorizontalContentAlignment="Left"
-                                                    DataContext="{x:Bind}"
-                                                    Click="AppRow_Click"
-                                                    RightTapped="Recent_RightTapped"
-                                                    AutomationProperties.Name="{x:Bind Name, Mode=OneWay}">
-                                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                                    <Image Source="{x:Bind IconSource, Mode=OneWay}"
-                                                           Width="22"
-                                                           Height="22"
-                                                           VerticalAlignment="Center" />
-                                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}"
-                                                               FontSize="12"
-                                                               Foreground="{ThemeResource BarTextPrimary}"
-                                                               VerticalAlignment="Center" />
-                                                </StackPanel>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsRepeater.ItemTemplate>
-                                </ItemsRepeater>
-                                <TextBlock x:Name="RecentEmptyText"
-                                           Text="Apps you launch from here will show up in this list."
-                                           FontSize="11"
-                                           Foreground="{ThemeResource BarTextTertiary}"
-                                           Margin="2,2,0,0"
-                                           Visibility="Collapsed" />
-                            </StackPanel>
+                                       VerticalAlignment="Center" />
+                        </Grid>
 
-                            <TextBlock Grid.Row="2"
-                                       Text="All apps"
+                        <ItemsRepeater x:Name="RecentlyUsedRepeater" Grid.Row="0" Margin="0,0,0,12">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="72"
+                                                   MinItemHeight="88"
+                                                   ItemsStretch="None" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="local:PinnedApp">
+                                    <Button Style="{StaticResource RecentAppButtonStyle}"
+                                            Width="72"
+                                            Height="88"
+                                            DataContext="{x:Bind}"
+                                            Click="RecentTile_Click"
+                                            RightTapped="Recent_RightTapped"
+                                            ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}"
+                                            AutomationProperties.Name="{x:Bind Name, Mode=OneWay}">
+                                        <StackPanel Spacing="6"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center">
+                                            <Image Source="{x:Bind IconSource, Mode=OneWay}"
+                                                   Width="28"
+                                                   Height="28"
+                                                   HorizontalAlignment="Center" />
+                                            <TextBlock Text="{x:Bind Name, Mode=OneWay}"
+                                                       FontSize="11"
+                                                       Foreground="{ThemeResource BarTextPrimary}"
+                                                       TextAlignment="Center"
+                                                       TextWrapping="Wrap"
+                                                       MaxLines="2"
+                                                       HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+
+                        <!-- Pinned section -->
+                        <Grid x:Name="PinnedFoldersGrid" Grid.Row="1" Margin="20,0,20,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="Pinned"
                                        FontSize="13"
                                        FontWeight="SemiBold"
                                        Foreground="{ThemeResource BarTextSecondary}"
-                                       Margin="2,14,0,8" />
-                            <ListView x:Name="AllAppsList"
-                                      Grid.Row="3"
-                                      SelectionMode="None"
-                                      IsItemClickEnabled="True"
-                                      ItemClick="AppList_ItemClick"
-                                      RightTapped="AppList_RightTapped"
-                                      Padding="0">
-                                <ListView.ItemTemplate>
-                                    <DataTemplate x:DataType="local:PinnedApp">
-                                        <StackPanel Orientation="Horizontal"
-                                                    Spacing="10"
-                                                    Padding="4,3">
-                                            <Image Source="{x:Bind IconSource, Mode=OneWay}"
-                                                   Width="22"
-                                                   Height="22"
-                                                   VerticalAlignment="Center" />
-                                            <TextBlock Text="{x:Bind Name, Mode=OneWay}"
-                                                       FontSize="12"
-                                                       Foreground="{ThemeResource BarTextPrimary}"
-                                                       VerticalAlignment="Center" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ListView.ItemTemplate>
-                            </ListView>
+                                       VerticalAlignment="Center" />
                         </Grid>
-                    </Grid>
 
-                    <!-- Search results -->
-                    <Grid x:Name="SearchView" Visibility="Collapsed">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0"
-                                   Text="Results"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{ThemeResource BarTextSecondary}"
-                                   Margin="2,0,0,8" />
-                        <ListView x:Name="SearchResultsList"
-                                  Grid.Row="1"
-                                  SelectionMode="None"
-                                  IsItemClickEnabled="True"
-                                  ItemClick="AppList_ItemClick"
-                                  RightTapped="AppList_RightTapped"
-                                  Padding="0">
-                            <ListView.ItemTemplate>
+                        <ItemsRepeater x:Name="PinnedRepeater" Grid.Row="1">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="88"
+                                                   MinItemHeight="98"
+                                                   ItemsStretch="Fill" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="local:PinnedApp">
-                                    <StackPanel Orientation="Horizontal"
-                                                Spacing="10"
-                                                Padding="4,3">
-                                        <Image Source="{x:Bind IconSource, Mode=OneWay}"
-                                               Width="22"
-                                               Height="22"
-                                               VerticalAlignment="Center" />
-                                        <TextBlock Text="{x:Bind Name, Mode=OneWay}"
-                                                   FontSize="12"
-                                                   Foreground="{ThemeResource BarTextPrimary}"
-                                                   VerticalAlignment="Center" />
-                                    </StackPanel>
+                                    <Button Style="{StaticResource PinnedTileButtonStyle}"
+                                            Width="88"
+                                            Height="98"
+                                            DataContext="{x:Bind}"
+                                            Click="PinnedTile_Click"
+                                            RightTapped="App_RightTapped"
+                                            ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}"
+                                            AutomationProperties.Name="{x:Bind Name, Mode=OneWay}">
+                                        <StackPanel Spacing="6"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center">
+                                            <Image Source="{x:Bind IconSource, Mode=OneWay}"
+                                                   Width="32"
+                                                   Height="32"
+                                                   HorizontalAlignment="Center" />
+                                            <TextBlock Text="{x:Bind Name, Mode=OneWay}"
+                                                       FontSize="11"
+                                                       Foreground="{ThemeResource BarTextPrimary}"
+                                                       TextAlignment="Center"
+                                                       TextWrapping="Wrap"
+                                                       MaxLines="2"
+                                                       HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
                                 </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+
+                        <!-- Footer -->
+                        <Border Grid.Row="2"
+                                Margin="20,12,20,16"
+                                CornerRadius="12"
+                                Background="{ThemeResource BarPillStroke}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="Machitan"
+                                           FontSize="11"
+                                           Foreground="{ThemeResource BarTextTertiary}"
+                                           VerticalAlignment="Center"
+                                           Margin="12,0,0,0" />
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Horizontal"
+                                            Spacing="8"
+                                            VerticalAlignment="Center">
+                                    <Button x:Name="SettingsButton"
+                                            Style="{StaticResource ShellFooterButtonStyle}"
+                                            Click="Settings_Click"
+                                            ToolTipService.ToolTip="Machitan settings"
+                                            AutomationProperties.Name="Machitan settings">
+                                        <FontIcon Glyph="&#xE713;"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="15"
+                                                  Foreground="{ThemeResource BarTextSecondary}" />
+                                    </Button>
+                                    <Button x:Name="PowerButton"
+                                            Style="{StaticResource ShellFooterButtonStyle}"
+                                            ToolTipService.ToolTip="Power"
+                                            AutomationProperties.Name="Power">
+                                        <Button.Flyout>
+                                            <MenuFlyout>
+                                                <MenuFlyoutItem Text="Sleep" Click="PowerSleep_Click" />
+                                                <MenuFlyoutItem Text="Restart" Click="PowerRestart_Click" />
+                                                <MenuFlyoutItem Text="Shut down" Click="PowerShutdown_Click" />
+                                                <MenuFlyoutSeparator />
+                                                <MenuFlyoutItem Text="Sign out" Click="PowerSignOut_Click" />
+                                            </MenuFlyout>
+                                        </Button.Flyout>
+                                        <FontIcon Glyph="&#xE7E8;"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="15"
+                                                  Foreground="{ThemeResource BarTextSecondary}" />
+                                    </Button>
+                                    <Button Content="Exit"
+                                            Style="{StaticResource ShellFooterButtonStyle}"
+                                            FontSize="12"
+                                            Foreground="{ThemeResource BarTextSecondary}"
+                                            Padding="10,0"
+                                            Click="Exit_Click"
+                                            ToolTipService.ToolTip="Exit Machitan"
+                                            AutomationProperties.Name="Exit Machitan" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
                     </Grid>
-                </Grid>
-
-                <!-- Footer: brand left; settings, power, exit right -->
-                <Grid Grid.Row="2" Margin="24,8,24,16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Column="0"
-                               Text="Machitan"
-                               FontSize="11"
-                               Foreground="{ThemeResource BarTextTertiary}"
-                               VerticalAlignment="Center" />
-
-                    <StackPanel Grid.Column="1"
-                                Orientation="Horizontal"
-                                Spacing="4"
-                                VerticalAlignment="Center">
-                        <Button Style="{StaticResource BarIconButtonStyle}"
-                                Width="40"
-                                Height="40"
-                                Click="Settings_Click"
-                                ToolTipService.ToolTip="Machitan settings"
-                                AutomationProperties.Name="Machitan settings">
-                            <FontIcon Glyph="&#xE713;"
-                                      FontFamily="Segoe Fluent Icons"
-                                      FontSize="15"
-                                      Foreground="{ThemeResource BarTextSecondary}" />
-                        </Button>
-                        <Button Style="{StaticResource BarIconButtonStyle}"
-                                Width="40"
-                                Height="40"
-                                ToolTipService.ToolTip="Power"
-                                AutomationProperties.Name="Power">
-                            <Button.Flyout>
-                                <MenuFlyout>
-                                    <MenuFlyoutItem Text="Sleep" Click="PowerSleep_Click" />
-                                    <MenuFlyoutItem Text="Restart" Click="PowerRestart_Click" />
-                                    <MenuFlyoutItem Text="Shut down" Click="PowerShutdown_Click" />
-                                    <MenuFlyoutSeparator />
-                                    <MenuFlyoutItem Text="Sign out" Click="PowerSignOut_Click" />
-                                </MenuFlyout>
-                            </Button.Flyout>
-                            <FontIcon Glyph="&#xE7E8;"
-                                      FontFamily="Segoe Fluent Icons"
-                                      FontSize="15"
-                                      Foreground="{ThemeResource BarTextSecondary}" />
-                        </Button>
-                        <Button Content="Exit"
-                                FontSize="12"
-                                Foreground="{ThemeResource BarTextSecondary}"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                CornerRadius="8"
-                                Height="40"
-                                Padding="12,0"
-                                Click="Exit_Click"
-                                ToolTipService.ToolTip="Exit Machitan"
-                                AutomationProperties.Name="Exit Machitan" />
-                    </StackPanel>
                 </Grid>
             </Grid>
         </Border>

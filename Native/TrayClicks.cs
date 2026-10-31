@@ -18,12 +18,13 @@ internal enum TrayMouse
 /// from right. Version 4: wParam = click position (x low, y high),
 /// lParam = event in the low word and icon id in the high word.
 ///
-/// An app tells the shell its version once, when it adds the icon. An app that
-/// started before Machitan never tells us, so its version is unknown. Windows
-/// Security is such an app and only reacts to the version 4 messages. So the
-/// "select" (left click) and "context menu" (right click) messages are always
-/// sent in the version 4 layout, in addition to the plain mouse messages. An
-/// old-style app does not match them and ignores them.
+/// For version 3 and up Explorer also sends "select" (left click) and "context
+/// menu" (right click) after the mouse message; so do we.
+///
+/// An app tells the shell its callback message and version only when it adds the
+/// icon. For an app that started before Machitan we first know neither, so it
+/// cannot be clicked until it adds the icon again (TrayIconStore.WantsRelearn
+/// makes it do that). Until then the pop-up shows the icon dimmed.
 ///
 /// Messages are sent with SendNotifyMessage, which never waits for the app, so
 /// a frozen app cannot freeze the bar. Windows may refuse to deliver them to
@@ -89,13 +90,13 @@ internal static class TrayClicks
         {
             case TrayMouse.Left:
                 Post(entry, owner, WM_LBUTTONUP, "up", entry.Version);
-                if (completeClick)
+                if (completeClick && entry.Version >= 3)
                     Post(entry, owner, NIN_SELECT, "select", SelectLayout(entry));
                 break;
 
             case TrayMouse.Right:
                 Post(entry, owner, WM_RBUTTONUP, "up", entry.Version);
-                if (completeClick)
+                if (completeClick && entry.Version >= 3)
                     Post(entry, owner, WM_CONTEXTMENU, "context-menu", SelectLayout(entry));
                 break;
 
@@ -133,9 +134,18 @@ internal static class TrayClicks
     {
         // An icon registered without a callback message wants no notifications.
         // (Callback 0 would send the app a meaningless WM_NULL.)
-        if (entry.Callback == 0)
+        if (!entry.CanClick)
         {
-            DiagnosticsLog.Write($"Tray click {what} skipped: {entry.Owner} registered no callback message");
+            // Once per icon: the pop-up shows such icons dimmed.
+            if (!entry.SkipLogged)
+            {
+                entry.SkipLogged = true;
+                DiagnosticsLog.Write(
+                    $"Tray click skipped: app={entry.Owner} elev={TrayListener.ElevationOf(entry.HwndRaw)} id={entry.Uid} " +
+                    $"version={entry.Version}{(entry.VersionAnnounced ? "" : "?")} seen-add={entry.SeenAdd} " +
+                    $"relearn-attempts={entry.RelearnAttempts}: no callback message known");
+            }
+
             return;
         }
 

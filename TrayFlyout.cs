@@ -129,7 +129,15 @@ internal static class TrayFlyout
             },
         };
 
-        ToolTipService.SetToolTip(cell, label);
+        // No callback message known yet (the app started before Machitan and has
+        // not added its icon again): show it dimmed, and say why on hover.
+        if (!entry.CanClick)
+        {
+            cell.IsEnabled = false;
+            cell.Opacity = 0.5;
+        }
+
+        ToolTipService.SetToolTip(cell, entry.CanClick ? label : label + " (cannot be clicked yet)");
         AutomationProperties.SetName(cell, accessibleName);
         if (!string.Equals(accessibleName, label, StringComparison.Ordinal))
             AutomationProperties.SetHelpText(cell, label);
@@ -177,6 +185,9 @@ internal static class TrayFlyout
 
     private static void OnPointerPressed(TrayIconEntry entry, Button cell, CellState cellState, PointerRoutedEventArgs e)
     {
+        if (!entry.CanClick)
+            return;
+
         TrayMouse? button = ButtonOf(e.GetCurrentPoint(cell).Properties.PointerUpdateKind, pressed: true);
         if (button == null)
             return;

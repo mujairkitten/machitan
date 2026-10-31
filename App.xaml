@@ -10,7 +10,7 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Default">
+                <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="BarTextPrimary" Color="#FFFFFFFF" />
                     <SolidColorBrush x:Key="BarTextSecondary" Color="#B3FFFFFF" />
                     <SolidColorBrush x:Key="BarTextTertiary" Color="#94FFFFFF" />
@@ -21,6 +21,10 @@
                     <SolidColorBrush x:Key="BarSearchFill" Color="#12FFFFFF" />
                     <SolidColorBrush x:Key="BarSearchStroke" Color="#1AFFFFFF" />
                     <SolidColorBrush x:Key="BarTileHover" Color="#1FFFFFFF" />
+                    <SolidColorBrush x:Key="StartPaneFill" Color="#202020" />
+                    <SolidColorBrush x:Key="StartPaneStroke" Color="#2FFFFFFF" />
+                    <SolidColorBrush x:Key="StartNavButtonBackground" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="StartNavIconFill" Color="#FFFFFFFF" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="BarTextPrimary" Color="#FF1B1B1B" />
@@ -33,10 +37,46 @@
                     <SolidColorBrush x:Key="BarSearchFill" Color="#0D000000" />
                     <SolidColorBrush x:Key="BarSearchStroke" Color="#1A000000" />
                     <SolidColorBrush x:Key="BarTileHover" Color="#14000000" />
+                    <SolidColorBrush x:Key="StartPaneFill" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="StartPaneStroke" Color="#1A000000" />
+                    <SolidColorBrush x:Key="StartNavButtonBackground" Color="#1A000000" />
+                    <SolidColorBrush x:Key="StartNavIconFill" Color="#FF1B1B1B" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
             <local:BoolToVisibilityConverter x:Key="BoolToVis" />
+
+            <!-- Recent app button -->
+            <Style x:Key="RecentAppButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
+            <!-- Pinned tile button -->
+            <Style x:Key="PinnedTileButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
+            <!-- Shell footer button -->
+            <Style x:Key="ShellFooterButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="40" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
 
             <Style x:Key="BarIconButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="Transparent" />

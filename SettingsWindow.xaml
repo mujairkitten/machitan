@@ -78,6 +78,15 @@
                               OnContent="On"
                               OffContent="Off" />
 
+                <TextBlock Text="Global hotkeys (Win+1..9, Win+D, etc.)"
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Margin="0,6,0,0" />
+                <ToggleSwitch x:Name="GlobalHotkeysToggle"
+                              OnContent="On"
+                              OffContent="Off" />
+
                 <TextBlock Text="Dock edge"
                            FontSize="12"
                            FontWeight="SemiBold"

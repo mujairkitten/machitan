@@ -1191,7 +1191,98 @@ internal static class NativeMethods
 
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
     public delegate IntPtr WndProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+    public delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     public static int LOWORD(long value) => (int)(value & 0xFFFF);
     public static int HIWORD(long value) => (int)((value >> 16) & 0xFFFF);
+
+    // ---------- Low-level keyboard hook (global hotkeys) ----------
+
+    public const int WH_KEYBOARD_LL = 13;
+
+    public const uint LLMHF_INJECTED = 0x00000001;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KBDLLHOOKSTRUCT
+    {
+        public uint vkCode;
+        public uint scanCode;
+        public uint flags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    // ---------- RegisterHotKey (global shell hotkeys) ----------
+
+    public const uint WM_HOTKEY = 0x0312;
+
+    public const uint MOD_ALT = 0x0001;
+    public const uint MOD_CONTROL = 0x0002;
+    public const uint MOD_SHIFT = 0x0004;
+    public const uint MOD_WIN = 0x0008;
+    public const uint MOD_NOREPEAT = 0x4000;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    // Virtual-key codes needed for shell hotkeys (WM_KEYDOWN/UP, VK_LWIN,
+    // VK_RWIN, VK_CONTROL, VK_SHIFT, VK_MENU, VK_TAB, VK_ESCAPE, VK_PRIOR,
+    // VK_NEXT already exist above).
+    public const byte VK_D = 0x44;
+    public const byte VK_E = 0x45;
+    public const byte VK_R = 0x52;
+    public const byte VK_L = 0x4C;
+    public const byte VK_A = 0x41;
+    public const byte VK_N = 0x4E;
+    public const byte VK_I = 0x49;
+    public const byte VK_X = 0x58;
+    public const byte VK_V = 0x56;
+    public const byte VK_S = 0x53;
+    public const byte VK_PERIOD = 0xBE;
+
+    [DllImport("user32.dll")]
+    public static extern bool LockWorkStation();
+
+    // ---------- Shell_NotifyIcon (tray) ----------
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool Shell_NotifyIcon(uint dwMessage, ref NOTIFYICONDATA lpData);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool DestroyIcon(IntPtr hIcon);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct NOTIFYICONDATA
+    {
+        public uint cbSize;
+        public IntPtr hWnd;
+        public uint uID;
+        public uint uFlags;
+        public uint uCallbackMessage;
+        public IntPtr hIcon;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string szTip;
+        public uint dwState;
+        public uint dwStateMask;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string szInfo;
+        public uint uVersion;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
+        public string szInfoTitle;
+        public uint dwInfoFlags;
+        public Guid guidItem;
+        public IntPtr hBalloonIcon;
+    }
 }

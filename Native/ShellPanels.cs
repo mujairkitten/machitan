@@ -1,37 +1,52 @@
+using System;
+using System.Diagnostics;
 using static Machitan.Native.NativeMethods;
 
 namespace Machitan.Native;
 
 /// <summary>
-/// Opens the real Windows panels the bar's right cluster points at, using the
-/// same Win-key chords a user would press: Win+N (notification center +
-/// calendar), Win+A (quick settings), Win+Tab (Task View). The WPF ShellBar
-/// wired its clock/quick-settings buttons this way; the WinUI rewrite shipped
-/// them as empty stubs — this restores the behavior.
+/// Opens the shell panels (notification center, quick settings, task view).
+/// Uses shell URI schemes instead of keybd_event to avoid feedback loops
+/// with the global keyboard hook.
 /// </summary>
 internal static class ShellPanels
 {
-    private const byte VK_N = 0x4E;
-    private const byte VK_A = 0x41;
+    /// <summary>
+    /// Task View shell namespace GUID (Windows Task View).
+    /// </summary>
+    private const string TaskViewShellGuid = "shell:::{3080F90D-D7AD-11D9-BD98-0000947B0257}";
 
-    public static void OpenNotifications() => SendWinChord(VK_N);
+    public static void OpenNotifications()
+    {
+        // Open Windows Notification Center / Action Center via shell command.
+        StartShellUri("shell:::{036E073D-E6D2-4C33-B8EE-7E7C4E6D7B2F}");
+    }
 
-    public static void OpenQuickSettings() => SendWinChord(VK_A);
+    public static void OpenQuickSettings()
+    {
+        // Open Windows Quick Settings via ms-settings URI (Windows 11).
+        StartShellUri("ms-settings:quicksettings");
+    }
 
-    public static void OpenTaskView() => SendWinChord(VK_TAB);
+    public static void OpenTaskView()
+    {
+        StartShellUri(TaskViewShellGuid);
+    }
 
-    private static void SendWinChord(byte vk)
+    private static void StartShellUri(string uri)
     {
         try
         {
-            keybd_event(VK_LWIN, 0, 0, UIntPtr.Zero);
-            keybd_event(vk, 0, 0, UIntPtr.Zero);
-            keybd_event(vk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = uri,
+                UseShellExecute = true,
+            });
         }
         catch
         {
-            // Never let a panel shortcut kill the shell.
+            // Silently ignore: the shell panel may not be available on this
+            // Windows version, and we must not crash the shell.
         }
     }
 }

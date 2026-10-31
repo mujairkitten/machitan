@@ -8,6 +8,27 @@ using Microsoft.UI.Xaml.Media.Imaging;
 namespace Machitan.Native;
 
 /// <summary>
+/// What the tray listener should do with the answer to the app's message.
+/// </summary>
+internal enum TrayReplyAdvice
+{
+    None,
+
+    /// <summary>
+    /// Tell the app its NIM_MODIFY failed (Explorer still got the update). An app
+    /// whose icon we never saw being added then adds it again, and that add
+    /// carries the callback message and, right after, the version we are missing.
+    /// </summary>
+    FailModify,
+
+    /// <summary>
+    /// The app is adding an icon Explorer already has. Explorer refuses a second
+    /// add; tell the app it worked.
+    /// </summary>
+    ReportSuccess,
+}
+
+/// <summary>
 /// One app's notification-area icon, as last described by its owner.
 /// </summary>
 internal sealed class TrayIconEntry
@@ -18,6 +39,11 @@ internal sealed class TrayIconEntry
     public uint Callback;         // callback message the owner wants clicks on (used from i9)
     public uint Version;          // NOTIFYICON_VERSION the owner asked for
     public bool VersionAnnounced; // true once we saw its NIM_SETVERSION (apps that started before us never tell us again)
+    public bool SeenAdd;          // we saw its NIM_ADD (so we know its callback message and version)
+    public int RelearnAttempts;   // how many times we told it a MODIFY failed so that it adds itself again
+    public DateTime LastRelearn = DateTime.MinValue;
+    public bool AwaitingReadd;
+    public bool SkipLogged;       // the "cannot click" log line is written once per icon
     public uint State;
     public string Tip = "";
     public string Owner = "?";
@@ -33,6 +59,9 @@ internal sealed class TrayIconEntry
     private byte[]? _imagePng;
 
     public bool HasGuid => Guid != Guid.Empty;
+
+    /// <summary>We know how to reach the app. Without its callback message a click cannot be delivered.</summary>
+    public bool CanClick => Callback != 0;
 
     /// <summary>Shown in the chevron pop-up: has a picture, not hidden, not a system icon.</summary>
     public bool IsVisible => !Hidden && !IsSystem && Png != null;
@@ -96,6 +125,8 @@ internal static class TrayIconStore
     private static readonly List<TrayIconEntry> Entries = new();
     private static int _lastVisibleCount;
     private const double MinIconReadGapMs = 200;
+    private const int MaxRelearnAttempts = 3;
+    private const double RelearnGapSeconds = 10;
     private static int _pngCount;
     private static double _pngTotalMs, _pngMaxMs;
 
@@ -128,17 +159,18 @@ internal static class TrayIconStore
     /// Applies one SHELLTRAYDATA payload (see TrayListener for the layout).
     /// Every read is bounds-checked against <paramref name="cb"/>.
     /// </summary>
-    public static void ApplyMessage(IntPtr p, int cb, Func<uint, string> ownerOf)
+    public static TrayReplyAdvice ApplyMessage(IntPtr p, int cb, Func<uint, string> ownerOf, out string? note)
     {
+        note = null;
         if (p == IntPtr.Zero || cb < 24)
-            return;
+            return TrayReplyAdvice.None;
 
         uint nim = U32(p, cb, 4);
         uint hwnd = U32(p, cb, 12);
         uint uid = U32(p, cb, 16);
         uint flags = U32(p, cb, 20);
         if (hwnd == 0)
-            return;
+            return TrayReplyAdvice.None;
 
         Guid guid = Guid.Empty;
         if ((flags & NIF_GUID) != 0 && cb >= 960)
@@ -149,6 +181,7 @@ internal static class TrayIconStore
         }
 
         TrayIconEntry? entry = Find(hwnd, uid, guid);
+        TrayReplyAdvice advice = TrayReplyAdvice.None;
 
         switch (nim)
         {
@@ -167,6 +200,25 @@ internal static class TrayIconStore
                 if (guid != Guid.Empty)
                     entry.Guid = guid;
                 ApplyFields(entry, p, cb, flags);
+
+                if (nim == 0)
+                {
+                    entry.SeenAdd = true;
+                    if (entry.AwaitingReadd)
+                    {
+                        entry.AwaitingReadd = false;
+                        advice = TrayReplyAdvice.ReportSuccess;
+                        note = $"app={entry.Owner} id={entry.Uid} added itself again";
+                    }
+                }
+                else if (WantsRelearn(entry))
+                {
+                    entry.RelearnAttempts++;
+                    entry.LastRelearn = DateTime.UtcNow;
+                    entry.AwaitingReadd = true;
+                    advice = TrayReplyAdvice.FailModify;
+                    note = $"app={entry.Owner} id={entry.Uid} attempt={entry.RelearnAttempts}";
+                }
                 break;
 
             case 2: // NIM_DELETE
@@ -184,7 +236,20 @@ internal static class TrayIconStore
         }
 
         NotifyIfCountChanged();
+        return advice;
     }
+
+    // An icon we first met through a MODIFY (we never saw it being added) has no
+    // callback message and no version in our table; only the app can tell us
+    // again, and an app that is told "modify failed" typically adds the icon
+    // again. Windows' own icons (owned by Explorer) are left alone. A few tries,
+    // spaced out, so an app that ignores this is not nagged.
+    private static bool WantsRelearn(TrayIconEntry e)
+        => !e.SeenAdd
+           && !e.IsSystem
+           && !string.Equals(e.Owner, "explorer", StringComparison.OrdinalIgnoreCase)
+           && e.RelearnAttempts < MaxRelearnAttempts
+           && (DateTime.UtcNow - e.LastRelearn).TotalSeconds >= RelearnGapSeconds;
 
     private static TrayIconEntry? Find(uint hwnd, uint uid, Guid guid)
     {

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Machitan.SettingsUi.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Machitan Settings">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <!-- Sections are built in code (SettingsWindow.xaml.cs) from a few row helpers. -->
+    <Grid x:Name="Root">
+        <ScrollViewer
+            x:Name="Scroller"
+            HorizontalScrollBarVisibility="Disabled"
+            VerticalScrollBarVisibility="Auto">
+            <StackPanel
+                x:Name="Sections"
+                MaxWidth="760"
+                Padding="28,24,28,32"
+                Spacing="6" />
+        </ScrollViewer>
+    </Grid>
+</Window>

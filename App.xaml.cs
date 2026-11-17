@@ -1,56 +1,70 @@
+using System;
+using System.Threading.Tasks;
+using Machitan.Core;
+using Machitan.Shell;
 using Microsoft.UI.Xaml;
-using Machitan.Native;
 
 namespace Machitan;
 
 public partial class App : Application
 {
-    public static MainWindow? MainWindow { get; private set; }
-    internal static ShellHotkeys? _hotkeys;
+    private Window? _testWindow;
+    private ShellHost? _shell;
 
     public App()
     {
-        this.InitializeComponent();
-        UnhandledException += (_, e) =>
-        {
-            DiagnosticsLog.WriteException("Application.UnhandledException", e.Exception);
-        };
-        DiagnosticsLog.Write("App constructed");
+        InitializeComponent();
+
+        // Failures are logged, never fatal.
+        ExceptionTrail.Start();
+        UnhandledException += OnUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        DiagnosticsLog.Write("OnLaunched");
-        MainWindow = new MainWindow();
-        DiagnosticsLog.Write("MainWindow created");
-        MainWindow.Activate();
-        DiagnosticsLog.Write("MainWindow activated");
+        if (EntryPoint.Mode == StartupMode.Proof)
+        {
+            _testWindow = new MainWindow();
+            _testWindow.Activate();
+            return;
+        }
 
-        // Global keyboard hook for Win-key shortcuts (Win, Win+1..9, Win+D, ...).
-        // Failure-latched: if the hook can't be installed, the shell still works
-        // — just without global hotkeys.
-        // Respect the user's EnableGlobalHotkeys setting (H2-1: opt-out).
+        if (EntryPoint.Mode == StartupMode.SeeThrough)
+        {
+            _testWindow = new SeeThroughTestWindow();
+            _testWindow.Activate();
+            return;
+        }
+
         try
         {
-            var settings = MachitanSettingsStore.Load();
-            if (settings.EnableGlobalHotkeys)
-            {
-                DiagnosticsLog.Write("App: creating ShellHotkeys");
-                _hotkeys = new ShellHotkeys(MainWindow.DispatcherQueue);
-                DiagnosticsLog.Write("App: ShellHotkeys created");
-            }
-            else
-            {
-                DiagnosticsLog.Write("App: ShellHotkeys disabled by user setting");
-            }
+            _shell = new ShellHost();
+            _shell.Start();
         }
         catch (Exception ex)
         {
-            DiagnosticsLog.WriteException("ShellHotkeys start", ex);
+            // Without a bar there is nothing to run. Leave; Main's finally block restores the taskbar.
+            Log.Error("The shell could not start.", ex);
+            Exit();
         }
-
-        // Warm up installed apps list in background
-        System.Threading.Tasks.Task.Run(() => StartMenu.AppScanner.GetAllApps());
     }
 
+    private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    {
+        Log.Error("Unhandled error on the UI thread: " + e.Message, e.Exception);
+        e.Handled = true;
+    }
+
+    private static void OnDomainUnhandledException(object sender, System.UnhandledExceptionEventArgs e)
+    {
+        Log.Error("Unhandled error outside the UI thread.", e.ExceptionObject as Exception);
+    }
+
+    private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        Log.Error("Unobserved task error.", e.Exception);
+        e.SetObserved();
+    }
 }

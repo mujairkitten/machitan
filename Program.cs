@@ -1,54 +1,133 @@
+using System;
+using System.Globalization;
 using System.Threading;
+using Machitan.Core;
+using Machitan.Shell;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
-using Machitan.Native;
 
 namespace Machitan;
 
-public static class Program
+/// <summary>
+/// Process entry point. The XAML-generated Main is switched off in the project file
+/// (DISABLE_XAML_GENERATED_MAIN) so start-up order is ours to control.
+///
+/// Order:
+///   1. "--guardian &lt;pid&gt;": this process is the guardian. It never starts any UI.
+///   2. "--exit": ask the running shell to close, then leave.
+///   3. "--proof" or "--seethrough": show only that test window; Explorer is left alone.
+///   4. Otherwise run the shell: single-instance check, start the guardian, run (the shell hides
+///      Explorer's taskbar once its own bar is up), and restore the taskbar in a finally block
+///      whatever happens.
+/// </summary>
+internal static class EntryPoint
 {
-    private const string MutexName = "Local\\Machitan_SingleInstance";
+    private const string ProofArgument = "--proof";
+    private const string SeeThroughArgument = "--seethrough";
+
+    internal static StartupMode Mode { get; private set; } = StartupMode.Shell;
 
     [STAThread]
-    public static void Main(string[] args)
+    private static int Main(string[] args)
     {
-        if (GuardianMode.IsGuardianRequest(args))
-        {
-            GuardianMode.Run(GuardianMode.GuardianPid(args));
-            return;
-        }
-
-        using var mutex = new Mutex(true, MutexName, out bool isNewInstance);
-        if (!isNewInstance)
-            return;
-
-        // Guardian first: if anything below dies before the finally block
-        // can run, the watchdog is already watching.
-        using var guardian = GuardianMode.Launch();
-        ExplorerTaskbarController.Hide();
-        DiagnosticsLog.Write("Program start");
-
         try
         {
-            WinRT.ComWrappersSupport.InitializeComWrappers();
-            Application.Start(p =>
+            if (args.Length > 0 && string.Equals(args[0], Guardian.Argument, StringComparison.OrdinalIgnoreCase))
             {
-                var queue = DispatcherQueue.GetForCurrentThread();
-                SynchronizationContext.SetSynchronizationContext(
-                    new DispatcherQueueSynchronizationContext(queue));
-                _ = new App();
-            });
-            DiagnosticsLog.Write("Application.Start returned");
+                return Guardian.Run(args);
+            }
+
+            if (HasArgument(args, ExitSignal.Argument))
+            {
+                bool delivered = ExitSignal.Send();
+                Log.Info(delivered
+                    ? "Exit request sent to the running shell."
+                    : "Exit requested, but no running shell was found.");
+                return 0;
+            }
+
+            if (HasArgument(args, ProofArgument))
+            {
+                Mode = StartupMode.Proof;
+                RunXaml();
+                return 0;
+            }
+
+            if (HasArgument(args, SeeThroughArgument))
+            {
+                Mode = StartupMode.SeeThrough;
+                RunXaml();
+                return 0;
+            }
+
+            return RunShell();
         }
         catch (Exception ex)
         {
-            DiagnosticsLog.WriteException("Program.Main", ex);
-            throw;
+            Log.Error("Machitan stopped because of an unexpected error in Main.", ex);
+            return 1;
+        }
+    }
+
+    private static int RunShell()
+    {
+        if (!SingleInstance.TryAcquire())
+        {
+            Log.Info("Machitan is already running; this second start does nothing.");
+            return 0;
+        }
+
+        try
+        {
+            Log.Info(
+                "==== Machitan starting. Version " + typeof(EntryPoint).Assembly.GetName().Version +
+                ", .NET " + Environment.Version +
+                ", Windows build " + Environment.OSVersion.Version.Build.ToString(CultureInfo.InvariantCulture) + ".");
+
+            // The guardian first: from here on something always puts the taskbar back.
+            Guardian.Spawn();
+
+            try
+            {
+                // Explorer's taskbar is hidden by the shell once Machitan's bar is on screen.
+                RunXaml();
+            }
+            finally
+            {
+                ExplorerTaskbar.Restore();
+                Log.Info("==== Machitan stopped; Explorer's taskbar restored.");
+            }
+
+            return 0;
         }
         finally
         {
-            ExplorerTaskbarController.Restore();
-            try { guardian?.Kill(); } catch { }
+            SingleInstance.Release();
         }
+    }
+
+    private static void RunXaml()
+    {
+        WinRT.ComWrappersSupport.InitializeComWrappers();
+
+        Application.Start(static callbackParams =>
+        {
+            var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
+            SynchronizationContext.SetSynchronizationContext(context);
+            _ = new App();
+        });
+    }
+
+    private static bool HasArgument(string[] args, string name)
+    {
+        foreach (string argument in args)
+        {
+            if (string.Equals(argument, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

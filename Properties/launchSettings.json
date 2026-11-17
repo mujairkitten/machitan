@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Machitan": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

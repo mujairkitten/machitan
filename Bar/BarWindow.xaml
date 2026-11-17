@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Machitan.Bar.BarWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Machitan Bar">
+
+    <!--
+        The window itself is see-through. Only the segments built in code (BarHost) are drawn.
+        Transparent (not null) background: the 2 px rim around each segment still takes clicks.
+    -->
+    <Grid
+        x:Name="Root"
+        Background="Transparent"
+        PointerEntered="OnRootPointerEntered"
+        PointerExited="OnRootPointerExited">
+        <Grid.ContextFlyout>
+            <MenuFlyout
+                Closed="OnMenuClosed"
+                Opening="OnMenuOpening"
+                ShouldConstrainToRootBounds="False">
+                <MenuFlyoutItem
+                    AutomationProperties.Name="Machitan settings"
+                    Click="OnSettingsClicked"
+                    Text="Settings" />
+                <MenuFlyoutSeparator />
+                <MenuFlyoutItem
+                    AutomationProperties.Name="Exit Machitan"
+                    Click="OnExitClicked"
+                    Text="Exit Machitan" />
+            </MenuFlyout>
+        </Grid.ContextFlyout>
+
+        <Grid x:Name="BarHost" />
+    </Grid>
+</Window>

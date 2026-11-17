@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Machitan.Start.StartMenuWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Machitan Start">
+
+    <!--
+        Floating boxes on a see-through window: the gaps between the boxes show the wallpaper.
+        Each box gets its fill (acrylic or translucent colour) inserted in code, behind its content.
+        The 4 DIP padding keeps the window's edge outside the cut, like the bar.
+    -->
+    <Grid
+        x:Name="Root"
+        Padding="4"
+        Background="Transparent"
+        KeyDown="OnRootKeyDown">
+        <Grid x:Name="Layout" ColumnSpacing="8" RowSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="340" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="44" />
+            </Grid.RowDefinitions>
+
+            <!--  Left column: search over Pinned  -->
+            <Grid Grid.Column="0" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid x:Name="SearchBox" Grid.Row="0">
+                    <TextBox
+                        x:Name="SearchInput"
+                        Margin="6,0,6,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Search apps, or type files: to search files"
+                        KeyDown="OnSearchKeyDown"
+                        PlaceholderText="Search apps (files: for files)"
+                        TextChanged="OnSearchTextChanged" />
+                </Grid>
+
+                <Grid x:Name="PinnedBox" Grid.Row="1">
+                    <Grid Padding="12,10,12,12" RowSpacing="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock FontWeight="SemiBold" Text="Pinned" />
+                        <ScrollViewer
+                            Grid.Row="1"
+                            HorizontalScrollBarVisibility="Disabled"
+                            HorizontalScrollMode="Disabled"
+                            VerticalScrollBarVisibility="Auto">
+                            <VariableSizedWrapGrid
+                                x:Name="PinnedPanel"
+                                ItemHeight="76"
+                                ItemWidth="68"
+                                MaximumRowsOrColumns="4"
+                                Orientation="Horizontal" />
+                        </ScrollViewer>
+                        <TextBlock
+                            x:Name="PinnedEmpty"
+                            Grid.Row="1"
+                            Opacity="0.7"
+                            TextWrapping="Wrap"
+                            Visibility="Collapsed" />
+                    </Grid>
+                </Grid>
+            </Grid>
+
+            <!--  Right column: All apps, or file results  -->
+            <Grid x:Name="AppsBox" Grid.Column="1">
+                <Grid Padding="8,10,8,8" RowSpacing="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        x:Name="AppsHeader"
+                        Margin="4,0,0,0"
+                        FontWeight="SemiBold"
+                        Text="All apps" />
+                    <ScrollViewer
+                        x:Name="AppsScroller"
+                        Grid.Row="1"
+                        HorizontalScrollBarVisibility="Disabled"
+                        HorizontalScrollMode="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <StackPanel x:Name="AppsPanel" Spacing="2" />
+                            <StackPanel
+                                x:Name="FilesPanel"
+                                Spacing="2"
+                                Visibility="Collapsed" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <TextBlock
+                        x:Name="AppsEmpty"
+                        Grid.Row="1"
+                        Margin="4,0,4,0"
+                        Opacity="0.7"
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
+                </Grid>
+            </Grid>
+
+            <!--  Slim user strip  -->
+            <Grid
+                x:Name="UserStrip"
+                Grid.Row="1"
+                Grid.ColumnSpan="2">
+                <Grid Padding="10,0,6,0" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="10">
+                        <PersonPicture
+                            x:Name="Avatar"
+                            Width="28"
+                            Height="28" />
+                        <TextBlock x:Name="UserName" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel
+                        x:Name="PowerPanel"
+                        Grid.Column="1"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="6" />
+                    <Button
+                        x:Name="PowerButton"
+                        Grid.Column="2"
+                        Width="36"
+                        Height="32"
+                        Padding="0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Power"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnPowerClicked"
+                        CornerRadius="8"
+                        ToolTipService.ToolTip="Power">
+                        <FontIcon
+                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                            FontSize="16"
+                            Glyph="&#xE7E8;" />
+                    </Button>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

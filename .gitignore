@@ -1,33 +1,39 @@
-# ===== Build results =====
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-artifacts/
-TestResults/
+# Build output
+bin/
+obj/
+publish/
+AppPackages/
+BundleArtifacts/
 
-# ===== Visual Studio =====
+# Visual Studio
 .vs/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
+*.VC.db
+*.VC.opendb
+launchSettings.local.json
 
-# ===== WinUI 3 / MSIX packaging =====
-AppPackages/
-BundleArtifacts/
-*.msix
-*.msixbundle
-*.appx
-*.appxbundle
-*.appinstaller
-*_TemporaryKey.pfx
+# Rider / VS Code
+.idea/
+.vscode/
 
-# ===== NuGet =====
+# NuGet
 *.nupkg
 *.snupkg
+packages/
+project.lock.json
 
-# ===== Misc =====
-*.tmp
-*.cache
+# Test and diagnostics output
+TestResults/
+*.log
+*.binlog
+*.dmp
+
+# OS files
 Thumbs.db
+ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
+.DS_Store

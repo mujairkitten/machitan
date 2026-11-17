@@ -124,10 +124,16 @@ internal sealed class SettingsStore
             _document["InfoLineEnabled"] = s.InfoLineEnabled;
             _document["InfoLineShowDate"] = s.InfoLineShowDate;
             _document["InfoLineShowTime"] = s.InfoLineShowTime;
+            _document["InfoLineShowSeconds"] = s.InfoLineShowSeconds;
             _document["InfoLineShowWeather"] = s.InfoLineShowWeather;
             _document["InfoLineCorner"] = s.InfoLineCorner.ToString();
+            _document["WeatherUseManualPlace"] = s.WeatherUseManualPlace;
+            _document["WeatherPlaceName"] = s.WeatherPlaceName;
+            _document["WeatherLatitude"] = s.WeatherLatitude;
+            _document["WeatherLongitude"] = s.WeatherLongitude;
             _document["DuoRingEnabled"] = s.DuoRingEnabled;
             _document["DuoRingCorner"] = s.DuoRingCorner.ToString();
+            _document["ReserveTopStrip"] = s.ReserveTopStrip;
             _document["CalendarShowSeconds"] = s.CalendarShowSeconds;
             _document["CalendarCollapsed"] = s.CalendarCollapsed;
 
@@ -397,6 +403,60 @@ internal sealed class SettingsStore
             NoteUnreadable(document, "DuoRingCorner");
         }
 
+        if (TryBool(document["InfoLineShowSeconds"], out bool infoSeconds))
+        {
+            s.InfoLineShowSeconds = infoSeconds;
+        }
+        else
+        {
+            NoteUnreadable(document, "InfoLineShowSeconds");
+        }
+
+        if (TryBool(document["WeatherUseManualPlace"], out bool manualPlace))
+        {
+            s.WeatherUseManualPlace = manualPlace;
+        }
+        else
+        {
+            NoteUnreadable(document, "WeatherUseManualPlace");
+        }
+
+        if (TryString(document["WeatherPlaceName"], out string placeName))
+        {
+            s.WeatherPlaceName = placeName;
+        }
+        else
+        {
+            NoteUnreadable(document, "WeatherPlaceName");
+        }
+
+        if (TryDouble(document["WeatherLatitude"], out double latitude))
+        {
+            s.WeatherLatitude = latitude;
+        }
+        else
+        {
+            NoteUnreadable(document, "WeatherLatitude");
+        }
+
+        if (TryDouble(document["WeatherLongitude"], out double longitude))
+        {
+            s.WeatherLongitude = longitude;
+        }
+        else
+        {
+            NoteUnreadable(document, "WeatherLongitude");
+        }
+
+        if (TryBool(document["ReserveTopStrip"], out bool topStrip))
+        {
+            s.ReserveTopStrip = topStrip;
+        }
+        else
+        {
+            NoteUnreadable(document, "ReserveTopStrip");
+        }
+
         if (TryBool(document["CalendarShowSeconds"], out bool calendarSeconds))
         {
             s.CalendarShowSeconds = calendarSeconds;
@@ -494,6 +554,18 @@ internal sealed class SettingsStore
         if (json.TryGetValue(out double number) && !double.IsNaN(number) && !double.IsInfinity(number))
         {
             value = number;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryString(JsonNode? node, out string value)
+    {
+        value = string.Empty;
+        if (node is JsonValue json && json.TryGetValue(out string? text) && text is not null)
+        {
+            value = text;
             return true;
         }
 

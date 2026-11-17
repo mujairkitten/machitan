@@ -2,7 +2,7 @@
 
 An alternative modern shell for Windows 11: a segmented pill bar, a floating Start menu, corner widgets and Dynaland.
 
-**Status: early build (line i1, Batch 4).** Explorer's taskbar is replaced by a see-through Machitan bar (Start cluster and app dock as separate pills, or joined, or full width; pinned apps; Show Desktop; auto-hide) and Machitan's own Start menu (search with `apps:` and `files:`, Pinned, All apps, power). A Settings window (right-click the bar > Settings) covers every option. A lone Win key opens Machitan's Start; Win+1..9, Win+N (calendar), Win+A (volume and brightness) and Win+` (window switcher) are Machitan's (Settings > System status shows each shortcut's state). See `CHANGELOG-i1.md`.
+**Status: early build (line i1, Batch 5).** Explorer's taskbar is replaced by a see-through Machitan bar (Start cluster and app dock as separate pills, or joined, or full width; pinned apps; Show Desktop; auto-hide) and Machitan's own Start menu (search with `apps:` and `files:`, Pinned, All apps, power). A Settings window (right-click the bar > Settings) covers every option. A lone Win key opens Machitan's Start; Win+1..9, Win+N (calendar), Win+A (volume and brightness) and Win+` (window switcher) are Machitan's (Settings > System status shows each shortcut's state). Hovering a running app on the bar shows live previews of its windows. In the top corners, kept clear of maximised windows: an info line (date, time, weather from Open-Meteo for Windows' location or a place you choose; a click opens Windows' notification centre) and a status ring (battery rim, Wi-Fi, volume dots, colours that follow the wallpaper; a click opens Windows' quick settings). See `CHANGELOG-i1.md`.
 
 ## Stack
 

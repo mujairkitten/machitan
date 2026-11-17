@@ -16,6 +16,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
+using VirtualKey = Windows.System.VirtualKey;
 
 namespace Machitan.SettingsUi;
 
@@ -159,7 +160,7 @@ public sealed partial class SettingsWindow : Window
                 (s, on) => s.CalendarShowSeconds = on));
 
         AddSection("Corner widgets");
-        AddNote("Not built yet: the corner widgets arrive in a later batch. These choices are saved and will apply then.");
+        AddNote("Both stay on top and step aside while a full-screen app is in front. Two widgets in the same corner sit one under the other.");
         AddCard(
             ToggleRow(
                 "Info line",
@@ -169,17 +170,34 @@ public sealed partial class SettingsWindow : Window
             ToggleRow("Show date", "Part of the info line.", s => s.InfoLineShowDate, (s, on) => s.InfoLineShowDate = on),
             ToggleRow("Show time", "Part of the info line.", s => s.InfoLineShowTime, (s, on) => s.InfoLineShowTime = on),
             ToggleRow(
+                "Show seconds",
+                "The info line's time shows seconds too.",
+                s => s.InfoLineShowSeconds,
+                (s, on) => s.InfoLineShowSeconds = on),
+            ToggleRow(
                 "Show weather",
-                "Part of the info line. Uses your approximate location; see Privacy below.",
+                "Part of the info line, from Open-Meteo; hidden when there is no recent reading. Uses your approximate location; see Privacy below.",
                 s => s.InfoLineShowWeather,
                 (s, on) => s.InfoLineShowWeather = on),
+            ComboRow(
+                "Weather location",
+                "Windows' location, or a place you choose below.",
+                new[] { "Windows' location", "A place I choose" },
+                s => s.WeatherUseManualPlace ? 1 : 0,
+                (s, i) => s.WeatherUseManualPlace = i == 1),
+            WeatherPlaceRow(),
             CornerRow("Info line corner", s => s.InfoLineCorner, (s, c) => s.InfoLineCorner = c),
             ToggleRow(
                 "Status ring",
-                "Battery, Wi-Fi and volume in a screen corner. A click opens Windows' own quick settings.",
+                "Battery, Wi-Fi and volume in a screen corner. Its colours follow the wallpaper behind it, with a soft backing where the wallpaper is too busy. A click opens Windows' own quick settings.",
                 s => s.DuoRingEnabled,
                 (s, on) => s.DuoRingEnabled = on),
-            CornerRow("Status ring corner", s => s.DuoRingCorner, (s, c) => s.DuoRingCorner = c));
+            CornerRow("Status ring corner", s => s.DuoRingCorner, (s, c) => s.DuoRingCorner = c),
+            ToggleRow(
+                "Keep the top free",
+                "Keeps a strip at the top of the screen for widgets in the top corners, so maximised windows start below them. Not kept while the bar is docked at the top.",
+                s => s.ReserveTopStrip,
+                (s, on) => s.ReserveTopStrip = on));
 
         AddSection("Dynaland");
         AddNote("Not built yet: Dynaland arrives in a later batch. This choice is saved and will apply then.");
@@ -201,7 +219,10 @@ public sealed partial class SettingsWindow : Window
         AddCard(
             TextRow(
                 "Weather",
-                "When the info line's weather is on (from a later batch), Machitan sends your approximate location to Open-Meteo (open-meteo.com) to get the forecast. Nothing else leaves this PC."),
+                "When the info line's weather is on, Machitan asks Windows for this PC's location (at most once an hour), rounds it to about 1 km, and sends that to Open-Meteo (open-meteo.com) every 15 minutes to get the current weather. If Windows does not allow desktop apps to use your location, the weather stays hidden. With a place you chose, Windows' location is not used: that place's coordinates (rounded to about 1 km) are sent instead, and finding a place sends the name you typed to Open-Meteo's place search. Nothing else leaves this PC."),
+            TextRow(
+                "Status ring",
+                "Battery, network and volume are read from Windows on this PC. The Wi-Fi name comes from Windows' network list, so the ring does not need location permission."),
             TextRow(
                 "Diagnostics log",
                 "Machitan keeps a log for troubleshooting at " + AppPaths.LogFile
@@ -417,6 +438,114 @@ public sealed partial class SettingsWindow : Window
         control.Children.Add(slider);
         control.Children.Add(value);
         return Row(label, description, control);
+    }
+
+    /// <summary>
+    /// The chosen weather place: type a city (or "latitude, longitude") and press Find; the
+    /// first match becomes the place and the weather switches to it. Below: what is used now.
+    /// </summary>
+    private Grid WeatherPlaceRow()
+    {
+        var box = new TextBox
+        {
+            PlaceholderText = "A city, or latitude, longitude",
+            Width = 280,
+            Text = _host.Settings.Current.WeatherPlaceName,
+        };
+        AutomationProperties.SetName(box, "Weather place");
+
+        var find = new Button { Content = "Find", CornerRadius = new CornerRadius(8) };
+        AutomationProperties.SetName(find, "Find this place and use it for the weather");
+
+        var status = new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
+        AutomationProperties.SetName(status, "Weather place in use");
+
+        void Refresh() => status.Text = DescribeWeatherPlace(_host.Settings.Current);
+        Refresh();
+        _refreshers.Add(Refresh);
+
+        async void FindPlace()
+        {
+            string query = box.Text;
+            find.IsEnabled = false;
+            status.Text = "Looking up \"" + query.Trim() + "\"...";
+            try
+            {
+                (WeatherPlace? place, string problem) = await WeatherService.FindPlaceAsync(query);
+                if (place is WeatherPlace found)
+                {
+                    _host.Settings.Update(s =>
+                    {
+                        s.WeatherUseManualPlace = true;
+                        s.WeatherPlaceName = found.Name;
+                        s.WeatherLatitude = found.Latitude;
+                        s.WeatherLongitude = found.Longitude;
+                    });
+                    box.Text = found.Name;
+                    Refresh();
+                }
+                else
+                {
+                    status.Text = problem;
+                }
+            }
+            catch (Exception ex)
+            {
+                status.Text = "The place search did not work.";
+                Log.Error("Settings: the weather place search failed.", ex);
+            }
+            finally
+            {
+                find.IsEnabled = true;
+            }
+        }
+
+        find.Click += (_, _) => FindPlace();
+        // Seen even if the text box keeps Enter for itself.
+        box.AddHandler(
+            UIElement.KeyDownEvent,
+            new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) =>
+            {
+                if (e.Key == VirtualKey.Enter && find.IsEnabled)
+                {
+                    e.Handled = true;
+                    FindPlace();
+                }
+            }),
+            true);
+
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        line.Children.Add(box);
+        line.Children.Add(find);
+
+        var control = new StackPanel { Spacing = 6 };
+        control.Children.Add(line);
+        control.Children.Add(status);
+        return Row(
+            "Weather place",
+            "Type a city and press Find (or Enter). The first match is used, and the weather switches to it.",
+            control,
+            stacked: true);
+    }
+
+    private static string DescribeWeatherPlace(ShellSettings settings)
+    {
+        bool hasPlace = settings.WeatherLatitude is not null && settings.WeatherLongitude is not null;
+        if (!settings.WeatherUseManualPlace)
+        {
+            return hasPlace
+                ? "In use: Windows' location. Chosen place kept for later: " + settings.WeatherPlaceName + "."
+                : "In use: Windows' location.";
+        }
+
+        if (!hasPlace)
+        {
+            return "In use: no place chosen yet, so the weather stays hidden. Find one above, or switch back to Windows' location.";
+        }
+
+        return "In use: " + settings.WeatherPlaceName + " ("
+            + settings.WeatherLatitude!.Value.ToString("0.00", CultureInfo.InvariantCulture) + ", "
+            + settings.WeatherLongitude!.Value.ToString("0.00", CultureInfo.InvariantCulture) + ").";
     }
 
     private static Grid TextRow(string label, string description)

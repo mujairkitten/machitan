@@ -93,14 +93,34 @@ public sealed record ShellSettings
 
     public bool InfoLineShowTime { get; set; } = true;
 
+    /// <summary>The info line's time shows seconds too. Off by default.</summary>
+    public bool InfoLineShowSeconds { get; set; }
+
     public bool InfoLineShowWeather { get; set; } = true;
 
     public ScreenCorner InfoLineCorner { get; set; } = ScreenCorner.TopLeft;
+
+    /// <summary>Weather for a place the user chose instead of Windows' location.</summary>
+    public bool WeatherUseManualPlace { get; set; }
+
+    /// <summary>The chosen place's name as found (shown in Settings and the tooltip).</summary>
+    public string WeatherPlaceName { get; set; } = string.Empty;
+
+    /// <summary>The chosen place, degrees; null when none is chosen.</summary>
+    public double? WeatherLatitude { get; set; }
+
+    public double? WeatherLongitude { get; set; }
 
     /// <summary>Corner duo status ring (battery, Wi-Fi, volume). Used from Batch 5.</summary>
     public bool DuoRingEnabled { get; set; } = true;
 
     public ScreenCorner DuoRingCorner { get; set; } = ScreenCorner.TopRight;
+
+    /// <summary>
+    /// Keeps a strip at the top of the screen for widgets in the top corners (an AppBar of its
+    /// own), so maximised windows start below them. On by default.
+    /// </summary>
+    public bool ReserveTopStrip { get; set; } = true;
 
     /// <summary>Calendar flyout (Win+N): show seconds on its clock.</summary>
     public bool CalendarShowSeconds { get; set; }
@@ -154,6 +174,21 @@ public sealed record ShellSettings
         if (!Enum.IsDefined(DuoRingCorner))
         {
             DuoRingCorner = ScreenCorner.TopRight;
+        }
+
+        WeatherPlaceName = (WeatherPlaceName ?? string.Empty).Trim();
+        if (WeatherPlaceName.Length > 200)
+        {
+            WeatherPlaceName = WeatherPlaceName[..200];
+        }
+
+        bool latitudeOk = WeatherLatitude is double latitude && double.IsFinite(latitude) && latitude is >= -90 and <= 90;
+        bool longitudeOk = WeatherLongitude is double longitude && double.IsFinite(longitude) && longitude is >= -180 and <= 180;
+        if (!latitudeOk || !longitudeOk)
+        {
+            // A place needs both; half a place is no place.
+            WeatherLatitude = null;
+            WeatherLongitude = null;
         }
     }
 }

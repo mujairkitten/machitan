@@ -33,6 +33,8 @@ internal enum FlyoutPlacement
 /// more rounded boxes, each with the same fill as the bar (acrylic or a translucent colour).
 /// It closes on Esc and when it loses focus (a click anywhere else), follows the theme
 /// setting, and is never shown in Alt+Tab or on the bar.
+/// A flyout made with takesFocus false (the window previews) never takes the keyboard or
+/// becomes the active window: it shows without activating and is closed by its owner.
 /// </summary>
 public abstract partial class FlyoutWindow : Window
 {
@@ -46,13 +48,15 @@ public abstract partial class FlyoutWindow : Window
     private readonly WindowCutter _cutter;
     private readonly List<(Grid Box, double Radius)> _boxes = new();
     private readonly string _name;
+    private readonly bool _takesFocus;
     private WindowSubclass? _subclass;
     private string _fillLook = string.Empty;
 
-    private protected FlyoutWindow(ShellHost host, string name)
+    private protected FlyoutWindow(ShellHost host, string name, bool takesFocus = true)
     {
         Host = host;
         _name = name;
+        _takesFocus = takesFocus;
         Title = "Machitan " + name;
 
         // The 4 DIP padding keeps the window's edge outside the cut, like the bar and Start.
@@ -65,6 +69,13 @@ public abstract partial class FlyoutWindow : Window
 
         Hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         SeeThrough.Prepare(this, Hwnd, alwaysOnTop: true);
+        if (!takesFocus)
+        {
+            // Clicks work, but the window never becomes the active one.
+            long exStyle = User32.GetWindowLongPtrW(Hwnd, User32.GWL_EXSTYLE);
+            User32.SetWindowLongPtrW(Hwnd, User32.GWL_EXSTYLE, (nint)(exStyle | User32.WS_EX_NOACTIVATE));
+        }
+
         _subclass = new WindowSubclass(Hwnd, OnWindowMessage);
 
         _cutter = new WindowCutter(Hwnd, Root);
@@ -112,7 +123,10 @@ public abstract partial class FlyoutWindow : Window
         }
 
         User32.ShowWindow(Hwnd, User32.SW_HIDE);
-        Log.Info(_name + " closed.");
+        if (_takesFocus)
+        {
+            Log.Info(_name + " closed.");
+        }
     }
 
     /// <summary>
@@ -141,9 +155,15 @@ public abstract partial class FlyoutWindow : Window
         int width = (int)Math.Round((contentWidthDip + (2 * PadDip)) * scale);
         int height = (int)Math.Round((contentHeightDip + (2 * PadDip)) * scale);
 
-        AppWindow.MoveAndResize(placement == FlyoutPlacement.BesideBar
+        PresentAt(placement == FlyoutPlacement.BesideBar
             ? PopupPlacement.BesideBar(Host, width, height, pad, gap)
             : PopupPlacement.ScreenCentre(width, height));
+    }
+
+    /// <summary>Places the window at an exact spot (physical pixels, padding included) and shows it.</summary>
+    private protected void PresentAt(RectInt32 windowRect)
+    {
+        AppWindow.MoveAndResize(windowRect);
         _cutter.Invalidate();
 
         if (IsOpen)
@@ -151,14 +171,25 @@ public abstract partial class FlyoutWindow : Window
             return;
         }
 
-        User32.ShowWindow(Hwnd, User32.SW_SHOW);
-        Activate();
+        if (_takesFocus)
+        {
+            User32.ShowWindow(Hwnd, User32.SW_SHOW);
+            Activate();
 
-        // Opened by a shortcut caught in the keyboard hook, Windows may not hand over the
-        // keyboard by itself.
-        WindowActivator.BringToFront(Hwnd);
+            // Opened by a shortcut caught in the keyboard hook, Windows may not hand over the
+            // keyboard by itself.
+            WindowActivator.BringToFront(Hwnd);
+        }
+        else
+        {
+            AppWindow.Show(false);
+        }
+
         IsOpen = true;
-        Log.Info(_name + " opened.");
+        if (_takesFocus)
+        {
+            Log.Info(_name + " opened.");
+        }
     }
 
     /// <summary>The largest content height (DIP) that fits on the screen with room to spare.</summary>
@@ -235,7 +266,7 @@ public abstract partial class FlyoutWindow : Window
     private void OnActivated(object sender, WindowActivatedEventArgs args)
     {
         // A click anywhere else closes the flyout.
-        if (args.WindowActivationState == WindowActivationState.Deactivated && IsOpen)
+        if (_takesFocus && args.WindowActivationState == WindowActivationState.Deactivated && IsOpen)
         {
             HideFlyout();
         }

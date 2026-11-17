@@ -9,7 +9,10 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.Foundation;
+using Windows.Graphics;
 
 namespace Machitan.Bar;
 
@@ -134,6 +137,10 @@ public sealed partial class BarWindow
         button.Click += OnDockButtonClick;
         button.ContextFlyout = CreateDockMenu(parts);
 
+        // Window previews. The button handles some pointer events itself, so listen to all.
+        button.AddHandler(UIElement.PointerEnteredEvent, new PointerEventHandler(OnDockButtonPointerEntered), true);
+        button.AddHandler(UIElement.PointerExitedEvent, new PointerEventHandler(OnDockButtonPointerExited), true);
+
         ApplyDockState(button, parts);
         return button;
     }
@@ -242,6 +249,7 @@ public sealed partial class BarWindow
 
     private void OnDockButtonClick(object sender, RoutedEventArgs e)
     {
+        _host.HidePreview();
         if (sender is not Button { Tag: DockButtonParts parts })
         {
             return;
@@ -262,12 +270,43 @@ public sealed partial class BarWindow
     /// Right-click menu: pin or unpin (one pin list serves the bar and the Start menu), close.
     /// Built when it opens, from the button's current item.
     /// </summary>
+    private void OnDockButtonPointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Button { Tag: DockButtonParts parts } button && !IsAutoHidden && button.XamlRoot is not null)
+        {
+            _host.HoverDockItem(parts.Item, ScreenRectOf(button));
+        }
+    }
+
+    private void OnDockButtonPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        _host.EndDockHover();
+    }
+
+    /// <summary>Where an element of the bar is on screen, in physical pixels (the bar window has no frame).</summary>
+    private RECT ScreenRectOf(FrameworkElement element)
+    {
+        Point origin = element.TransformToVisual(null).TransformPoint(new Point(0, 0));
+        double scale = element.XamlRoot?.RasterizationScale ?? 1.0;
+        PointInt32 window = AppWindow.Position;
+        int left = window.X + (int)Math.Round(origin.X * scale);
+        int top = window.Y + (int)Math.Round(origin.Y * scale);
+        return new RECT
+        {
+            Left = left,
+            Top = top,
+            Right = left + (int)Math.Round(element.ActualWidth * scale),
+            Bottom = top + (int)Math.Round(element.ActualHeight * scale),
+        };
+    }
+
     private MenuFlyout CreateDockMenu(DockButtonParts parts)
     {
         var menu = new MenuFlyout { ShouldConstrainToRootBounds = false };
 
         menu.Opening += (sender, e) =>
         {
+            _host.HidePreview();
             menu.Items.Clear();
             DockItem item = parts.Item;
 

@@ -111,6 +111,9 @@ public sealed partial class BarWindow : Window
     /// <summary>Where the visible bar is on screen, in physical pixels.</summary>
     internal RECT BarScreenRect => _barRect;
 
+    /// <summary>The bar's window, so pop-ups can keep it above a window brought forward for a moment (Peek).</summary>
+    internal nint Handle => _hwnd;
+
     /// <summary>True while the bar is hidden or on its way out.</summary>
     private bool IsAutoHidden => _slide is SlideState.Hidden or SlideState.Hiding;
 
@@ -682,7 +685,7 @@ public sealed partial class BarWindow : Window
 
             bool overBar = _barRect.Contains(cursor, HoverSlackPx);
             bool startOpen = _host.StartMenu?.IsOpen ?? false;
-            if (overBar || atEdge || _menuOpen || startOpen)
+            if (overBar || atEdge || _menuOpen || startOpen || _host.PreviewShown)
             {
                 if (now > _lastInsideTick)
                 {
@@ -718,6 +721,8 @@ public sealed partial class BarWindow : Window
         {
             return;
         }
+
+        _host.HidePreview();
 
         _slide = SlideState.Hiding;
         AnimateSlide(SlideOutOffset(), () =>
@@ -913,6 +918,7 @@ public sealed partial class BarWindow : Window
         }
 
         _fullscreenApp = fullScreen;
+        _host.NoteFullScreen(fullScreen);
         if (fullScreen)
         {
             Log.Info("Full-screen app in front (" + what + "); the bar steps aside.");

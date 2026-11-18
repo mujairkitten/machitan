@@ -123,7 +123,7 @@ public sealed partial class SettingsWindow : Window
                 (s, on) => s.AutoHideBar = on),
             ComboRow(
                 "Search",
-                "Icon or a search box next to Start, or no search button. Both open Start with the search box ready.",
+                "Icon or a search box next to Start, or no search button. The icon opens Windows' own search (Win+S). In the box you type right on the bar, and the results show next to it (apps, or files: for files).",
                 new[] { "Icon", "Box", "Hidden" },
                 s => (int)s.SearchMode,
                 (s, i) => s.SearchMode = (SearchMode)i));
@@ -160,7 +160,7 @@ public sealed partial class SettingsWindow : Window
                 (s, on) => s.CalendarShowSeconds = on));
 
         AddSection("Corner widgets");
-        AddNote("Both stay on top and step aside while a full-screen app is in front. Two widgets in the same corner sit one under the other.");
+        AddNote("Both stay on top and step aside while a full-screen app is in front. Widgets in the same corner stand side by side; on the bar's edge they sit beside the bar, in line with it.");
         AddCard(
             ToggleRow(
                 "Info line",
@@ -190,23 +190,59 @@ public sealed partial class SettingsWindow : Window
             ToggleRow(
                 "Status ring",
                 "Battery, Wi-Fi and volume in a screen corner. Its colours follow the wallpaper behind it, with a soft backing where the wallpaper is too busy. A click opens Windows' own quick settings.",
-                s => s.DuoRingEnabled,
-                (s, on) => s.DuoRingEnabled = on),
+                s => s.ShowDuoRing,
+                (s, on) => s.ShowDuoRing = on),
             CornerRow("Status ring corner", s => s.DuoRingCorner, (s, c) => s.DuoRingCorner = c),
             ToggleRow(
-                "Keep the top free",
-                "Keeps a strip at the top of the screen for widgets in the top corners, so maximised windows start below them. Not kept while the bar is docked at the top.",
+                "Keep the free edge clear",
+                "Keeps a strip at the screen edge without the bar (the top while the bar is at the bottom, and the other way round) for the widgets and Dynaland there, so maximised windows stay clear of them.",
                 s => s.ReserveTopStrip,
-                (s, on) => s.ReserveTopStrip = on));
+                (s, on) => s.ReserveTopStrip = on),
+            ToggleRow(
+                "Cover the strip",
+                "Fills the strip at the free edge with one colour, like a menu bar. Shows only while the strip is kept, and steps aside for full-screen apps.",
+                s => s.TopStripCover,
+                (s, on) => s.TopStripCover = on),
+            ComboRow(
+                "Cover colour",
+                "Dark, light, or Windows' accent colour.",
+                new[] { "Dark", "Light", "Accent colour" },
+                s => (int)s.TopStripCoverColour,
+                (s, i) => s.TopStripCoverColour = (StripCoverColour)i),
+            SliderRow(
+                "Cover opacity",
+                "How solid the cover is: 100% hides what is behind it.",
+                ShellSettings.MinCoverOpacity * 100,
+                ShellSettings.MaxCoverOpacity * 100,
+                5,
+                s => s.TopStripCoverOpacity * 100,
+                (s, v) => s.TopStripCoverOpacity = Math.Round(v) / 100.0,
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"));
 
         AddSection("Dynaland");
-        AddNote("Not built yet: Dynaland arrives in a later batch. This choice is saved and will apply then.");
         AddCard(
             ToggleRow(
                 "Dynaland",
-                "A pill at the top edge with the playing music and the clock.",
+                "A black pill at the top or bottom of the screen. Small and quiet when nothing is happening; it shows what is playing (from Windows' media controls) and the volume when it changes. Hover it to open: the player first, and an arrow to the page with what is using the camera or mic.",
                 s => s.EnableDynaland,
-                (s, on) => s.EnableDynaland = on));
+                (s, on) => s.EnableDynaland = on),
+            ComboRow(
+                "Position",
+                "Opposite the bar (the top while the bar is at the bottom, and the other way round), or always the top or the bottom. On the bar's own edge it floats just past the bar when the bar is in the middle.",
+                new[] { "Opposite the bar", "Top", "Bottom" },
+                s => (int)s.DynalandPosition,
+                (s, i) => s.DynalandPosition = (DynalandPosition)i),
+            ComboRow(
+                "Shape",
+                "Notch hangs from the screen's edge, its sides curving out into it. Island floats just off the edge, round all around, in line with the corner widgets.",
+                new[] { "Notch", "Island" },
+                s => (int)s.DynalandStyle,
+                (s, i) => s.DynalandStyle = (DynalandStyle)i),
+            ToggleRow(
+                "Camera and mic dots",
+                "A green dot while an app uses the camera, an orange one for the mic, and a short look at which app when it starts.",
+                s => s.ShowPrivacyDots,
+                (s, on) => s.ShowPrivacyDots = on));
 
         AddSection("Other options from the plan");
         AddNote("Not built yet. These stay off and cannot be changed until the parts that use them exist.");

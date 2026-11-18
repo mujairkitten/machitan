@@ -7,6 +7,7 @@ using Machitan.Flyouts;
 using Machitan.Interop;
 using Machitan.SettingsUi;
 using Machitan.Start;
+using Machitan.Visuals;
 using Machitan.Widgets;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -23,11 +24,14 @@ internal sealed class ShellHost
     private QuickSettingsFlyout? _quickSettings;
     private SwitcherWindow? _switcher;
     private PreviewWindow? _preview;
+    private SearchResultsFlyout? _searchResults;
     private InfoLineWindow? _infoLine;
     private DuoRingWindow? _duoRing;
+    private DynalandWindow? _dynaland;
     private TopStrip? _topStrip;
+    private TopStripCoverWindow? _cover;
+    private bool _coverFailed;
     private bool _layingOut;
-    private bool _topEdgeNoted;
     private DispatcherQueue? _queue;
     private bool _shuttingDown;
 
@@ -174,6 +178,15 @@ internal sealed class ShellHost
     /// <summary>True while a window preview shows above the bar (the bar then stays up).</summary>
     internal bool PreviewShown => _preview?.IsOpen ?? false;
 
+    /// <summary>The results of the bar's search box; made when first needed.</summary>
+    internal SearchResultsFlyout SearchResults => _searchResults ??= new SearchResultsFlyout(this);
+
+    /// <summary>Closes the bar search's results, if they are open.</summary>
+    internal void HideSearchResults()
+    {
+        _searchResults?.HideFlyout();
+    }
+
     /// <summary>The pointer rests on a dock button; <paramref name="button"/> is its place on screen (physical pixels).</summary>
     internal void HoverDockItem(DockItem item, RECT button)
     {
@@ -213,10 +226,11 @@ internal sealed class ShellHost
     }
 
     /// <summary>One pop-up at a time: Start and the other flyouts close.</summary>
-    private void CloseOtherPopups(FlyoutWindow keep)
+    /// <summary>Closes Start and every flyout except <paramref name="keep"/>.</summary>
+    internal void CloseOtherPopups(FlyoutWindow keep)
     {
         StartMenu?.HideMenu();
-        foreach (FlyoutWindow? flyout in new FlyoutWindow?[] { _calendar, _quickSettings, _switcher, _preview })
+        foreach (FlyoutWindow? flyout in new FlyoutWindow?[] { _calendar, _quickSettings, _switcher, _preview, _searchResults })
         {
             if (flyout is not null && !ReferenceEquals(flyout, keep))
             {
@@ -235,15 +249,23 @@ internal sealed class ShellHost
 
         FullScreenAppInFront = fullScreen;
         FullScreenChanged?.Invoke();
+        UpdateCover();
+    }
+
+    /// <summary>True when the bar is placed and docked on that edge of the screen (top or bottom).</summary>
+    internal bool BarOnEdge(bool top)
+    {
+        return BarRect.Width > 0 && (Settings.Current.DockEdge == DockEdge.Top) == top;
     }
 
     /// <summary>
-    /// Where a corner widget goes when another one shares its corner: 0 nearest the corner,
-    /// 1 next to it. The info line comes first.
+    /// The widgets in one corner stand side by side, the info line nearest the corner (or the
+    /// bar), then the ring. This is the room (DIP) the ones before <paramref name="widget"/>
+    /// take, each with the gap after it.
     /// </summary>
-    internal int CornerSlotOf(CornerWidgetWindow widget)
+    internal double WidthBefore(CornerWidgetWindow widget)
     {
-        int slot = 0;
+        double before = 0;
         foreach (CornerWidgetWindow? other in new CornerWidgetWindow?[] { _infoLine, _duoRing })
         {
             if (ReferenceEquals(other, widget))
@@ -253,15 +275,72 @@ internal sealed class ShellHost
 
             if (other is not null && other.IsShown && other.Corner == widget.Corner)
             {
-                slot++;
+                before += other.VisibleWidthDip + CornerWidgetWindow.StackGapDip;
             }
         }
 
-        return slot;
+        return before;
     }
 
-    /// <summary>The top of the strip kept for the top widgets (physical pixels), or null when none is kept.</summary>
-    internal int? TopStripTop => _topStrip?.Granted is RECT strip ? strip.Top : null;
+    /// <summary>The whole row of shown widgets in a corner (DIP): their widths and the gaps between.</summary>
+    internal double CornerRowWidth(ScreenCorner corner)
+    {
+        double row = 0;
+        int count = 0;
+        foreach (CornerWidgetWindow? widget in new CornerWidgetWindow?[] { _infoLine, _duoRing })
+        {
+            if (widget is not null && widget.IsShown && widget.Corner == corner)
+            {
+                row += widget.VisibleWidthDip;
+                count++;
+            }
+        }
+
+        return row + (Math.Max(count - 1, 0) * CornerWidgetWindow.StackGapDip);
+    }
+
+    /// <summary>
+    /// Dynaland's edge: the chosen one, or with Auto the edge without the bar (the top while
+    /// the bar is at the bottom, the bottom while it is at the top).
+    /// </summary>
+    internal bool DynalandOnTop()
+    {
+        ShellSettings settings = Settings.Current;
+        return settings.DynalandPosition switch
+        {
+            DynalandPosition.Top => true,
+            DynalandPosition.Bottom => false,
+            _ => settings.DockEdge != DockEdge.Top,
+        };
+    }
+
+    /// <summary>
+    /// The span (physical pixels) Dynaland's small pill can take when it sits in the bar's own
+    /// band (same edge as the bar, the bar aligned to a side); null otherwise. Widgets that
+    /// continue the bar's row stop before it.
+    /// </summary>
+    internal (int Left, int Right)? DynalandZoneInBarBand => _dynaland?.ZoneInBarBand;
+
+    /// <summary>The bar moved or changed size: the widgets and Dynaland follow it.</summary>
+    internal void NoteBarMoved()
+    {
+        QueueCornerLayout();
+    }
+
+    /// <summary>Places the corner widgets and Dynaland again, soon (a widget's width changed, say).</summary>
+    internal void QueueCornerLayout()
+    {
+        _queue?.TryEnqueue(LayoutCorners);
+    }
+
+    /// <summary>
+    /// The strip Machitan keeps at the free edge (physical pixels), when it is on the given
+    /// edge; null when none is kept there.
+    /// </summary>
+    internal RECT? StripOn(bool top)
+    {
+        return _topStrip?.Granted is RECT strip && _topStrip.OnTop == top ? strip : null;
+    }
 
     /// <summary>
     /// Keeps the top strip as tall as the top widgets need, then places every corner widget
@@ -278,6 +357,10 @@ internal sealed class ShellHost
         try
         {
             UpdateTopStrip();
+            UpdateCover();
+
+            // Dynaland first: widgets continuing the bar's row stop before it.
+            _dynaland?.Place();
             _infoLine?.Place();
             _duoRing?.Place();
         }
@@ -292,45 +375,54 @@ internal sealed class ShellHost
     }
 
     /// <summary>
-    /// One row (10 + 36 + 10 DIP) when a top corner has one widget, two rows when both share a
-    /// top corner; nothing when no widget is meant to be in a top corner, when the setting is
-    /// off, while shutting down, or when the bar itself is docked at the top (its own strip
-    /// already keeps maximised windows below, and the two must not compete).
+    /// Keeps the strip at the free edge (see KeepTopStrip), and places the bar again when the
+    /// strip came, went or changed.
     /// </summary>
     private void UpdateTopStrip()
     {
+        RECT? before = _topStrip?.Granted;
+        KeepTopStrip();
+        RECT? after = _topStrip?.Granted;
+        bool same = before is RECT was ? after is RECT now && now.SameAs(was) : after is null;
+        if (!same)
+        {
+            // The bar's own reservation sits next to the strip; when the strip comes, goes or
+            // changes, the bar is placed again (otherwise a bar moved to the top could stay
+            // below a strip that no longer exists).
+            _bar?.RequestPlacement();
+        }
+    }
+
+    /// <summary>
+    /// The strip at the free edge (the one without the bar): one row (8 + 32 + 8 DIP) when a
+    /// widget is in a corner of that edge (widgets in one corner stand side by side), and at
+    /// least the small Dynaland pill plus a margin while Dynaland is on that edge. Nothing when
+    /// neither is there, when the setting is off, or while shutting down.
+    /// </summary>
+    private void KeepTopStrip()
+    {
         ShellSettings settings = Settings.Current;
-        int rows = 0;
+        bool stripTop = settings.DockEdge != DockEdge.Top;
+        double dip = 0;
         if (settings.ReserveTopStrip && !_shuttingDown)
         {
-            foreach (ScreenCorner corner in new[] { ScreenCorner.TopLeft, ScreenCorner.TopRight })
+            foreach (CornerWidgetWindow? widget in new CornerWidgetWindow?[] { _infoLine, _duoRing })
             {
-                int inCorner = 0;
-                foreach (CornerWidgetWindow? widget in new CornerWidgetWindow?[] { _infoLine, _duoRing })
+                bool widgetTop = widget is not null && widget.Corner is ScreenCorner.TopLeft or ScreenCorner.TopRight;
+                if (widget is not null && widget.WantsSpace && widgetTop == stripTop)
                 {
-                    if (widget is not null && widget.WantsSpace && widget.Corner == corner)
-                    {
-                        inCorner++;
-                    }
+                    dip = (2 * CornerWidgetWindow.EdgeMarginDip) + CornerWidgetWindow.LineHeightDip;
                 }
-
-                rows = Math.Max(rows, inCorner);
             }
-        }
 
-        if (rows > 0 && settings.DockEdge == DockEdge.Top)
-        {
-            if (!_topEdgeNoted)
+            if (_dynaland is { WantsSpace: true } dynaland && DynalandOnTop() == stripTop)
             {
-                _topEdgeNoted = true;
-                Log.Info("Top strip: not kept while the bar is docked at the top.");
+                dip = Math.Max(dip, dynaland.StripNeedDip);
             }
-
-            rows = 0;
         }
 
         nint bar = BarHandle;
-        if (rows == 0 || bar == 0 || !User32.TryGetMonitorRect(bar, out RECT monitor))
+        if (dip <= 0 || bar == 0 || !User32.TryGetMonitorRect(bar, out RECT monitor))
         {
             _topStrip?.Release();
             return;
@@ -338,9 +430,6 @@ internal sealed class ShellHost
 
         uint dpi = User32.GetDpiForWindow(bar);
         double scale = (dpi == 0 ? 96 : dpi) / 96.0;
-        double dip = (2 * CornerWidgetWindow.EdgeMarginDip)
-            + (rows * CornerWidgetWindow.LineHeightDip)
-            + ((rows - 1) * CornerWidgetWindow.StackGapDip);
 
         if (_topStrip is null)
         {
@@ -348,7 +437,75 @@ internal sealed class ShellHost
             _topStrip.Moved += () => _queue?.TryEnqueue(LayoutCorners);
         }
 
-        _topStrip.Set(monitor, (int)Math.Round(dip * scale));
+        _topStrip.Set(monitor, (int)Math.Round(dip * scale), stripTop);
+    }
+
+    /// <summary>
+    /// The optional cover over the top strip: shown while the setting is on, the strip is kept
+    /// and no full-screen app is in front; the widgets and Dynaland go back above it when it moves.
+    /// </summary>
+    private void UpdateCover()
+    {
+        CoverTint? before = CoverTintNow;
+        try
+        {
+            ShowOrHideCover();
+        }
+        finally
+        {
+            if (CoverTintNow != before)
+            {
+                CoverChanged?.Invoke();
+            }
+        }
+    }
+
+    /// <summary>Raised when the cover appears, goes, or changes colour or opacity.</summary>
+    internal event Action? CoverChanged;
+
+    private CoverTint? CoverTintNow => _cover is { IsShown: true } cover ? cover.Tint : null;
+
+    /// <summary>
+    /// The cover's colour over <paramref name="region"/> (physical pixels), or null when no cover
+    /// is shown there. The status ring blends it with the wallpaper to choose its ink.
+    /// </summary>
+    internal CoverTint? CoverOver(RECT region)
+    {
+        if (_cover is not { IsShown: true } cover || _topStrip?.Granted is not RECT strip)
+        {
+            return null;
+        }
+
+        bool overlaps = region.Left < strip.Right && region.Right > strip.Left && region.Top < strip.Bottom && region.Bottom > strip.Top;
+        return overlaps ? cover.Tint : null;
+    }
+
+    private void ShowOrHideCover()
+    {
+        ShellSettings settings = Settings.Current;
+        if (!settings.TopStripCover || _shuttingDown || FullScreenAppInFront || _topStrip?.Granted is not RECT strip || _coverFailed)
+        {
+            _cover?.HideCover();
+            return;
+        }
+
+        try
+        {
+            _cover ??= new TopStripCoverWindow();
+            nint bar = BarHandle;
+            uint dpi = bar != 0 ? User32.GetDpiForWindow(bar) : 96;
+            if (_cover.ShowOver(strip, settings, (dpi == 0 ? 96 : dpi) / 96.0))
+            {
+                _infoLine?.KeepOnTop();
+                _duoRing?.KeepOnTop();
+                _dynaland?.KeepOnTop();
+            }
+        }
+        catch (Exception ex)
+        {
+            _coverFailed = true;
+            Log.Error("The top strip cover could not be shown; it stays off this run.", ex);
+        }
     }
 
     /// <summary>Where the bar is on screen, in physical pixels (empty before it is placed).</summary>
@@ -402,7 +559,7 @@ internal sealed class ShellHost
         Log.Info("Shell started.");
     }
 
-    /// <summary>The info line and the status ring; each one that fails stays off for this run.</summary>
+    /// <summary>The info line, the status ring and Dynaland; each one that fails stays off for this run.</summary>
     private void StartCornerWidgets()
     {
         try
@@ -425,6 +582,17 @@ internal sealed class ShellHost
         {
             _duoRing = null;
             Log.Error("The status ring could not be created; it stays off this run.", ex);
+        }
+
+        try
+        {
+            _dynaland = new DynalandWindow(this);
+            _dynaland.Start();
+        }
+        catch (Exception ex)
+        {
+            _dynaland = null;
+            Log.Error("Dynaland could not be created; it stays off this run.", ex);
         }
     }
 
@@ -461,13 +629,15 @@ internal sealed class ShellHost
         try
         {
             StartMenu?.HideMenu();
-            foreach (FlyoutWindow? flyout in new FlyoutWindow?[] { _calendar, _quickSettings, _switcher, _preview })
+            foreach (FlyoutWindow? flyout in new FlyoutWindow?[] { _calendar, _quickSettings, _switcher, _preview, _searchResults })
             {
                 flyout?.HideFlyout();
             }
 
             _infoLine?.Stop();
             _duoRing?.Stop();
+            _dynaland?.Stop();
+            _cover?.HideCover();
 
             // Maximised windows get the top of the screen back at once.
             _topStrip?.Dispose();
@@ -498,6 +668,7 @@ internal sealed class ShellHost
                      ("quick settings", _quickSettings),
                      ("the switcher", _switcher),
                      ("the window preview", _preview),
+                     ("the search results", _searchResults),
                  })
         {
             if (flyout is not null)
@@ -514,6 +685,16 @@ internal sealed class ShellHost
         if (_duoRing is DuoRingWindow duoRing)
         {
             steps.Enqueue(("the status ring", duoRing.Close));
+        }
+
+        if (_dynaland is DynalandWindow dynaland)
+        {
+            steps.Enqueue(("Dynaland", dynaland.Close));
+        }
+
+        if (_cover is TopStripCoverWindow cover)
+        {
+            steps.Enqueue(("the top strip cover", cover.Close));
         }
 
         if (_queue is null || !_queue.TryEnqueue(DispatcherQueuePriority.Low, () => RunShutdownSteps(steps)))

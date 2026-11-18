@@ -47,6 +47,21 @@ internal static class PopupPlacement
         return Clamp(screen, x, y, width, height);
     }
 
+    /// <summary>
+    /// Next to the bar like <see cref="BesideBar"/>, but with the window's left edge at
+    /// <paramref name="left"/> (physical pixels, padding included), e.g. lined up with a box on the bar.
+    /// </summary>
+    internal static RectInt32 BesideBarFrom(ShellHost host, int left, int width, int height, int pad, int gap)
+    {
+        RectInt32 screen = DisplayArea.Primary.OuterBounds;
+        RECT bar = host.BarRect;
+        bool top = host.Settings.Current.DockEdge == DockEdge.Top;
+        int y = bar.Width > 0
+            ? (top ? bar.Bottom + gap - pad : bar.Top - gap - height + pad)
+            : screen.Y + screen.Height - height - gap;
+        return Clamp(screen, left, y, width, height);
+    }
+
     /// <summary>In the middle of the screen.</summary>
     internal static RectInt32 ScreenCentre(int width, int height)
     {

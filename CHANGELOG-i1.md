@@ -461,7 +461,7 @@ Split in two parts: 1 the two corner widgets (info line and status ring); 2 Dyna
 
 ### Part 1 - Corner widgets
 
-**Status: delivered, waiting for build and run report.**
+**Status: GREEN (Sam, 2026-11-18).** After rounds 1 and 2 below, everything works; the log shows the ring following seven wallpaper changes in a row, each within about a second.
 
 Built:
 
@@ -493,3 +493,202 @@ Sam asked for five changes before testing further:
 3. **Ring follows the wallpaper** (`Visuals/WallpaperSampler.cs`): Machitan reads Windows' own wallpaper record for the ring's screen (`IDesktopWallpaper`: picture, fit, background colour; `Interop/DesktopWallpaper.cs`), decodes a small copy (at most 640 px), places it the way Windows shows it (fill, fit, stretch, centre, tile; span judged as fill) and samples the area behind the ring (48 x 8 points). The ink is white or near-black, whichever contrasts more on average. When more than 15 % of that area has under 3:1 contrast with the ink (a busy or mixed wallpaper), a soft backing in the opposite tone appears behind the ring (black at 35 % under white ink, white at 55 % under dark ink); otherwise there is still no background at all. Read again when Windows reports a new wallpaper, when the ring moves or gets much wider or narrower, and every 30 s if Windows' record changed (slideshows). The choice is logged when it changes ("Status ring: the wallpaper behind it is ..."). If the wallpaper cannot be read, the ring keeps the theme's colours.
 4. **Volume dots**, Sam's rule, on the percentage Windows shows: 0 % none, 1-25 % one, 26-50 % two, 51-75 % three, 76-100 % four. Muted shows none.
 5. **Seconds on the info line** (`InfoLineShowSeconds`, off by default): Windows' long time format when on.
+
+#### Part 1 round 2 (Sam, 2026-11-18)
+
+Everything works except one thing: after a wallpaper change the ring kept its old colours until Machitan was started again. The log showed why: in the run where the wallpaper was changed, the ring judged the wallpaper once at start and never again (the next start read the new, darker picture at once: luminance 0.66 before, 0.10 after). So neither Windows' "wallpaper changed" notice (WM_SETTINGCHANGE) reached the ring, nor did the 30-second check see a difference: it compared only what Windows' wallpaper record (IDesktopWallpaper) reported, which apparently kept giving the old answer inside a program that was already running.
+
+Fix:
+- **Noticed from what always changes** (`Visuals/WallpaperWatcher.cs`, new): a background thread is woken by Windows the moment it writes the wallpaper settings in the registry (`HKCU\Control Panel\Desktop`, and `...\Explorer\Wallpapers` for slideshows and per-screen pictures; `RegNotifyChangeKeyValue`, `Interop/Advapi32.cs`), and the file Windows actually shows (`TranscodedWallpaper` and its siblings in the Themes folder) is watched for writes. Notices are bundled into one check about a second after the last, plus one more 4 seconds later (Windows can finish writing the picture after the registry). Windows' notice and the 30-second check stay as extra triggers.
+- **Read from the registry too** (`WallpaperSampler.ReadSettings`): when every screen shows the same picture (always so with one screen), the picture's path, its fit (`WallpaperStyle`, `TileWallpaper`) and the background colour (`Control Panel\Colors\Background`) are read from the registry, which is current at once; Windows' wallpaper record still gives the screens, and the per-screen pictures when they differ. The comparison also includes the write time and size of both the picture and the file Windows shows.
+- The log now names the file and where its path came from ("... a picture (fill, img19.jpg) from the registry ..."), and says when a change was seen and why ("Status ring: the wallpaper changed (Windows' wallpaper settings changed); reading it again.").
+
+### Part 2 - Dynaland
+
+**Status: GREEN (Sam, 2026-11-18)**, reworked by the additional prompt below; see there.
+
+Built (`Widgets/DynalandWindow.cs`, `Shell/MediaService.cs`, `Visuals/TrackAccent.cs`):
+
+- **Look, Notch Nook style**: a black pill hanging from the top edge of the bar's screen, centred, with square top corners and round bottom corners (12 DIP collapsed, 22 DIP open) and a faint 1 px edge so it shows on dark wallpapers. Always dark, whatever the theme. When the bar is docked at the top it hangs below the bar instead.
+- **Collapsed (32 DIP tall)**: the clock when nothing is playing; while something plays, its cover (20 DIP), its title and a note in the cover's colour (a pause sign while paused). The pill fits its content (96 to 270 DIP).
+- **Open on hover** (after 0.14 s; closes 0.38 s after the pointer leaves; a click on the collapsed pill opens it at once): 400 x 152 DIP with the clock and the playing app's name on top, the cover (64 DIP), title and artist, previous / play-pause / next (each enabled only when the app allows it), and the position with elapsed and total time when the app reports a timeline (moved on between the app's reports while playing). Nothing playing: a large clock, the date, and "Nothing is playing".
+- **Data**: Windows' media controls (`GlobalSystemMediaTransportControlsSessionManager`): the current session, its title, artist, cover, state, timeline and allowed controls; events from Windows are handled on the UI thread; play/pause, next and previous are passed to the app. A session without a title shows nothing. The app's name comes from Machitan's app list (by app ID or exe), else from Windows' ID.
+- **Accent from the cover**: the cover is decoded small (40 x 40) and the strongest hue is taken (pixels weighted by colour and brightness; greys and near-blacks ignored), then made light enough to read on black. Used for the progress bar, the play/pause sign and the collapsed note. A cover without real colour gives a neutral light grey, not an invented colour. The first accent per run is logged.
+- **Animation, per the spec**: the window has one fixed size and never resizes. The pill is a Composition shape (`CompositionRoundedRectangleGeometry` in a `ShapeVisual`) whose size, position and corner radius animate (0.3 s, slight overshoot); the two contents cross-fade through their Composition visuals. All Composition objects are held for the window's life.
+- **Click-through when collapsed**: the window is cut to the pill. While collapsed only the small pill takes the pointer; everything else in the window lets clicks through. When opening, the window takes the large outline first; when closing, it keeps it until the pill has shrunk, so the animation is never cut off.
+- Never takes focus; steps aside for full-screen apps; kept in place and on top every 2 seconds; re-placed after screen changes.
+- **Top strip**: while Dynaland is on, the strip at the top keeps at least the collapsed pill plus a margin (40 DIP), so maximised windows also start below it when no corner widget is at the top. The open view still floats over windows (hover only).
+- **Settings**: the Dynaland switch is live (no more "not built yet").
+- **Shutdown**: Dynaland hides with the other pop-ups and closes in its own turn ("Shutdown: closing Dynaland").
+- Left for Batch 6: the Tray section (spike-gated).
+
+To check:
+
+1. Clean build: 0 errors, 0 warnings.
+2. Nothing playing: a small black pill at the top centre with the clock. Hover: it opens to the large clock, the date and "Nothing is playing"; move away: it closes.
+3. Play music (Spotify, a browser tab, Media Player): the pill shows the cover and the title, and the note takes the cover's colour. Hover: cover, title, artist, app name, the position moving, and the controls; previous, play/pause and next work.
+4. Pause: the note becomes a pause sign; the play/pause button shows play.
+5. Clicks next to the collapsed pill reach the window below (for example a browser tab under it).
+6. A full-screen video: Dynaland steps aside and comes back after.
+7. Settings: turn Dynaland off and on.
+8. Exit: "Shutdown: closing Dynaland" in the log.
+
+## Ring + Dynaland (additional prompt)
+
+Sam, 2026-11-18. An additional prompt on top of the existing build (not a restart): it changes only the corner duo ring and Dynaland, plus three settings fields. The bar, the Start menu and the Settings window UI are not touched (one line in the Settings window follows the renamed ring setting). The corner info line stays as built in Batch 5.
+
+**Status: GREEN (Sam, 2026-11-18)**, after rounds 1-7 below (r14-r21). The log of the last run is clean: no errors or warnings; Dynaland and the strip followed the bar between the edges, and the bar minimised Settings on a second click. Batch 5 is done.
+
+### Duo ring
+
+- **A capsule now** (supersedes "10 px corners"): 36 DIP tall, fully round (18 DIP), like the info line. The rim still runs up the left, across the top, down the right and in along the bottom from both corners to the volume-dot gap; with the full radius each end of the rim is a half circle. Window cut and the optional backing use the same 18 DIP radius.
+- **Wi-Fi icon 19 DIP** (was 16): three arcs and a dot, lit by signal.
+- Everything else as built: real battery, network and volume; states "Connecting...", "No signal", "Plane mode"; click sends Win+A to Windows; movable to any corner; stacks under the info line when they share a corner (no overlap); see-through window (no acrylic).
+- **Kept from Sam's earlier request** (round 1 of Batch 5 part 1, confirmed by Sam in round 1 below): ink follows the wallpaper, and a soft backing appears only where the wallpaper behind the ring is too busy to read. On a calm wallpaper there is no background, as the prompt says.
+
+### Dynaland
+
+- **Idle is a small empty pill** (110 x 32 DIP) and does nothing: no clock (the info line owns the time), no media, no tray strip; hovering an idle pill does not open it.
+- **It grows only for live things:**
+  - **Music** (Windows' media controls): the pill widens to the cover, title and a note in the cover's colour; hovering opens the full view (app name, cover, title, artist, previous / play-pause / next, position). When a new track starts playing, the full view also shows by itself for 4 seconds. The clock was removed from this view too.
+  - **Volume change**: the pill shows the level (icon, bar, percentage, or "Muted") for 1.8 s. Read from Core Audio four times a second; the first reading after showing only sets the start, so starting Machitan does not flash it.
+  - **Camera / microphone use**: when a use starts, an "In use now" view opens for 4 seconds, naming the device and the apps (also on hover while in use).
+- **Privacy dots**: a green camera dot and an orange mic dot on the pill in every state (idle, music, volume, open), only while the device is in use. **Detection** (`Shell/PrivacyMonitor.cs`): Windows records each app's camera and microphone use in the registry under `HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam` and `\microphone` (Store apps by package family name, desktop apps under `NonPackaged` by exe path), with `LastUsedTimeStart` and `LastUsedTimeStop`; while an app uses the device its stop time is 0. These are the records Windows' own privacy indicator uses. Machitan only reads them: it never opens the camera or the microphone. A desktop app counts only while its exe is running, so a crashed app cannot leave a stale dot. A background thread is woken by Windows when the records change (`RegNotifyChangeKeyValue` on both keys and their subkeys) and also checks every 3 seconds. App names come from Machitan's app list (Store apps) or the exe's description (desktop apps). Each start of use is logged ("Privacy: Camera: ... Microphone: ...").
+- **Not for notifications**: Machitan is unpackaged and cannot see a notification arrive; nothing expands for one. Notifications wait for the packaging conversation (Sam's call).
+- **Click opens the Dynaland centre** (changed to hover in round 1 below) (`Flyouts/DynalandCentre.cs`), under the pill: (1) "In use now", from the same records as the dots, each device with its dot colour and the apps using it, or "Nothing is using the camera or the microphone."; (2) Notifications: one button, "Open Windows' notification centre", which sends Win+N to Windows. There is no notification list. Closes on Esc, on a click elsewhere, and on a second click on Dynaland; it closes the other Machitan pop-ups when it opens and is closed with them. While it is open the pill stays collapsed. A click on Dynaland's media buttons does not open it.
+- Unchanged: Notch Nook look, fixed-size see-through window, pill animated inside through Composition (never `AppWindow.Resize`), window cut to the pill so everything around it lets clicks through, cover-art accent, full-screen step-aside, top strip of at least 40 DIP while Dynaland is on.
+
+### Settings (model and settings file only)
+
+- `ShowDuoRing` (default true): the ring's switch, renamed from `DuoRingEnabled`. An existing file's `DuoRingEnabled` value is read, so the saved choice carries over; the old key is dropped on the next save. The Settings window's ring switch now uses the new name.
+- `DuoRingCorner` (default "TopRight"): unchanged.
+- `ShowPrivacyDots` (default true): Dynaland's camera and mic dots and its "In use now" view on the pill. The centre's "In use now" row stays either way. No Settings-window row (that is Batch 3's job, per the prompt).
+- `EnableDynaland`: unchanged. Enums are still written as names.
+
+### Left out, and why
+
+- **The tray grid in the Dynaland centre**: its spike has not been run. The verified lead, FlaUI.UIA3, means two new packages (`FlaUI.Core`, `FlaUI.UIA3`), and the rule is to ask first; Sam has been asked. The other lead, `TB_GETBUTTON`, reads the old Win32 toolbar of the notification area, which Windows 11's new taskbar no longer uses; it was not tried. No placeholder or invented tray icons are shown: the centre holds the privacy row and the notification-centre button only.
+- No notification list, no toast log, no timer feature, no notification-triggered expansion (per the prompt).
+
+### To check (PASS / FAIL / NOT TESTED)
+
+1. Clean build, 0 errors, 0 warnings; launch; diagnostics log clean.
+2. Ring: a capsule (fully round ends), no background on a calm wallpaper; rim follows the battery; Wi-Fi icon larger, name centred; volume dots; width follows the name; click opens Windows' quick settings.
+3. Dynaland idle: a small empty black pill; no clock; hover does nothing.
+4. Dots: open the Camera app: a green dot appears (and "In use now" opens for 4 s); close it: the dot goes. A call or Voice Recorder: the orange dot.
+5. Music: the pill widens; a new track opens the full view for 4 s; hover opens it; controls work; accent follows the cover.
+6. Volume: change it: the level shows briefly.
+7. Click Dynaland: the centre opens under it (privacy row + notification-centre button); Esc, a click elsewhere, and a second click on Dynaland close it; the button opens Windows' notification centre.
+8. Leave running a few minutes: pill steady; no errors in the log.
+
+### Round 1 (Sam, 2026-11-18)
+
+r14 built and ran: the centre opened under the idle pill (Sam's screenshot). Sam's changes:
+
+- **The centre is a hover flyout now, not a click.** Pointing at Dynaland (idle or not) for 0.14 s shows the centre under the pill; with music playing the pill also opens to the player and the centre sits under the player. It stays while the pointer is on the pill, on the centre, or crossing the gap between them, and goes 0.38 s after the pointer leaves all three (checked every 0.12 s from the cursor position, since the centre is a separate window). It never takes the keyboard (hovering must not pull focus from the app being typed in), so Esc and click-away no longer apply. A click on the pill shows the same at once. Hovering no longer opens the pill's own "In use now" view: the centre shows that; the 4-second "In use now" view when a use starts stays. The centre moves with the pill when the pill opens or closes under it.
+- **The soft backing behind the ring stays** (Sam): only where the wallpaper behind the ring is too busy to read, none on a calm one.
+
+### Round 2 (Sam, 2026-11-18)
+
+Round 1 built and ran (Sam's screenshot: the centre under the idle pill on hover). Sam's changes: the section belongs inside Dynaland itself, not in a separate flyout; and with music playing, the music comes first, with an arrow to the general section.
+
+- **The general page lives inside Dynaland.** Hovering opens Dynaland itself (400 x 152 DIP, like the player):
+  - **With music playing**: on the player first (as before), with a small arrow (chevron right) at the top right, next to the privacy dots, to go to the general page.
+  - **Without music**: straight on the general page.
+  - **General page**: "In use now" (each device with its dot colour and the apps using it, or "Nothing is using the camera or the microphone."), then "Notifications" with the "Open Windows' notification centre" button (closes Dynaland, sends Win+N to Windows). While music plays, a small arrow (chevron left) at the top right goes back to the player.
+  - Each new hover starts on the player again. The pages cross-fade inside the same pill (same size, so the pill does not move). Moving away closes Dynaland (0.38 s, checked from the cursor position as well).
+- **The separate flyout is gone**: `Flyouts/DynalandCentre.cs` is no longer used by anything (removed from `ShellHost` and Dynaland). Sam deletes the file; it still compiles if it stays, so the build does not depend on that.
+- Unchanged: the 4-second "In use now" view when a use starts, the 4-second player view on a new track, the volume display, the dots, the soft backing behind the ring.
+
+### Round 3 (Sam, 2026-11-18)
+
+Round 2 built and ran (Sam's screenshot of the player, app name "WACUP (64-bit)" centred). Sam's seven changes:
+
+1. **Music text scrolls.** The small pill now shows "Title - Artist" (just the title when there is no artist), and the open player's title and artist each scroll sideways when they do not fit, then loop without a jump (a 1.5 s wait first, about 32 DIP a second; the text is drawn twice with a 40 DIP gap). Text that fits stands still. The sliding runs in Composition, so it costs no layout work (`Visuals/Marquee.cs`).
+2. **Machitan's Settings minimises from the bar like other apps.** Clicking its bar icon while it is in front now minimises it. Cause: the bar and Settings share a thread, so a click on the bar moved the focus to the bar's window and Windows reported the bar, not Settings, as in front. The bar now remembers the last active app window (from Windows' shell messages) and uses it whenever the window in front is one of Machitan's own bar or pop-up windows; the desktop or another non-app window clears it. Any window of a group in front counts, not only its first (`Shell/TaskService.cs`).
+3. **Dynaland shape: Notch or Island** (Settings > Dynaland > Shape; new setting `DynalandStyle`, default "Notch"). Notch is as before. Island (iPhone-inspired) floats 8 DIP below the top edge, round all around: a full capsule when small, 30 DIP corners open (28 for the "In use now" view), and the open pages sit a little lower so their top row clears the round corners. Changing it applies at once. The top strip keeps 8 DIP more for the island.
+4. **The app name in the player is left-aligned** (it was centred: a capped width with the default stretch).
+5. **Start search puts the best fit first**: the whole name, then names that start with what was typed, then names with a word that starts with it, then names that contain it; equal fits stay A to Z (pins in pin order). "WACUP" now lists WACUP before Uninstall WACUP, and Enter opens the first one.
+6. **The bar's search icon opens Windows' own search** (Win+S). The search box (Box mode) still opens Machitan's Start with its search box ready.
+7. **Top strip cover** (Settings > Corner widgets; new settings `TopStripCover` off by default, `TopStripCoverColour` "Dark" / "Light" / "Accent", `TopStripCoverOpacity` 10-100%, default 60%). One flat colour over the strip at the top, like a menu bar's background. It shows only while the strip is kept (a top-corner widget or Dynaland is on, "Keep the top free" is on, and the bar is not docked at the top), steps aside for full-screen apps, never takes focus, and the widgets and Dynaland stay above it. See-through window, no acrylic (`Widgets/TopStripCoverWindow.cs`).
+
+Also: Settings > Dynaland now has a **Camera and mic dots** switch (`ShowPrivacyDots` had no row yet), and the Dynaland description no longer mentions a clock.
+
+**To check:**
+
+1. Clean build; launch; log clean.
+2. A long title: the small pill scrolls "Title - Artist"; hover: the long title and artist scroll; short ones stand still.
+3. Open Settings, click its bar icon: it minimises; click again: it comes back. Other apps behave as before.
+4. Settings > Dynaland > Shape > Island: the pill floats below the edge, round all around, in every view; back to Notch.
+5. The player's app name sits on the left.
+6. Start: type "WACUP": WACUP first, Uninstall WACUP after; Enter opens WACUP.
+7. The bar's search icon opens Windows' search.
+8. Settings > Corner widgets > Cover the top strip: the strip fills with the colour; colour and opacity change it live; a full-screen video hides it; off removes it.
+
+### Round 4 (Sam, 2026-11-18)
+
+Round 3 built and ran (Sam's screenshots: the island pill, the cover over the strip, the ring with dark ink on a dark cover). Sam's four changes; Sam chose outward curves for the notch, and the widgets 8 DIP down whatever the shape:
+
+1. **The ring's colours follow the cover too.** When the top strip cover is on, the ring judges what is behind it as the screen shows it: each wallpaper sample is blended with the cover's colour and opacity before the ink (dark or white) and the soft backing are chosen. It judges again whenever the cover appears, goes, or changes colour or opacity. If the wallpaper cannot be read, a cover at 50% or more decides the ink alone. The log line says when the cover was taken into account.
+2. **Settings minimising from the bar, second try.** The r17 fix relied on Windows' shell messages to remember the app in front, and that was not enough. Now Machitan follows every change of the window in front with Windows' foreground event (`SetWinEventHook`, `EVENT_SYSTEM_FOREGROUND`, no new package). When the bar itself has taken the focus (a click on it while Settings is in front: they share a thread), the window in front just before the bar counts, unless it was minimised since. Each click on a running app on the bar now writes one line to the log ("Bar: Settings minimised (it was in front)." or "... brought to the front (in front was ...)"), so a further miss can be traced.
+3. **Info line and ring are smaller and line up with Dynaland**: 32 DIP tall (was 36), the same as Dynaland's small pill, and 8 DIP from the screen's edges (was 10), the island's gap, so with the Island shape all three sit on one line. Text one point smaller (info line 12, ring label 12), side padding 14. The top strip, and so the cover, shrinks from 56 to 48 DIP (8 + 32 + 8); two widgets in one corner need 88.
+4. **The notch's top corners curve outward** into the screen's top edge, like a laptop's notch: a 10 DIP curve on each side, drawn as two small shapes that follow the pill's edges through every animation (an expression on the pill's shape), with the pill's faint outline running along the curves. The window is 20 DIP wider for them, and its cut includes a band along the top edge. If Windows refuses the shapes, the notch keeps square top corners and the log says so. Island is unchanged.
+
+**To check:**
+
+1. Clean build; launch; log clean.
+2. Cover on, dark and nearly solid: the ring turns to white ink; light cover: dark ink; the log line mentions the cover. Change the opacity: the ring follows.
+3. Settings in front, click its bar icon: it minimises; click again: it comes back. If not, send the log (the "Bar:" lines).
+4. Island: info line, Dynaland and ring on one line, the same height. Notch: the widgets stay 8 DIP down.
+5. Notch: the top corners curve out into the edge, idle, with music, open and in the "In use now" view; clicks just beside the curves still reach what is behind.
+
+### Round 5 (Sam, 2026-11-18)
+
+Round 4 built with two warnings (Sam's screenshot of the error list). Sam's three changes:
+
+1. **Both warnings fixed.** CS0108: the ring's private arc helper was called `Corner`, the same name as the widgets' `Corner` property; it is `CornerArc` now. CS8602 in `Visuals/WallpaperWatcher.cs`: the settle timer's handler used the second timer before it was made; that timer is made first now.
+2. **Bar buttons' hover box follows the bar's curve.** Every bar button (Start, search icon, dock apps) had a fixed 10 DIP corner. Now the corner is concentric with the pill the button sits in: the pill's radius minus the gap between the pill's edge and the button. In the capsule pills (Segmented, Joined) that makes the hover box nearly round at the ends, the same curve as the bar; in Classic (16 DIP corners) gently rounded. It follows the bar size.
+3. **Typing in the bar's search box** (Box mode). A click in the box now lets you type right there: the bar takes the keyboard for that (the one time it does; it never does on its own), and the results show in a flyout next to the bar, its left edge lined up with the box (`Flyouts/SearchResultsFlyout.cs`). The search is Start's: app names, best fit first (the ranking is shared now, `Start/SearchRank.cs`), up to 8, with their icons; `files:` searches your own folders (up to 8, needs two letters); `apps:` apps only. The first result is selected; Up and Down move, Enter opens it, a click opens any. Esc clears the box and gives the keyboard back to the window that had it; a click anywhere else, or opening a result, ends the search too. The flyout never takes the keyboard. Honest notes: "No app matches.", "Reading your apps...", "Searching your files...", "No file matches in your folders.". The bar does not auto-hide while you type. If Windows refuses to give the bar the keyboard, the box opens Start's search as before (logged). The search icon still opens Windows' own search.
+
+**To check:**
+
+1. Clean build, no warnings.
+2. Hover a bar button: the hover box's corners follow the bar's curve (Segmented and Classic).
+3. Box mode: click the box, type "wac": WACUP is first in the flyout next to the bar; Down / Up move; Enter opens it; Esc clears and returns to the app you were in; a click elsewhere closes it. Try "files:" and a file name.
+
+### Round 6 (Sam, 2026-11-18)
+
+Round 5 built and ran. Sam tried the bar and the widgets in different places (five screenshots: bar top centred, top left, bottom centred, bottom left, top centred with the widgets at the top). What was wrong, and the fixes:
+
+1. **Bar at the top stayed about 48 px down** (widgets in the top corners). The top strip Machitan keeps for the top widgets was still reserved when the bar moved to the top, so Windows placed the bar below it; the strip was then released (it is never kept while the bar is at the top) but nothing told the bar, so it stayed there. Now, whenever the strip comes, goes or changes, the bar is placed again.
+2. **Nothing followed the bar when it moved.** The widgets and Dynaland are now placed again whenever the bar's position or size changes (alignment, edge, size, apps added or closed).
+3. **Widgets on the bar's edge** (bar at the bottom and widgets in the bottom corners, or both at the top): when the corner is clear of the bar (the widest widget in that corner plus an 8 DIP gap does not reach the bar), the widgets sit in the bar's band, centred on the bar, instead of floating above it. When the bar reaches the corner (aligned to that side, or Classic), they sit just past the bar, 8 DIP from it (it was 8 DIP from the work area, which left an uneven 15 px gap).
+4. **Widgets line up with the bar at the sides**: 16 DIP from the left or right side (the bar's own margin; was 8). Still 8 DIP from the top or bottom edge.
+5. **Dynaland with the bar at the top**: if the bar leaves the top centre free (aligned left or right), Dynaland stays at the screen's top edge, between, in its own shape (it was hanging below the bar's band, in mid-air). If the bar covers the centre, Dynaland floats 8 DIP below the bar with the island's look whatever the shape setting (a notch cannot hang from the bar). The log says which.
+
+**To check:**
+
+1. Bar at the top, centred, widgets in the top corners: the bar is at the very top; the widgets sit beside it in its band, centred on it; Dynaland floats just below the bar as an island.
+2. Bar at the top, aligned left: Dynaland at the top edge in the middle (notch or island as chosen); a top-left widget sits below the bar, 8 DIP from it.
+3. Bar at the bottom, centred, widgets in the bottom corners: the widgets sit beside the bar, centred on it.
+4. Bar at the bottom, aligned left, both widgets bottom left: they stack above the bar, 8 DIP apart, left edges in line with the bar.
+5. Switch edges and alignments back and forth: everything follows without a restart.
+
+### Round 7 (Sam, 2026-11-18)
+
+Round 6 built and ran. Sam confirmed: **Settings now minimises from its bar icon** (r18) and **typing in the bar's search box works** (r19). Sam's two changes:
+
+1. **Dynaland's position** (Settings > Dynaland > Position; new setting `DynalandPosition`: "Auto" (default), "Top", "Bottom"). Auto puts Dynaland on the edge without the bar: the top while the bar is at the bottom, the bottom while the bar is at the top. At the bottom, everything is mirrored: the notch hangs up from the bottom edge with its curves at the bottom corners, the island floats 8 DIP above the edge, the pill grows upward when it opens, and the open pages keep their rows clear of the rounded side. On the bar's own edge (chosen by hand), the r20 rule applies at either edge: beside a bar aligned to a side Dynaland stays at the edge; when the bar covers the centre it floats just past the bar as an island.
+2. **Widgets stand side by side instead of stacking up.** Two widgets in one corner now form a row, 8 DIP apart: the info line nearest the corner, then the ring. On the bar's edge the row sits in the bar's band, centred on the bar: in the corner when it is clear of the bar, or **right after the bar** when the bar is aligned to that side, so bar, info line and ring make one line (it stops before Dynaland when Dynaland sits in the same band). With no room beside the bar (Classic, or a bar too wide), the row sits just past the bar. Each widget now tells the shell its real width (the info line's capsule follows its text, the ring its Wi-Fi name), and the row moves when a width changes.
+3. **The strip moves to the free edge.** Machitan's reserved strip (Settings: "Keep the free edge clear", same setting as before) is now kept at the edge without the bar, for the widgets in that edge's corners and Dynaland when it is there: at the top while the bar is at the bottom, at the bottom while the bar is at the top. One row now (8 + 32 + 8 DIP), since widgets no longer stack. The cover ("Cover the strip") follows the strip.
+
+**To check:**
+
+1. Bar at the bottom, Position Auto: Dynaland at the top (as before). Bar to the top: Dynaland moves to the bottom, mirrored (notch from the bottom edge with curves at the bottom; island 8 DIP above it); hover: it opens upward.
+2. Position Top / Bottom by hand on the bar's edge: beside a left- or right-aligned bar it stays at the edge; with a centred bar it floats just past the bar.
+3. Bar at the bottom aligned left, both widgets bottom left: bar, info line, ring in one line, centred on the bar.
+4. Both widgets in a top corner: side by side; the top strip is one row.
+5. Bar at the top, widgets in the bottom corners: a strip at the bottom keeps maximised windows clear of them; the cover (if on) is at the bottom.
+6. Turn seconds on: the ring beside the info line does not jitter.
+
+**Round 7 result:** GREEN (Sam, 2026-11-18): "everything works properly". Batch 5 is done.

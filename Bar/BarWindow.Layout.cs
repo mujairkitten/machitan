@@ -53,6 +53,10 @@ public sealed partial class BarWindow
         {
             ShellSettings settings = _host.Settings.Current;
 
+            // The search box is rebuilt below; a search in progress ends with it.
+            EndTyping(restoreFocus: false);
+            _searchBox = null;
+
             Root.RequestedTheme = settings.Theme switch
             {
                 ThemeMode.Dark => ElementTheme.Dark,
@@ -248,7 +252,7 @@ public sealed partial class BarWindow
                     FontSize = settings.IconSize * 0.8,
                 };
                 Button search = MakeBarButton(glyph, "Search");
-                search.Click += (_, _) => OpenSearch();
+                search.Click += (_, _) => OpenWindowsSearch();
                 row.Children.Add(search);
                 break;
 
@@ -260,29 +264,19 @@ public sealed partial class BarWindow
         return row;
     }
 
-    /// <summary>
-    /// Box mode: a plain TextBox, 180 DIP wide, acting as a launcher, not a field: a click opens
-    /// Start with its search box focused, where the typing goes. The bar never takes keyboard
-    /// focus (it must not steal it from the app in front), so the box itself stays empty.
-    /// </summary>
-    private TextBox BuildSearchBox()
+    /// <summary>The search icon: Windows' own search flyout, as Win+S opens it.</summary>
+    private static void OpenWindowsSearch()
     {
-        var box = new TextBox
+        if (!KeyChord.SendWin('S'))
         {
-            Width = SearchBoxWidthDip,
-            Height = Math.Max(PillHeightDip() - 14, 28),
-            PlaceholderText = "Search",
-            IsReadOnly = true,
-            IsTabStop = false,
-            VerticalAlignment = VerticalAlignment.Center,
-            CornerRadius = new CornerRadius(Math.Max(PillHeightDip() - 14, 28) / 2),
-        };
-
-        AutomationProperties.SetName(box, "Search");
-        box.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, _) => OpenSearch()), handledEventsToo: true);
-        return box;
+            Log.Warn("Search: Windows did not accept the Win+S key press.");
+        }
     }
 
+    /// <summary>
+    /// Start with its search box focused (Win+S when Start is off): the fallback when Windows
+    /// does not let the bar's own search box take the typing.
+    /// </summary>
     private void OpenSearch()
     {
         if (_host.StartMenu is { } menu)
@@ -334,6 +328,20 @@ public sealed partial class BarWindow
         return grid;
     }
 
+    /// <summary>
+    /// A bar button's corner radius: concentric with the pill it sits in (the pill's radius minus
+    /// the gap between the pill's edge and the button), so the hover box follows the bar's curve
+    /// at any bar size: nearly round in a capsule pill, gently rounded in Classic.
+    /// </summary>
+    private double ButtonRadius(double buttonHeight, double buttonWidth)
+    {
+        double pill = PillHeightDip();
+        double pillRadius = _host.Settings.Current.TaskbarMode == TaskbarMode.Classic ? ClassicRadiusDip : pill / 2;
+        double gap = Math.Max((pill - buttonHeight) / 2, 0);
+        double most = Math.Min(buttonHeight, buttonWidth) / 2;
+        return Math.Max(Math.Min(pillRadius - gap, most), 4);
+    }
+
     /// <summary>A bare bar button: content at the exact centre, no tile at rest, a background only on hover or focus.</summary>
     private Button MakeBarButton(UIElement content, string name)
     {
@@ -348,7 +356,7 @@ public sealed partial class BarWindow
             MinWidth = 0,
             MinHeight = 0,
             Padding = new Thickness(0),
-            CornerRadius = new CornerRadius(10),
+            CornerRadius = new CornerRadius(ButtonRadius(height, settings.IconSize + 20)),
             BorderThickness = new Thickness(0),
             Background = new SolidColorBrush(Colors.Transparent),
             HorizontalContentAlignment = HorizontalAlignment.Center,

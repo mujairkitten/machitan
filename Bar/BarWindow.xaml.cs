@@ -128,6 +128,7 @@ public sealed partial class BarWindow : Window
 
         _host.Tasks.AttachShellHook(_hwnd, _subclass.IsInstalled);
         _shellHookMessage = _host.Tasks.ShellHookMessage;
+        Activated += OnBarActivated;
         _host.Tasks.Changed += OnTasksChanged;
         _host.Settings.Changed += OnSettingsChanged;
         _host.Pins.Changed += OnPinsChanged;
@@ -425,7 +426,13 @@ public sealed partial class BarWindow : Window
             int y = stripRect.Top + ((stripRect.Height - pillHeight) / 2);
 
             // The visible bar; the window is the same rectangle grown by the pad on every side.
+            RECT previous = _barRect;
             _barRect = new RECT { Left = x, Top = y, Right = x + barWidth, Bottom = y + pillHeight };
+            if (!previous.SameAs(_barRect))
+            {
+                // The corner widgets and Dynaland place themselves around the bar.
+                _host.NoteBarMoved();
+            }
             var windowRect = new RECT
             {
                 Left = x - pad,
@@ -685,7 +692,7 @@ public sealed partial class BarWindow : Window
 
             bool overBar = _barRect.Contains(cursor, HoverSlackPx);
             bool startOpen = _host.StartMenu?.IsOpen ?? false;
-            if (overBar || atEdge || _menuOpen || startOpen || _host.PreviewShown)
+            if (overBar || atEdge || _menuOpen || startOpen || _host.PreviewShown || _typing)
             {
                 if (now > _lastInsideTick)
                 {
@@ -1090,6 +1097,12 @@ public sealed partial class BarWindow : Window
     private void QueuePlacement(bool forceReservation)
     {
         DispatcherQueue.TryEnqueue(() => ApplyPlacement(forceReservation));
+    }
+
+    /// <summary>The shell's top strip came, went or changed: the bar takes its place again.</summary>
+    internal void RequestPlacement()
+    {
+        QueuePlacement(forceReservation: true);
     }
 
     // ---------------------------------------------------------------- pointer, menus, closing

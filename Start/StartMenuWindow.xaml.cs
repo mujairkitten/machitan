@@ -499,21 +499,35 @@ public sealed partial class StartMenuWindow : Window
         }
     }
 
-    private bool Matches(string name)
+    private const int NoMatch = SearchRank.NoMatch;
+
+    /// <summary>How well a name fits what was typed (see SearchRank; shared with the bar's search box).</summary>
+    private int Rank(string name) => SearchRank.Of(name, _query);
+
+    /// <summary>Best fit first; equal fits keep their usual order (pin order, or A to Z).</summary>
+    private static int ByRank((int Rank, int Index) a, (int Rank, int Index) b)
     {
-        return _query.Length == 0 || name.Contains(_query, StringComparison.CurrentCultureIgnoreCase);
+        return a.Rank != b.Rank ? a.Rank.CompareTo(b.Rank) : a.Index.CompareTo(b.Index);
     }
 
     /// <summary>Shows only matching pins and apps (or the file results), with honest empty states.</summary>
     private void ApplyFilter()
     {
         PinnedPanel.Children.Clear();
-        foreach ((PinnedApp pin, FrameworkElement tile) in _pinTiles)
+        var pins = new List<(int Rank, int Index)>();
+        for (int i = 0; i < _pinTiles.Count; i++)
         {
-            if (Matches(pin.Name))
+            int rank = Rank(_pinTiles[i].Pin.Name);
+            if (rank != NoMatch)
             {
-                PinnedPanel.Children.Add(tile);
+                pins.Add((rank, i));
             }
+        }
+
+        pins.Sort(ByRank);
+        foreach (var (_, index) in pins)
+        {
+            PinnedPanel.Children.Add(_pinTiles[index].Tile);
         }
 
         if (_pinTiles.Count == 0)
@@ -548,13 +562,35 @@ public sealed partial class StartMenuWindow : Window
         FilesPanel.Visibility = Visibility.Collapsed;
 
         int shown = 0;
-        foreach (AppRow row in _appRows)
+        var order = new List<(int Rank, int Index)>(_appRows.Count);
+        for (int i = 0; i < _appRows.Count; i++)
         {
-            bool match = Matches(row.App.Name);
+            AppRow row = _appRows[i];
+            int rank = Rank(row.App.Name);
+            bool match = rank != NoMatch;
             row.Row.Visibility = match ? Visibility.Visible : Visibility.Collapsed;
             if (match)
             {
                 shown++;
+            }
+
+            order.Add((rank, i));
+        }
+
+        // Best fit at the top (Enter opens the first one); rows are moved only when the order changes.
+        order.Sort(ByRank);
+        bool sameOrder = AppsPanel.Children.Count == order.Count;
+        for (int i = 0; sameOrder && i < order.Count; i++)
+        {
+            sameOrder = ReferenceEquals(AppsPanel.Children[i], _appRows[order[i].Index].Row);
+        }
+
+        if (!sameOrder)
+        {
+            AppsPanel.Children.Clear();
+            foreach (var (_, index) in order)
+            {
+                AppsPanel.Children.Add(_appRows[index].Row);
             }
         }
 
@@ -945,7 +981,7 @@ public sealed partial class StartMenuWindow : Window
         return source;
     }
 
-    private static async Task<BitmapImage> LoadBitmapAsync(byte[] bytes, int decodePixels)
+    internal static async Task<BitmapImage> LoadBitmapAsync(byte[] bytes, int decodePixels)
     {
         var bitmap = new BitmapImage
         {
@@ -960,7 +996,7 @@ public sealed partial class StartMenuWindow : Window
         return bitmap;
     }
 
-    private static WriteableBitmap ToBitmap(IconPixels pixels)
+    internal static WriteableBitmap ToBitmap(IconPixels pixels)
     {
         var bitmap = new WriteableBitmap(pixels.Width, pixels.Height);
         using (Stream stream = bitmap.PixelBuffer.AsStream())

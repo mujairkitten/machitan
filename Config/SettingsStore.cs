@@ -131,7 +131,14 @@ internal sealed class SettingsStore
             _document["WeatherPlaceName"] = s.WeatherPlaceName;
             _document["WeatherLatitude"] = s.WeatherLatitude;
             _document["WeatherLongitude"] = s.WeatherLongitude;
-            _document["DuoRingEnabled"] = s.DuoRingEnabled;
+            _document["ShowDuoRing"] = s.ShowDuoRing;
+            _document.Remove("DuoRingEnabled");
+            _document["ShowPrivacyDots"] = s.ShowPrivacyDots;
+            _document["DynalandStyle"] = s.DynalandStyle.ToString();
+            _document["DynalandPosition"] = s.DynalandPosition.ToString();
+            _document["TopStripCover"] = s.TopStripCover;
+            _document["TopStripCoverColour"] = s.TopStripCoverColour.ToString();
+            _document["TopStripCoverOpacity"] = s.TopStripCoverOpacity;
             _document["DuoRingCorner"] = s.DuoRingCorner.ToString();
             _document["ReserveTopStrip"] = s.ReserveTopStrip;
             _document["CalendarShowSeconds"] = s.CalendarShowSeconds;
@@ -385,13 +392,69 @@ internal sealed class SettingsStore
             NoteUnreadable(document, "InfoLineCorner");
         }
 
-        if (TryBool(document["DuoRingEnabled"], out bool duoRing))
+        // The old name is still read, so a saved choice carries over.
+        if (TryBool(document["ShowDuoRing"], out bool duoRing)
+            || TryBool(document["DuoRingEnabled"], out duoRing))
         {
-            s.DuoRingEnabled = duoRing;
+            s.ShowDuoRing = duoRing;
         }
         else
         {
-            NoteUnreadable(document, "DuoRingEnabled");
+            NoteUnreadable(document, "ShowDuoRing");
+        }
+
+        if (TryBool(document["ShowPrivacyDots"], out bool privacyDots))
+        {
+            s.ShowPrivacyDots = privacyDots;
+        }
+        else
+        {
+            NoteUnreadable(document, "ShowPrivacyDots");
+        }
+
+        if (TryEnum(document["DynalandStyle"], out DynalandStyle dynalandStyle))
+        {
+            s.DynalandStyle = dynalandStyle;
+        }
+        else
+        {
+            NoteUnreadable(document, "DynalandStyle");
+        }
+
+        if (TryEnum(document["DynalandPosition"], out DynalandPosition dynalandPosition))
+        {
+            s.DynalandPosition = dynalandPosition;
+        }
+        else
+        {
+            NoteUnreadable(document, "DynalandPosition");
+        }
+
+        if (TryBool(document["TopStripCover"], out bool cover))
+        {
+            s.TopStripCover = cover;
+        }
+        else
+        {
+            NoteUnreadable(document, "TopStripCover");
+        }
+
+        if (TryEnum(document["TopStripCoverColour"], out StripCoverColour coverColour))
+        {
+            s.TopStripCoverColour = coverColour;
+        }
+        else
+        {
+            NoteUnreadable(document, "TopStripCoverColour");
+        }
+
+        if (TryDouble(document["TopStripCoverOpacity"], out double coverOpacity))
+        {
+            s.TopStripCoverOpacity = coverOpacity;
+        }
+        else
+        {
+            NoteUnreadable(document, "TopStripCoverOpacity");
         }
 
         if (TryEnum(document["DuoRingCorner"], out ScreenCorner duoCorner))

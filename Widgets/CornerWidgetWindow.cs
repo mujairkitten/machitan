@@ -23,11 +23,20 @@ namespace Machitan.Widgets;
 /// </summary>
 public abstract partial class CornerWidgetWindow : Window
 {
-    /// <summary>Every widget is one line this tall (DIP), per the spec.</summary>
-    internal const double LineHeightDip = 36;
+    /// <summary>
+    /// Every widget is one line this tall (DIP): the same as Dynaland's small pill, so a widget
+    /// in a top corner lines up with the island-shaped pill (Sam, 2026-11-18).
+    /// </summary>
+    internal const double LineHeightDip = 32;
 
-    /// <summary>Space between a widget and the screen's edge (DIP).</summary>
-    internal const double EdgeMarginDip = 10;
+    /// <summary>Space between a widget and the screen's top or bottom edge (DIP): the island's gap.</summary>
+    internal const double EdgeMarginDip = 8;
+
+    /// <summary>
+    /// Space between a widget and the screen's left or right side (DIP): the bar's, so a widget
+    /// and a bar aligned to the same side line up (Sam, 2026-11-18).
+    /// </summary>
+    internal const double SideMarginDip = 16;
 
     /// <summary>Space between two widgets in one corner (DIP).</summary>
     internal const double StackGapDip = 8;
@@ -110,6 +119,18 @@ public abstract partial class CornerWidgetWindow : Window
     /// <summary>The corner the settings put this widget in.</summary>
     internal ScreenCorner Corner => CornerOf(Host.Settings.Current);
 
+    /// <summary>The widget's visible width now (DIP), for standing widgets side by side.</summary>
+    internal double VisibleWidthDip => ShapeWidthDip();
+
+    /// <summary>The visible shape's width (DIP); the whole window unless the widget says otherwise.</summary>
+    private protected virtual double ShapeWidthDip() => _widthDip;
+
+    /// <summary>The visible width changed: the widgets beside this one move.</summary>
+    private protected void NoteShapeWidthChanged()
+    {
+        Host.QueueCornerLayout();
+    }
+
     private protected ShellHost Host { get; }
 
     private protected nint Hwnd { get; }
@@ -147,9 +168,12 @@ public abstract partial class CornerWidgetWindow : Window
     }
 
     /// <summary>
-    /// Puts the window in its corner: in the work area of the bar's screen, 10 DIP from the
-    /// edges, below (or above) any widget that shares the corner. A top corner sits inside the
-    /// top strip when Machitan keeps one. Moves it only when needed.
+    /// Puts the window in its corner of the bar's screen: 8 DIP from the top or bottom edge and
+    /// 16 DIP (the bar's margin) from the side; widgets sharing a corner stand side by side, 8 DIP
+    /// apart. At the free edge they sit in Machitan's strip when one is kept. On the bar's own
+    /// edge they sit in the bar's band, centred on the bar: in the corner when it is clear of
+    /// the bar, or right after the bar when the bar is aligned to that side; with no room
+    /// beside the bar, just past it (8 DIP). Moves it only when needed.
     /// </summary>
     internal void Place()
     {
@@ -172,17 +196,58 @@ public abstract partial class CornerWidgetWindow : Window
             ScreenCorner corner = Corner;
             bool left = corner is ScreenCorner.TopLeft or ScreenCorner.BottomLeft;
             bool top = corner is ScreenCorner.TopLeft or ScreenCorner.TopRight;
-            int slot = Host.CornerSlotOf(this);
 
+            int pad = (int)Math.Round(PadDip * scale);
             int width = (int)Math.Round((_widthDip + (2 * PadDip)) * scale);
             int height = (int)Math.Round((LineHeightDip + (2 * PadDip)) * scale);
-            int margin = (int)Math.Round((EdgeMarginDip - PadDip) * scale);
-            int stack = (int)Math.Round(slot * (LineHeightDip + StackGapDip) * scale);
+            int line = (int)Math.Round(LineHeightDip * scale);
+            int edge = (int)Math.Round(EdgeMarginDip * scale);
+            int side = (int)Math.Round(SideMarginDip * scale);
+            int gap = (int)Math.Round(StackGapDip * scale);
 
-            // The top strip is part of the screen's edge, not of the work area below it.
-            int topEdge = top && Host.TopStripTop is int stripTop ? stripTop : work.Top;
-            int x = left ? work.Left + margin : work.Right - margin - width;
-            int y = top ? topEdge + margin + stack : work.Bottom - margin - height - stack;
+            // The widgets of a corner stand side by side in one row: "start" is where the row
+            // begins (its left end in a left corner, its right end in a right corner), "offset"
+            // how far along the row this widget is, "row" the whole row's width.
+            int offset = (int)Math.Round(Host.WidthBefore(this) * scale);
+            int row = (int)Math.Round(Host.CornerRowWidth(corner) * scale);
+            int start = left ? work.Left + side : work.Right - side;
+
+            // Visible top of the widgets' row (the window starts one pad above it).
+            int lineTop;
+            RECT barRect = Host.BarRect;
+            if (Host.BarOnEdge(top))
+            {
+                int bandTop = ((barRect.Top + barRect.Bottom) / 2) - (line / 2);
+                bool clear = left ? start + row + gap <= barRect.Left : start - row - gap >= barRect.Right;
+                if (clear)
+                {
+                    // The corner is clear of the bar: in the bar's band, centred on it.
+                    lineTop = bandTop;
+                }
+                else if (FitsAfterBar(left, barRect, start, row, gap, work, side, out int afterBar))
+                {
+                    // The bar is aligned to this side: the row continues the bar's own row.
+                    lineTop = bandTop;
+                    start = afterBar;
+                }
+                else
+                {
+                    // No room beside the bar (Classic, or a very wide bar): just past it.
+                    lineTop = top ? barRect.Bottom + gap : barRect.Top - gap - line;
+                }
+            }
+            else
+            {
+                // The free edge: in Machitan's strip when one is kept there, else the work area.
+                RECT? strip = Host.StripOn(top);
+                lineTop = top
+                    ? (strip?.Top ?? work.Top) + edge
+                    : (strip?.Bottom ?? work.Bottom) - edge - line;
+            }
+
+            // The shape sits against the corner's side of its window (see OnCornerChanged).
+            int x = left ? start + offset - pad : start - offset + pad - width;
+            int y = lineTop - pad;
             var rect = new RECT { Left = x, Top = y, Right = x + width, Bottom = y + height };
 
             if (left != _onLeft || top != _onTop)
@@ -205,6 +270,38 @@ public abstract partial class CornerWidgetWindow : Window
         catch (Exception ex)
         {
             Log.Error(_name + ": placing it failed.", ex);
+        }
+    }
+
+    /// <summary>
+    /// True when the bar is aligned to this corner's side and the corner's row fits after it in
+    /// the bar's band: before Dynaland when Dynaland sits in that band too, else before the
+    /// other side's margin. <paramref name="afterBar"/> is where the row then begins.
+    /// </summary>
+    private bool FitsAfterBar(bool left, RECT bar, int corner, int row, int gap, RECT work, int side, out int afterBar)
+    {
+        afterBar = left ? bar.Right + gap : bar.Left - gap;
+        bool barOnThisSide = left ? bar.Left <= corner + gap : bar.Right >= corner - gap;
+        if (!barOnThisSide)
+        {
+            return false;
+        }
+
+        if (Host.DynalandZoneInBarBand is (int zoneLeft, int zoneRight))
+        {
+            return left ? afterBar + row + gap <= zoneLeft : afterBar - row - gap >= zoneRight;
+        }
+
+        return left ? afterBar + row <= work.Right - side : afterBar - row >= work.Left + side;
+    }
+
+    /// <summary>Back on top of the other always-on-top windows (above the top strip cover).</summary>
+    internal void KeepOnTop()
+    {
+        if (IsShown && !_closed)
+        {
+            User32.SetWindowPos(Hwnd, User32.HWND_TOPMOST, 0, 0, 0, 0,
+                User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_NOACTIVATE);
         }
     }
 

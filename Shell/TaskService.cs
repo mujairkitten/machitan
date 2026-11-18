@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using Machitan.Core;
 using Machitan.Interop;
@@ -23,6 +24,7 @@ internal sealed class TaskService
     private const long HSHELL_GETMINRECT = 5;
     private const long HSHELL_LANGUAGE = 8;
     private const long HSHELL_APPCOMMAND = 12;
+    private const long HSHELL_WINDOWACTIVATED = 4;
 
     private readonly DispatcherQueueTimer _debounce;
     private readonly List<string> _order = new();
@@ -32,6 +34,14 @@ internal sealed class TaskService
     private IReadOnlyList<TaskGroup> _groups = Array.Empty<TaskGroup>();
     private string _signature = string.Empty;
     private nint _hookWindow;
+
+    /// <summary>The one service the foreground event reaches (the callback is static).</summary>
+    private static TaskService? s_foregroundListener;
+
+    private nint _foregroundHook;
+
+    /// <summary>The last window in front that was not the bar itself (an app, or the desktop).</summary>
+    private nint _lastOutsideForeground;
 
     internal TaskService(DispatcherQueue queue)
     {
@@ -73,6 +83,64 @@ internal sealed class TaskService
         Log.Info(HookActive
             ? "Shell hook registered; the task list follows window events."
             : "Shell hook NOT registered; the task list is polled every 2 seconds instead.");
+        StartForegroundTracking();
+    }
+
+    /// <summary>
+    /// Follows every change of the window in front (Windows' foreground event), so a click on
+    /// the bar knows which window was in front just before the bar took the focus. The bar
+    /// shares its thread with Machitan's Settings window; clicking the bar while Settings is in
+    /// front moves the focus to the bar, so at the time of the click Windows reports the bar.
+    /// </summary>
+    private unsafe void StartForegroundTracking()
+    {
+        if (_foregroundHook != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            s_foregroundListener = this;
+            _foregroundHook = User32.SetWinEventHook(
+                User32.EVENT_SYSTEM_FOREGROUND,
+                User32.EVENT_SYSTEM_FOREGROUND,
+                0,
+                &OnForegroundEvent,
+                0,
+                0,
+                User32.WINEVENT_OUTOFCONTEXT);
+            NoteForeground(User32.GetForegroundWindow());
+            if (_foregroundHook == 0)
+            {
+                Log.Warn("Windows did not accept the foreground event hook; the window in front is checked on bar refreshes only.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The foreground event hook could not be set.", ex);
+        }
+    }
+
+    [UnmanagedCallersOnly]
+    private static void OnForegroundEvent(nint hook, uint eventType, nint hwnd, int idObject, int idChild, uint thread, uint time)
+    {
+        try
+        {
+            s_foregroundListener?.NoteForeground(hwnd);
+        }
+        catch (Exception)
+        {
+            // Never let an exception cross back into Windows.
+        }
+    }
+
+    private void NoteForeground(nint hwnd)
+    {
+        if (hwnd != 0 && hwnd != _hookWindow)
+        {
+            _lastOutsideForeground = hwnd;
+        }
     }
 
     internal void DetachShellHook()
@@ -80,6 +148,17 @@ internal sealed class TaskService
         try
         {
             _debounce.Stop();
+            if (_foregroundHook != 0)
+            {
+                User32.UnhookWinEvent(_foregroundHook);
+                _foregroundHook = 0;
+            }
+
+            if (ReferenceEquals(s_foregroundListener, this))
+            {
+                s_foregroundListener = null;
+            }
+
             if (HookActive && _hookWindow != 0)
             {
                 User32.DeregisterShellHookWindow(_hookWindow);
@@ -100,6 +179,11 @@ internal sealed class TaskService
         if (code is HSHELL_GETMINRECT or HSHELL_LANGUAGE or HSHELL_APPCOMMAND)
         {
             return;
+        }
+
+        if (code == HSHELL_WINDOWACTIVATED)
+        {
+            NoteForeground(lParam);
         }
 
         // Events come in bursts; one refresh shortly after the last one is enough.
@@ -128,11 +212,22 @@ internal sealed class TaskService
             }
 
             nint target = group.Windows[0].Handle;
-            nint foreground = User32.GetForegroundWindow();
-
-            if (target == foreground && !User32.IsIconic(target))
+            nint inFront = EffectiveForeground();
+            nint frontOfGroup = 0;
+            foreach (TaskWindow window in group.Windows)
             {
-                User32.ShowWindow(target, User32.SW_MINIMIZE);
+                if (window.Handle == inFront)
+                {
+                    frontOfGroup = inFront;
+                    break;
+                }
+            }
+
+            bool minimise = frontOfGroup != 0 && !User32.IsIconic(frontOfGroup);
+            Log.Info("Bar: " + group.DisplayName + (minimise ? " minimised (it was in front)." : " brought to the front (in front was " + Describe(inFront) + ")."));
+            if (minimise)
+            {
+                User32.ShowWindow(frontOfGroup, User32.SW_MINIMIZE);
             }
             else
             {
@@ -149,6 +244,45 @@ internal sealed class TaskService
         }
     }
 
+    /// <summary>
+    /// The window that counts as in front. While the bar itself has the focus (a click on it
+    /// while Machitan's Settings was in front), that is the window that was in front just
+    /// before the bar, unless it has been minimised since; otherwise it is the window Windows
+    /// reports.
+    /// </summary>
+    internal nint EffectiveForeground()
+    {
+        nint foreground = User32.GetForegroundWindow();
+        if ((foreground == 0 || foreground == _hookWindow)
+            && _lastOutsideForeground != 0
+            && User32.IsWindow(_lastOutsideForeground)
+            && !User32.IsIconic(_lastOutsideForeground))
+        {
+            return _lastOutsideForeground;
+        }
+
+        return foreground;
+    }
+
+    /// <summary>
+    /// The window that was in front before the bar took the focus (for giving it back when the
+    /// bar's search box is left with Esc), or 0 when it is gone.
+    /// </summary>
+    internal nint PreviousForeground => _lastOutsideForeground != 0 && User32.IsWindow(_lastOutsideForeground) ? _lastOutsideForeground : 0;
+
+    /// <summary>For the log: the window's class and program, or "nothing".</summary>
+    private static string Describe(nint hwnd)
+    {
+        if (hwnd == 0)
+        {
+            return "nothing";
+        }
+
+        User32.GetWindowThreadProcessId(hwnd, out uint processId);
+        string? path = WindowInfo.GetProcessPath(processId);
+        return WindowInfo.GetClassName(hwnd) + " of " + (path is null ? "an unknown app" : System.IO.Path.GetFileName(path));
+    }
+
     /// <summary>Asks every window of the app to close, the same way its own close button would.</summary>
     internal void CloseWindows(TaskGroup group)
     {
@@ -158,13 +292,14 @@ internal sealed class TaskService
         }
     }
 
-        /// <summary>Rebuilds the list now. Raises <see cref="Changed"/> only if something differs.</summary>
+    /// <summary>Rebuilds the list now. Raises <see cref="Changed"/> only if something differs.</summary>
     internal void Refresh()
     {
         try
         {
             List<nint> handles = WindowInfo.EnumerateTopLevel();
-            nint foreground = User32.GetForegroundWindow();
+            NoteForeground(User32.GetForegroundWindow());
+            nint foreground = EffectiveForeground();
 
             var identityByProcess = new Dictionary<uint, ProcessIdentity>();
             var windowsByKey = new Dictionary<string, List<TaskWindow>>(StringComparer.OrdinalIgnoreCase);

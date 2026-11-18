@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Machitan.Core;
 using Machitan.Interop;
+using Microsoft.Win32;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.Storage.Streams;
@@ -19,13 +20,17 @@ namespace Machitan.Visuals;
 /// <param name="HardShare">The share of the area where the chosen ink has a contrast under 3:1.</param>
 internal readonly record struct WallpaperJudgement(bool DarkInk, bool NeedsBacking, double Luminance, double HardShare);
 
+/// <summary>A flat colour laid over the wallpaper (the top strip cover): its colour and how solid it is (0 to 1).</summary>
+internal readonly record struct CoverTint(byte R, byte G, byte B, double Alpha);
+
 /// <summary>Windows' wallpaper settings for one screen.</summary>
 /// <param name="Monitor">The screen, physical pixels.</param>
 /// <param name="Path">The picture's file, or empty for a solid colour.</param>
 /// <param name="Position">How the picture is fitted (WallpaperPosition).</param>
 /// <param name="BackColour">The background colour (COLORREF, 0x00BBGGRR) around a fitted or centred picture.</param>
-/// <param name="FileTicks">The picture file's last write time, to notice a changed file.</param>
-internal sealed record WallpaperSettings(RECT Monitor, string Path, int Position, uint BackColour, long FileTicks)
+/// <param name="Stamp">Write times and sizes of the picture file and of the file Windows shows, to notice a changed file.</param>
+/// <param name="Source">Where the picture's path came from, for the log.</param>
+internal sealed record WallpaperSettings(RECT Monitor, string Path, int Position, uint BackColour, string Stamp, string Source)
 {
     internal string Signature => string.Join(
         "|",
@@ -36,14 +41,15 @@ internal sealed record WallpaperSettings(RECT Monitor, string Path, int Position
         Path,
         Position.ToString(CultureInfo.InvariantCulture),
         BackColour.ToString(CultureInfo.InvariantCulture),
-        FileTicks.ToString(CultureInfo.InvariantCulture));
+        Stamp);
 }
 
 /// <summary>
 /// A small copy of the wallpaper of one screen, placed the way Windows shows it (fill, fit,
 /// stretch, centre, tile; span is treated as fill), to judge what ink reads well on a part of
-/// it. Read through Windows' own wallpaper record (IDesktopWallpaper) and decoded natively
-/// (Windows.Graphics.Imaging), at most 640 pixels on the long side. Use on the UI thread.
+/// it. Settings from Windows' wallpaper record and the registry (see ReadSettings); the
+/// picture decoded natively (Windows.Graphics.Imaging), at most 640 pixels on the long side.
+/// Use on the UI thread.
 /// </summary>
 internal sealed class WallpaperSampler
 {
@@ -75,6 +81,9 @@ internal sealed class WallpaperSampler
 
     internal string Signature => _settings.Signature;
 
+    /// <summary>Where the picture's path came from, for the log.</summary>
+    internal string Source => _settings.Source;
+
     /// <summary>"a picture (fill)" or "a solid colour", for the log.</summary>
     internal string Kind => _pixels is null
         ? "a solid colour"
@@ -86,9 +95,24 @@ internal sealed class WallpaperSampler
             WallpaperPosition.Fit => "fit",
             WallpaperPosition.Span => "span, judged as fill",
             _ => "fill",
-        }) + ")";
+        }) + ", " + System.IO.Path.GetFileName(_settings.Path) + ")";
 
-    /// <summary>Windows' wallpaper settings for the screen under the middle of <paramref name="near"/>; null when Windows does not say.</summary>
+    /// <summary>The file Windows makes from the chosen picture and actually shows.</summary>
+    internal static string ShownFile => System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Microsoft",
+        "Windows",
+        "Themes",
+        "TranscodedWallpaper");
+
+    /// <summary>
+    /// Windows' wallpaper settings for the screen under the middle of <paramref name="near"/>;
+    /// null when Windows does not say. The screens come from Windows' wallpaper record
+    /// (IDesktopWallpaper). When every screen shows the same picture (always so with one
+    /// screen), the picture, its fit and the background colour are read from the registry
+    /// (HKCU\Control Panel\Desktop and \Colors), which Windows updates the moment the wallpaper
+    /// changes; the wallpaper record is used for different pictures per screen and as a fallback.
+    /// </summary>
     internal static WallpaperSettings? ReadSettings(RECT near)
     {
         IDesktopWallpaper? wallpaper = null;
@@ -104,6 +128,9 @@ internal sealed class WallpaperSampler
             int y = (near.Top + near.Bottom) / 2;
             string? chosen = null;
             RECT chosenRect = default;
+            string chosenPath = string.Empty;
+            bool samePicture = true;
+            string? firstPath = null;
             for (uint i = 0; i < count; i++)
             {
                 if (wallpaper.GetMonitorDevicePathAt(i, out nint idPointer) != 0 || idPointer == 0)
@@ -117,14 +144,21 @@ internal sealed class WallpaperSampler
                     continue;
                 }
 
-                if (chosen is null || (x >= rect.Left && x < rect.Right && y >= rect.Top && y < rect.Bottom))
+                string path = wallpaper.GetWallpaper(id, out nint pathPointer) == 0 && pathPointer != 0
+                    ? TakeString(pathPointer)
+                    : string.Empty;
+                firstPath ??= path;
+                if (!string.Equals(path, firstPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    samePicture = false;
+                }
+
+                bool contains = x >= rect.Left && x < rect.Right && y >= rect.Top && y < rect.Bottom;
+                if (chosen is null || (contains && !RectContains(chosenRect, x, y)))
                 {
                     chosen = id;
                     chosenRect = rect;
-                    if (x >= rect.Left && x < rect.Right && y >= rect.Top && y < rect.Bottom)
-                    {
-                        break;
-                    }
+                    chosenPath = path;
                 }
             }
 
@@ -133,27 +167,39 @@ internal sealed class WallpaperSampler
                 return null;
             }
 
-            string path = wallpaper.GetWallpaper(chosen, out nint pathPointer) == 0 && pathPointer != 0
-                ? TakeString(pathPointer)
-                : string.Empty;
             int position = wallpaper.GetPosition(out int fitted) == 0 ? fitted : WallpaperPosition.Fill;
             uint back = wallpaper.GetBackgroundColor(out uint colour) == 0 ? colour : 0;
+            string source = "Windows' wallpaper record";
 
-            long ticks = 0;
-            if (path.Length > 0)
+            if (samePicture)
             {
-                if (File.Exists(path))
+                string desktopKey = @"Control Panel\Desktop";
+                string registryPath = ReadRegistry(desktopKey, "WallPaper");
+                if (registryPath.Length > 0 && File.Exists(registryPath))
                 {
-                    ticks = File.GetLastWriteTimeUtc(path).Ticks;
+                    chosenPath = registryPath;
+                    source = "the registry";
                 }
-                else
+
+                if (TryReadRegistryPosition(ReadRegistry(desktopKey, "WallpaperStyle"), ReadRegistry(desktopKey, "TileWallpaper"), out int registryPosition))
                 {
-                    // Windows then shows the background colour.
-                    path = string.Empty;
+                    position = registryPosition;
+                }
+
+                if (TryReadRegistryColour(ReadRegistry(@"Control Panel\Colors", "Background"), out uint registryBack))
+                {
+                    back = registryBack;
                 }
             }
 
-            return new WallpaperSettings(chosenRect, path, position, back, ticks);
+            if (chosenPath.Length > 0 && !File.Exists(chosenPath))
+            {
+                // Windows then shows the background colour.
+                chosenPath = string.Empty;
+            }
+
+            string stamp = FileStamp(chosenPath) + ";" + FileStamp(ShownFile);
+            return new WallpaperSettings(chosenRect, chosenPath, position, back, stamp, source);
         }
         catch (Exception ex)
         {
@@ -237,7 +283,12 @@ internal sealed class WallpaperSampler
     }
 
     /// <summary>Judges a screen area (physical pixels) on a 48 x 8 grid of samples.</summary>
-    internal WallpaperJudgement Judge(RECT region)
+    /// <summary>
+    /// What reads best on the wallpaper in <paramref name="region"/>: dark or white ink, and
+    /// whether the ink needs a soft backing. With <paramref name="cover"/>, each sampled colour
+    /// is first blended with the cover's colour, as the screen shows it.
+    /// </summary>
+    internal WallpaperJudgement Judge(RECT region, CoverTint? cover = null)
     {
         RECT monitor = _settings.Monitor;
         Placement(monitor.Width, monitor.Height, out double scaleX, out double scaleY, out double offsetX, out double offsetY, out bool tile);
@@ -252,6 +303,13 @@ internal sealed class WallpaperSampler
             {
                 double x = region.Left + ((column + 0.5) * region.Width / Columns) - monitor.Left;
                 ColourAt(x, y, scaleX, scaleY, offsetX, offsetY, tile, out byte r, out byte g, out byte b);
+                if (cover is CoverTint tint)
+                {
+                    r = Blend(r, tint.R, tint.Alpha);
+                    g = Blend(g, tint.G, tint.Alpha);
+                    b = Blend(b, tint.B, tint.Alpha);
+                }
+
                 double luminance = Luminance(r, g, b);
                 samples[n++] = luminance;
                 sum += luminance;
@@ -277,6 +335,112 @@ internal sealed class WallpaperSampler
 
         double share = hard / (double)n;
         return new WallpaperJudgement(darkInk, share > BackingShare, mean, share);
+    }
+
+    /// <summary>
+    /// The same judgement for a flat colour (a cover over a wallpaper that could not be read):
+    /// one colour is never busy, so no backing.
+    /// </summary>
+    internal static WallpaperJudgement JudgeFlat(byte r, byte g, byte b)
+    {
+        double luminance = Luminance(r, g, b);
+        double whiteContrast = 1.05 / (luminance + 0.05);
+        double darkContrast = (luminance + 0.05) / (DarkInkLuminance + 0.05);
+        return new WallpaperJudgement(darkContrast > whiteContrast, false, luminance, 0);
+    }
+
+    /// <summary>The cover over one colour channel, as the screen mixes them.</summary>
+    private static byte Blend(byte under, byte over, double alpha)
+    {
+        return (byte)Math.Clamp(Math.Round((under * (1 - alpha)) + (over * alpha)), 0, 255);
+    }
+
+    private static bool RectContains(RECT rect, int x, int y)
+    {
+        return x >= rect.Left && x < rect.Right && y >= rect.Top && y < rect.Bottom;
+    }
+
+    private static string ReadRegistry(string keyPath, string name)
+    {
+        try
+        {
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(keyPath);
+            return key?.GetValue(name) as string ?? string.Empty;
+        }
+        catch (Exception)
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>The registry's WallpaperStyle / TileWallpaper pair, as Windows' Settings writes it.</summary>
+    private static bool TryReadRegistryPosition(string style, string tile, out int position)
+    {
+        position = WallpaperPosition.Fill;
+        if (tile.Trim() == "1")
+        {
+            position = WallpaperPosition.Tile;
+            return true;
+        }
+
+        switch (style.Trim())
+        {
+            case "0":
+                position = WallpaperPosition.Center;
+                return true;
+            case "2":
+                position = WallpaperPosition.Stretch;
+                return true;
+            case "6":
+                position = WallpaperPosition.Fit;
+                return true;
+            case "10":
+                position = WallpaperPosition.Fill;
+                return true;
+            case "22":
+                position = WallpaperPosition.Span;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>"R G B" (HKCU\Control Panel\Colors\Background) as a COLORREF.</summary>
+    private static bool TryReadRegistryColour(string text, out uint colour)
+    {
+        colour = 0;
+        string[] parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 3
+            || !byte.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out byte r)
+            || !byte.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out byte g)
+            || !byte.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out byte b))
+        {
+            return false;
+        }
+
+        colour = r | ((uint)g << 8) | ((uint)b << 16);
+        return true;
+    }
+
+    /// <summary>Write time and size of a file ("-" when there is none).</summary>
+    private static string FileStamp(string path)
+    {
+        try
+        {
+            if (path.Length == 0)
+            {
+                return "-";
+            }
+
+            var info = new FileInfo(path);
+            return info.Exists
+                ? info.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture) + ":" + info.Length.ToString(CultureInfo.InvariantCulture)
+                : "-";
+        }
+        catch (Exception)
+        {
+            return "?";
+        }
     }
 
     /// <summary>WCAG relative luminance of an sRGB colour.</summary>

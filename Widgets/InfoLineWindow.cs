@@ -56,7 +56,7 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
         _weatherSymbol = new TextBlock
         {
             FontFamily = SymbolFont,
-            FontSize = 14,
+            FontSize = 13,
             IsColorFontEnabled = false,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -66,7 +66,7 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
         {
             Orientation = Orientation.Horizontal,
             Spacing = 6,
-            Padding = new Thickness(16, 0, 16, 0),
+            Padding = new Thickness(14, 0, 14, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
         _row.Children.Add(_date);
@@ -101,6 +101,15 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
         Root.Children.Add(_capsule);
         AddShape(_capsule, CapsuleRadius);
 
+        // The widgets beside the info line move when its text makes it wider or narrower.
+        _capsule.SizeChanged += (_, e) =>
+        {
+            if (Math.Abs(e.NewSize.Width - e.PreviousSize.Width) >= 0.5)
+            {
+                NoteShapeWidthChanged();
+            }
+        };
+
         _weather = new WeatherService(DispatcherQueue);
         _weather.Changed += OnWeatherChanged;
 
@@ -122,6 +131,9 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
     }
 
     private protected override bool IsEnabled(ShellSettings settings) => settings.InfoLineEnabled;
+
+    /// <summary>The capsule's width (it follows its text), for the widgets beside it.</summary>
+    private protected override double ShapeWidthDip() => _capsule.ActualWidth > 0 ? _capsule.ActualWidth : _capsule.DesiredSize.Width;
 
     private protected override ScreenCorner CornerOf(ShellSettings settings) => settings.InfoLineCorner;
 
@@ -178,7 +190,7 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
     {
         return new TextBlock
         {
-            FontSize = 13,
+            FontSize = 12,
             FontWeight = semiBold ? FontWeights.SemiBold : FontWeights.Normal,
             Opacity = dim ? 0.6 : 1,
             VerticalAlignment = VerticalAlignment.Center,

@@ -7,10 +7,11 @@ using Machitan.Shell;
 namespace Machitan.Widgets;
 
 /// <summary>
-/// Keeps a strip at the top of the bar's screen for the corner widgets, through the Windows
-/// AppBar system, so maximised windows start below them. It is an AppBar of its own, owned
-/// by a small hidden window made here; the bar's own AppBar (bottom) is never touched.
-/// Use on the UI thread.
+/// Keeps a strip at the free edge of the bar's screen (the edge without the bar: the top while
+/// the bar is at the bottom, the bottom while it is at the top) for the corner widgets and
+/// Dynaland there, through the Windows AppBar system, so maximised windows stay clear of them.
+/// It is an AppBar of its own, owned by a small hidden window made here; the bar's own AppBar
+/// is never touched. (Named for where it started: the top.) Use on the UI thread.
 /// </summary>
 internal sealed class TopStrip : IDisposable
 {
@@ -21,6 +22,7 @@ internal sealed class TopStrip : IDisposable
     private bool _registered;
     private RECT _monitor;
     private int _thickness;
+    private bool _top = true;
     private RECT _granted;
     private bool _windowFailed;
 
@@ -30,8 +32,14 @@ internal sealed class TopStrip : IDisposable
     /// <summary>The strip Windows gave, or null when none is kept.</summary>
     internal RECT? Granted => _registered ? _granted : null;
 
-    /// <summary>Keeps a strip <paramref name="thickness"/> pixels tall at the top of the monitor; 0 gives it back.</summary>
-    internal void Set(RECT monitor, int thickness)
+    /// <summary>True when the strip is (or would be) at the top edge; false at the bottom.</summary>
+    internal bool OnTop => _top;
+
+    /// <summary>
+    /// Keeps a strip <paramref name="thickness"/> pixels tall at the top (or bottom) of the
+    /// monitor; 0 gives it back.
+    /// </summary>
+    internal void Set(RECT monitor, int thickness, bool top)
     {
         if (thickness <= 0)
         {
@@ -39,10 +47,18 @@ internal sealed class TopStrip : IDisposable
             return;
         }
 
+        if (_registered && top != _top)
+        {
+            // Another edge: give this one back and take the other.
+            Release();
+        }
+
         if (_registered && thickness == _thickness && monitor.SameAs(_monitor))
         {
             return;
         }
+
+        _top = top;
 
         if (!EnsureWindow())
         {
@@ -55,7 +71,7 @@ internal sealed class TopStrip : IDisposable
             registration.uCallbackMessage = CallbackMessage;
             if (Shell32.SHAppBarMessage(Shell32.ABM_NEW, ref registration) == 0)
             {
-                Log.Warn("Top strip: Windows refused the reservation; maximised windows can reach under the top widgets.");
+                Log.Warn("Strip: Windows refused the reservation; maximised windows can reach under the widgets at the free edge.");
                 return;
             }
 
@@ -65,7 +81,7 @@ internal sealed class TopStrip : IDisposable
         _monitor = monitor;
         _thickness = thickness;
         Apply();
-        Log.Info("Top strip: " + thickness + " px kept free at the top for the corner widgets.");
+        Log.Info("Strip: " + thickness + " px kept free at the " + (_top ? "top" : "bottom") + " for the corner widgets and Dynaland.");
     }
 
     /// <summary>Gives the strip back. Safe to call when nothing is kept.</summary>
@@ -79,7 +95,7 @@ internal sealed class TopStrip : IDisposable
         APPBARDATA data = NewData();
         Shell32.SHAppBarMessage(Shell32.ABM_REMOVE, ref data);
         _registered = false;
-        Log.Info("Top strip: given back.");
+        Log.Info("Strip: given back.");
     }
 
     public void Dispose()
@@ -99,7 +115,15 @@ internal sealed class TopStrip : IDisposable
     {
         APPBARDATA data = Proposed();
         Shell32.SHAppBarMessage(Shell32.ABM_QUERYPOS, ref data);
-        data.rc.Bottom = data.rc.Top + _thickness;
+        if (_top)
+        {
+            data.rc.Bottom = data.rc.Top + _thickness;
+        }
+        else
+        {
+            data.rc.Top = data.rc.Bottom - _thickness;
+        }
+
         Shell32.SHAppBarMessage(Shell32.ABM_SETPOS, ref data);
         _granted = data.rc;
     }
@@ -107,9 +131,17 @@ internal sealed class TopStrip : IDisposable
     private APPBARDATA Proposed()
     {
         APPBARDATA data = NewData();
-        data.uEdge = Shell32.ABE_TOP;
+        data.uEdge = _top ? Shell32.ABE_TOP : Shell32.ABE_BOTTOM;
         data.rc = _monitor;
-        data.rc.Bottom = _monitor.Top + _thickness;
+        if (_top)
+        {
+            data.rc.Bottom = _monitor.Top + _thickness;
+        }
+        else
+        {
+            data.rc.Top = _monitor.Bottom - _thickness;
+        }
+
         return data;
     }
 
@@ -164,7 +196,8 @@ internal sealed class TopStrip : IDisposable
             // so two app bars never keep answering each other.
             APPBARDATA data = Proposed();
             Shell32.SHAppBarMessage(Shell32.ABM_QUERYPOS, ref data);
-            if (data.rc.Top != _granted.Top)
+            bool moved = _top ? data.rc.Top != _granted.Top : data.rc.Bottom != _granted.Bottom;
+            if (moved)
             {
                 Apply();
                 Moved?.Invoke();

@@ -20,7 +20,7 @@ using Shapes = Microsoft.UI.Xaml.Shapes;
 namespace Machitan.Widgets;
 
 /// <summary>
-/// The corner duo status ring, per the spec: a rounded rectangle (36 DIP tall, 10 DIP corners)
+/// The corner duo status ring, per the spec: a capsule like the info line (32 DIP tall, fully round: 16 DIP)
 /// with no background. Its rim is the battery: it runs up the left, across the top, down the
 /// right and in along the bottom from both corners, stopping short of the four volume dots in
 /// the middle of the bottom edge. The fill follows the rim (white, red under 20 %, green while
@@ -34,9 +34,12 @@ namespace Machitan.Widgets;
 public sealed partial class DuoRingWindow : CornerWidgetWindow
 {
     private const double RingHeight = LineHeightDip;
-    private const double Radius = 10;
+    private const double Radius = LineHeightDip / 2;
+
+    /// <summary>The Wi-Fi icon's width (DIP), per the spec.</summary>
+    private const double WifiIconSize = 19;
     private const double Rim = 3;
-    private const double SidePad = 16;
+    private const double SidePad = 14;
     private const double LabelMax = 170;
     private const double DotSize = 4;
     private const double DotGap = 4;
@@ -48,7 +51,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
     private const double GapHalf = ((4 * DotSize) + (3 * DotGap)) / 2 + DotMargin;
 
     private const double MinRingWidth = 2 * (Radius + GapHalf + 8);
-    private const double WindowWidthDip = SidePad + 16 + 6 + LabelMax + 4 + 12 + SidePad + 10;
+    private const double WindowWidthDip = SidePad + WifiIconSize + 6 + LabelMax + 6 + 12 + SidePad + 10;
 
     private static readonly Color DarkInk = ColorHelper.FromArgb(0xFF, 0x1C, 0x1C, 0x1C);
     private static readonly Color Red = ColorHelper.FromArgb(0xFF, 0xFF, 0x3B, 0x30);
@@ -77,6 +80,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
     private readonly DispatcherQueueTimer _poll;
     private readonly NetworkMonitor _network;
     private readonly VolumeService _volume = new();
+    private readonly WallpaperWatcher _wallpaperWatcher;
 
     private int _pollTicks;
     private bool _hasBattery;
@@ -91,6 +95,9 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
     private double _shownWidth;
     private double _fromWidth;
     private double _targetWidth;
+
+    /// <summary>The width last told to the shell, so the widgets beside the ring move with it.</summary>
+    private double _reportedWidth;
     private long _animationStart;
     private bool _animating;
     private bool _clickedOnce;
@@ -136,12 +143,12 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         }
 
         _wifiIcon = MakeWifiIcon(_arcs, out _wifiDot);
-        _planeIcon = MakeGlyph(0xE709, 14);
-        _wiredIcon = MakeGlyph(0xE839, 14);
-        _bolt = MakeGlyph(0xE945, 12);
+        _planeIcon = MakeGlyph(0xE709, 13);
+        _wiredIcon = MakeGlyph(0xE839, 13);
+        _bolt = MakeGlyph(0xE945, 11);
         _label = new TextBlock
         {
-            FontSize = 13,
+            FontSize = 12,
             FontWeight = FontWeights.SemiBold,
             MaxWidth = LabelMax,
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -193,6 +200,12 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         _network = new NetworkMonitor(DispatcherQueue);
         _network.Changed += OnNetworkChanged;
 
+        _wallpaperWatcher = new WallpaperWatcher(DispatcherQueue);
+        _wallpaperWatcher.Changed += reason => CheckWallpaper(reason);
+
+        // The top strip cover changes what is behind the ring as much as a new wallpaper does.
+        Host.CoverChanged += OnCoverChanged;
+
         _poll = DispatcherQueue.CreateTimer();
         _poll.Interval = TimeSpan.FromMilliseconds(500);
         _poll.Tick += (_, _) => Poll();
@@ -202,7 +215,10 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         ApplyState(animate: false);
     }
 
-    private protected override bool IsEnabled(ShellSettings settings) => settings.DuoRingEnabled;
+    private protected override bool IsEnabled(ShellSettings settings) => settings.ShowDuoRing;
+
+    /// <summary>The width the ring is going to (it animates there), for the widgets beside it.</summary>
+    private protected override double ShapeWidthDip() => Math.Max(_targetWidth, MinRingWidth);
 
     private protected override ScreenCorner CornerOf(ShellSettings settings) => settings.DuoRingCorner;
 
@@ -221,12 +237,14 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
             ReadVolume(reconnect: true);
             ApplyState(animate: false);
             _poll.Start();
+            _wallpaperWatcher.Start();
             _ = FollowWallpaperAsync(reload: false);
         }
         else
         {
             _poll.Stop();
             _network.Dispose();
+            _wallpaperWatcher.Stop();
         }
     }
 
@@ -242,14 +260,24 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
 
     private protected override void OnWallpaperChanged()
     {
-        _ = FollowWallpaperAsync(reload: true);
+        CheckWallpaper("Windows announced a new wallpaper");
+    }
+
+    private void OnCoverChanged()
+    {
+        if (IsShown)
+        {
+            JudgeWallpaper();
+        }
     }
 
     private protected override void OnClosing()
     {
+        Host.CoverChanged -= OnCoverChanged;
         _poll.Stop();
         _network.Changed -= OnNetworkChanged;
         _network.Dispose();
+        _wallpaperWatcher.Dispose();
         StopAnimation();
     }
 
@@ -265,13 +293,14 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         };
     }
 
-    /// <summary>Three arcs over a dot, 16 x 14 DIP; each part lit or dimmed on its own.</summary>
+    /// <summary>Three arcs over a dot, 19 x 17 DIP; each part lit or dimmed on its own.</summary>
     private static Canvas MakeWifiIcon(Shapes.Path[] arcs, out Shapes.Ellipse dot)
     {
-        var canvas = new Canvas { Width = 16, Height = 14, VerticalAlignment = VerticalAlignment.Center };
-        const double centreX = 8;
-        const double centreY = 12;
-        double[] radii = { 3.6, 7.0, 10.4 };
+        // 19 DIP wide: the largest arc spans 2 x 12.4 x sin 45 = 17.5 DIP, plus the stroke.
+        var canvas = new Canvas { Width = WifiIconSize, Height = 17, VerticalAlignment = VerticalAlignment.Center };
+        const double centreX = WifiIconSize / 2;
+        const double centreY = 14.6;
+        double[] radii = { 4.3, 8.35, 12.4 };
         double side = Math.Sqrt(0.5);
         for (int i = 0; i < arcs.Length; i++)
         {
@@ -294,16 +323,16 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
             arcs[i] = new Shapes.Path
             {
                 Data = geometry,
-                StrokeThickness = 1.8,
+                StrokeThickness = 2,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
             };
             canvas.Children.Add(arcs[i]);
         }
 
-        dot = new Shapes.Ellipse { Width = 3, Height = 3 };
-        Canvas.SetLeft(dot, centreX - 1.5);
-        Canvas.SetTop(dot, centreY - 1.5);
+        dot = new Shapes.Ellipse { Width = 3.4, Height = 3.4 };
+        Canvas.SetLeft(dot, centreX - 1.7);
+        Canvas.SetTop(dot, centreY - 1.7);
         canvas.Children.Add(dot);
         return canvas;
     }
@@ -327,13 +356,13 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
             Segments = new PathSegmentCollection(),
         };
         figure.Segments.Add(new LineSegment { Point = new Point(left + r, bottom) });
-        figure.Segments.Add(Corner(left, bottom - r, r));
+        figure.Segments.Add(CornerArc(left, bottom - r, r));
         figure.Segments.Add(new LineSegment { Point = new Point(left, top + r) });
-        figure.Segments.Add(Corner(left + r, top, r));
+        figure.Segments.Add(CornerArc(left + r, top, r));
         figure.Segments.Add(new LineSegment { Point = new Point(right - r, top) });
-        figure.Segments.Add(Corner(right, top + r, r));
+        figure.Segments.Add(CornerArc(right, top + r, r));
         figure.Segments.Add(new LineSegment { Point = new Point(right, bottom - r) });
-        figure.Segments.Add(Corner(right - r, bottom, r));
+        figure.Segments.Add(CornerArc(right - r, bottom, r));
         figure.Segments.Add(new LineSegment { Point = new Point(middle + GapHalf, bottom) });
 
         length = (2 * ((middle - GapHalf) - (left + r)))
@@ -346,7 +375,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         return geometry;
     }
 
-    private static ArcSegment Corner(double x, double y, double r)
+    private static ArcSegment CornerArc(double x, double y, double r)
     {
         return new ArcSegment
         {
@@ -412,7 +441,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         _pollTicks++;
         if (_pollTicks % 60 == 0)
         {
-            CheckWallpaper();
+            CheckWallpaper("30-second check");
         }
 
         bool slow = _pollTicks % 10 == 0;
@@ -588,6 +617,12 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
 
         // Battery fill (the geometry depends on the width, so SetWidth redraws it too).
         DrawFill();
+
+        if (Math.Abs(target - _reportedWidth) >= 0.5)
+        {
+            _reportedWidth = target;
+            NoteShapeWidthChanged();
+        }
 
         // A much wider or narrower ring covers other wallpaper: judge it again.
         if (_wallpaper is not null && Math.Abs(_targetWidth - _judgedWidth) > 16)
@@ -767,11 +802,22 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         }
     }
 
-    /// <summary>Every 30 s: reads Windows' wallpaper record (no decoding) and reloads when it changed.</summary>
-    private void CheckWallpaper()
+    /// <summary>
+    /// Reads the wallpaper settings (no decoding) and reads the picture again when they differ
+    /// from the ones the ink was judged on (or when nothing could be read before). Called by
+    /// the wallpaper watcher, Windows' notice and the 30-second check.
+    /// </summary>
+    private void CheckWallpaper(string reason)
     {
-        if (_wallpaper is null || _wallpaperLoading)
+        if (!IsShown)
         {
+            return;
+        }
+
+        if (_wallpaperLoading)
+        {
+            _wallpaperAgain = true;
+            _wallpaperReloadAgain = true;
             return;
         }
 
@@ -782,17 +828,42 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         }
 
         WallpaperSettings? now = WallpaperSampler.ReadSettings(ring);
-        if (now is not null && now.Signature != _wallpaper.Signature)
+        if (now is null)
         {
+            return;
+        }
+
+        if (_wallpaper is null || now.Signature != _wallpaper.Signature)
+        {
+            Log.Info("Status ring: the wallpaper changed (" + reason + "); reading it again.");
             _ = FollowWallpaperAsync(reload: true);
         }
     }
 
-    /// <summary>Picks the ink and the backing for the wallpaper behind the ring, and logs a change.</summary>
+    /// <summary>
+    /// Picks the ink and the backing for what is behind the ring: the wallpaper, seen through
+    /// the top strip cover when the cover is on (its colour blended in, as the screen shows it).
+    /// Logs a change.
+    /// </summary>
     private void JudgeWallpaper()
     {
         RECT ring = RingScreenRect();
         _judgedWidth = _targetWidth;
+        CoverTint? cover = ring.Width > 0 ? Host.CoverOver(ring) : null;
+        if (_wallpaper is null && cover is { Alpha: >= 0.5 } flat)
+        {
+            // The wallpaper could not be read, but a mostly solid cover is behind the ring.
+            WallpaperJudgement onCover = WallpaperSampler.JudgeFlat(flat.R, flat.G, flat.B);
+            if (_wallpaperDarkInk != onCover.DarkInk || _wallpaperBacking)
+            {
+                _wallpaperDarkInk = onCover.DarkInk;
+                _wallpaperBacking = false;
+                ApplyColours();
+            }
+
+            return;
+        }
+
         if (_wallpaper is null || ring.Width <= 0)
         {
             if (_wallpaperDarkInk is not null || _wallpaperBacking)
@@ -805,7 +876,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
             return;
         }
 
-        WallpaperJudgement judgement = _wallpaper.Judge(ring);
+        WallpaperJudgement judgement = _wallpaper.Judge(ring, cover);
         bool changed = _wallpaperDarkInk != judgement.DarkInk || _wallpaperBacking != judgement.NeedsBacking;
         _wallpaperDarkInk = judgement.DarkInk;
         _wallpaperBacking = judgement.NeedsBacking;
@@ -814,7 +885,8 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
             ApplyColours();
         }
 
-        string text = "Status ring: the wallpaper behind it is " + _wallpaper.Kind + ", "
+        string text = "Status ring: the wallpaper behind it is " + _wallpaper.Kind + " from " + _wallpaper.Source
+            + (cover is CoverTint shown ? " under the top strip cover (" + Math.Round(shown.Alpha * 100).ToString(CultureInfo.InvariantCulture) + "% solid)" : string.Empty) + ", "
             + (judgement.Luminance >= 0.18 ? "light" : "dark") + " (luminance "
             + judgement.Luminance.ToString("0.00", CultureInfo.InvariantCulture) + ", "
             + Math.Round(judgement.HardShare * 100).ToString(CultureInfo.InvariantCulture) + "% hard to read on); "

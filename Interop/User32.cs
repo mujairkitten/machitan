@@ -100,6 +100,24 @@ internal static unsafe partial class User32
     [LibraryImport("user32.dll")]
     internal static partial nint GetForegroundWindow();
 
+    internal const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    internal const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+
+    /// <summary>Out-of-context event hook: the callback runs on the calling thread's message loop.</summary>
+    [LibraryImport("user32.dll")]
+    internal static partial nint SetWinEventHook(
+        uint eventMin,
+        uint eventMax,
+        nint module,
+        delegate* unmanaged<nint, uint, nint, int, int, uint, uint, void> callback,
+        uint processId,
+        uint threadId,
+        uint flags);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool UnhookWinEvent(nint hook);
+
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool SetForegroundWindow(nint hwnd);

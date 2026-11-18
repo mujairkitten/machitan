@@ -45,6 +45,35 @@ public enum ScreenCorner
     BottomRight = 3,
 }
 
+/// <summary>Dynaland's shape.</summary>
+public enum DynalandStyle
+{
+    /// <summary>Notch Nook style: hanging from the top edge (the default).</summary>
+    Notch = 0,
+
+    /// <summary>iPhone-inspired island: floating just below the top edge, round all around.</summary>
+    Island = 1,
+}
+
+/// <summary>Which screen edge Dynaland sits on.</summary>
+public enum DynalandPosition
+{
+    /// <summary>The edge without the bar: the top while the bar is at the bottom, and the other way round.</summary>
+    Auto = 0,
+    Top = 1,
+    Bottom = 2,
+}
+
+/// <summary>The colour of the cover over the top strip.</summary>
+public enum StripCoverColour
+{
+    Dark = 0,
+    Light = 1,
+
+    /// <summary>Windows' accent colour.</summary>
+    Accent = 2,
+}
+
 /// <summary>
 /// The user's settings. The property initialisers are the fresh-install defaults from the spec.
 /// A record, so two instances compare equal when every value matches.
@@ -111,8 +140,31 @@ public sealed record ShellSettings
 
     public double? WeatherLongitude { get; set; }
 
-    /// <summary>Corner duo status ring (battery, Wi-Fi, volume). Used from Batch 5.</summary>
-    public bool DuoRingEnabled { get; set; } = true;
+    /// <summary>
+    /// Corner duo status ring (battery, Wi-Fi, volume). Saved as "ShowDuoRing"; files from
+    /// before the ring + Dynaland prompt said "DuoRingEnabled", which is still read.
+    /// </summary>
+    public bool ShowDuoRing { get; set; } = true;
+
+    /// <summary>Dynaland's green camera and orange mic dots (and its "In use now" view on the pill).</summary>
+    public bool ShowPrivacyDots { get; set; } = true;
+
+    /// <summary>Dynaland's shape: notch (default) or island.</summary>
+    public DynalandStyle DynalandStyle { get; set; } = global::Machitan.Config.DynalandStyle.Notch;
+
+    /// <summary>Dynaland's edge: Auto (opposite the bar, the default), Top or Bottom.</summary>
+    public DynalandPosition DynalandPosition { get; set; } = global::Machitan.Config.DynalandPosition.Auto;
+
+    /// <summary>A colour over the top strip (only while the strip is kept). Off by default.</summary>
+    public bool TopStripCover { get; set; }
+
+    public StripCoverColour TopStripCoverColour { get; set; } = StripCoverColour.Dark;
+
+    public const double MinCoverOpacity = 0.1;
+    public const double MaxCoverOpacity = 1.0;
+
+    /// <summary>How solid the cover is: 0.1 (faint) to 1 (solid).</summary>
+    public double TopStripCoverOpacity { get; set; } = 0.6;
 
     public ScreenCorner DuoRingCorner { get; set; } = ScreenCorner.TopRight;
 
@@ -175,6 +227,28 @@ public sealed record ShellSettings
         {
             DuoRingCorner = ScreenCorner.TopRight;
         }
+
+        if (!Enum.IsDefined(DynalandStyle))
+        {
+            DynalandStyle = global::Machitan.Config.DynalandStyle.Notch;
+        }
+
+        if (!Enum.IsDefined(DynalandPosition))
+        {
+            DynalandPosition = global::Machitan.Config.DynalandPosition.Auto;
+        }
+
+        if (!Enum.IsDefined(TopStripCoverColour))
+        {
+            TopStripCoverColour = StripCoverColour.Dark;
+        }
+
+        if (double.IsNaN(TopStripCoverOpacity) || double.IsInfinity(TopStripCoverOpacity))
+        {
+            TopStripCoverOpacity = 0.6;
+        }
+
+        TopStripCoverOpacity = Math.Clamp(TopStripCoverOpacity, MinCoverOpacity, MaxCoverOpacity);
 
         WeatherPlaceName = (WeatherPlaceName ?? string.Empty).Trim();
         if (WeatherPlaceName.Length > 200)

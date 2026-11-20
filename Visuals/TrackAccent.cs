@@ -35,6 +35,12 @@ internal static class TrackAccent
         return Pick(data.DetachPixelData());
     }
 
+    /// <summary>The same pick on pixels already decoded (BGRA): the wallpaper's accent (Batch 7).</summary>
+    internal static Color? FromPixels(byte[] pixels)
+    {
+        return Pick(pixels);
+    }
+
     private static Color? Pick(byte[] pixels)
     {
         var weight = new double[Bins];

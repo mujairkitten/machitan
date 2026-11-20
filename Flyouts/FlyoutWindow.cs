@@ -40,10 +40,17 @@ public abstract partial class FlyoutWindow : Window
 {
     private protected const double PadDip = 4;
     private protected const double GapToBarDip = 8;
-    private protected const double BoxRadius = 16;
-    private protected const double SmallRadius = 8;
+    private protected const double BoxRadius = Radii.Large;
+    private protected const double SmallRadius = Radii.Small;
 
     private protected static readonly FontFamily IconFont = new("Segoe Fluent Icons, Segoe MDL2 Assets");
+
+    // Opening and closing, for flyouts that name what moves (MotionTarget): a short rise from
+    // the bar's side with a fade, and a quicker fade back towards it (Visuals/Motion.cs).
+    private const float OpenFromDip = 16;
+    private const int OpenMs = 200;
+    private const float CloseToDip = 8;
+    private const int CloseMs = 120;
 
     private readonly WindowCutter _cutter;
     private readonly List<(Grid Box, double Radius)> _boxes = new();
@@ -122,7 +129,25 @@ public abstract partial class FlyoutWindow : Window
             Log.Error(_name + ": closing failed.", ex);
         }
 
-        User32.ShowWindow(Hwnd, User32.SW_HIDE);
+        UIElement? target = MotionTarget;
+        if (target is not null && Motion.IsOn(Host.Settings.Current) && User32.IsWindowVisible(Hwnd))
+        {
+            // Hidden once it has faded; nothing in it takes a click meanwhile.
+            target.IsHitTestVisible = false;
+            _cutter.Suspend();
+            Motion.Leave(target, FromBarSide(CloseToDip), CloseMs, () =>
+            {
+                if (!IsOpen)
+                {
+                    User32.ShowWindow(Hwnd, User32.SW_HIDE);
+                }
+            });
+        }
+        else
+        {
+            User32.ShowWindow(Hwnd, User32.SW_HIDE);
+        }
+
         if (_takesFocus)
         {
             Log.Info(_name + " closed.");
@@ -171,6 +196,41 @@ public abstract partial class FlyoutWindow : Window
             return;
         }
 
+        // Animated: the cut is lifted while the content moves (else its edges would clip),
+        // and the motion starts before the window shows, so its first frame is already the
+        // start of it.
+        UIElement? target = MotionTarget;
+        if (target is not null)
+        {
+            target.IsHitTestVisible = true;
+            if (Motion.IsOn(Host.Settings.Current))
+            {
+                _cutter.Suspend();
+                Action settled = () =>
+                {
+                    if (IsOpen)
+                    {
+                        _cutter.Resume();
+                    }
+                };
+
+                // Still on screen means it was closing: it turns back from where it is.
+                if (User32.IsWindowVisible(Hwnd))
+                {
+                    Motion.Return(target, OpenMs, settled);
+                }
+                else
+                {
+                    Motion.Arrive(target, FromBarSide(OpenFromDip), OpenMs, settled);
+                }
+            }
+            else
+            {
+                Motion.Reset(target);
+                _cutter.Resume();
+            }
+        }
+
         if (_takesFocus)
         {
             User32.ShowWindow(Hwnd, User32.SW_SHOW);
@@ -190,6 +250,18 @@ public abstract partial class FlyoutWindow : Window
         {
             Log.Info(_name + " opened.");
         }
+    }
+
+    /// <summary>
+    /// What moves as the flyout opens and closes; null (the default) for none. Settings >
+    /// General > Turn off animations (or Windows' own setting) stops it.
+    /// </summary>
+    private protected virtual UIElement? MotionTarget => null;
+
+    /// <summary>A distance towards the bar: down for a bottom bar, up for a top bar.</summary>
+    private float FromBarSide(float distanceDip)
+    {
+        return Host.Settings.Current.DockEdge == DockEdge.Top ? -distanceDip : distanceDip;
     }
 
     /// <summary>The largest content height (DIP) that fits on the screen with room to spare.</summary>
@@ -214,6 +286,12 @@ public abstract partial class FlyoutWindow : Window
     private protected virtual void OnHiding()
     {
     }
+
+    /// <summary>
+    /// True while the flyout stays open although another window took the focus (the tray box
+    /// while an app's menu from it is open); it then closes itself.
+    /// </summary>
+    private protected virtual bool KeepOpenWhenDeactivated => false;
 
     /// <summary>Runs after any settings change (from Settings, a flyout, or a hand edit), once theme and fills are applied.</summary>
     private protected virtual void OnSettingsApplied(ShellSettings settings)
@@ -266,7 +344,7 @@ public abstract partial class FlyoutWindow : Window
     private void OnActivated(object sender, WindowActivatedEventArgs args)
     {
         // A click anywhere else closes the flyout.
-        if (_takesFocus && args.WindowActivationState == WindowActivationState.Deactivated && IsOpen)
+        if (_takesFocus && args.WindowActivationState == WindowActivationState.Deactivated && IsOpen && !KeepOpenWhenDeactivated)
         {
             HideFlyout();
         }

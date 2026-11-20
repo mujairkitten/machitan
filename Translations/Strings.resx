@@ -1,0 +1,1364 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ActionsFor" xml:space="preserve">
+    <value>Actions for {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="AppSettings" xml:space="preserve">
+    <value>App settings</value>
+  </data>
+  <data name="BarCustomize" xml:space="preserve">
+    <value>Customize</value>
+  </data>
+  <data name="BarCustomizeName" xml:space="preserve">
+    <value>Customize the bar</value>
+  </data>
+  <data name="BarExit" xml:space="preserve">
+    <value>Exit Machitan</value>
+  </data>
+  <data name="BarSearch" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="BarSearchPlaceholder" xml:space="preserve">
+    <value>Search apps</value>
+  </data>
+  <data name="BarSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="BarStart" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="CalCalendar" xml:space="preserve">
+    <value>Calendar</value>
+  </data>
+  <data name="CalHide" xml:space="preserve">
+    <value>Hide the calendar</value>
+  </data>
+  <data name="CalShow" xml:space="preserve">
+    <value>Show the calendar</value>
+  </data>
+  <data name="CalToday" xml:space="preserve">
+    <value>Today</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ClearSelection" xml:space="preserve">
+    <value>Clear selection</value>
+  </data>
+  <data name="CloseAllWindows" xml:space="preserve">
+    <value>Close all windows</value>
+  </data>
+  <data name="CloseWindow" xml:space="preserve">
+    <value>Close window</value>
+  </data>
+  <data name="CmAdd" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="CmAddTip" xml:space="preserve">
+    <value>Add something you removed</value>
+  </data>
+  <data name="CmApps" xml:space="preserve">
+    <value>Apps</value>
+  </data>
+  <data name="CmAutoArrange" xml:space="preserve">
+    <value>Auto-arrange</value>
+  </data>
+  <data name="CmAutoArrangeTip" xml:space="preserve">
+    <value>Auto-arrange: Start first, then the apps; centred</value>
+  </data>
+  <data name="CmBack" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="CmBackTip" xml:space="preserve">
+    <value>Back: undo everything since Customize</value>
+  </data>
+  <data name="CmClosePicker" xml:space="preserve">
+    <value>Close the picker</value>
+  </data>
+  <data name="CmDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="CmDoneCustomizing" xml:space="preserve">
+    <value>Done customizing</value>
+  </data>
+  <data name="CmDoneCustomizingTip" xml:space="preserve">
+    <value>Done customizing: keep the changes</value>
+  </data>
+  <data name="CmDoneTip" xml:space="preserve">
+    <value>Done: keep the changes</value>
+  </data>
+  <data name="CmDynalandSample" xml:space="preserve">
+    <value>Music, volume, camera and mic</value>
+  </data>
+  <data name="CmIconsLabels" xml:space="preserve">
+    <value>Icons with labels</value>
+  </data>
+  <data name="CmIconsLabelsAbout" xml:space="preserve">
+    <value>Each app's name beside its icon.</value>
+  </data>
+  <data name="CmIconsOnly" xml:space="preserve">
+    <value>Icons only</value>
+  </data>
+  <data name="CmIconsOnlyAbout" xml:space="preserve">
+    <value>Each app as its icon.</value>
+  </data>
+  <data name="CmInUse" xml:space="preserve">
+    <value>in use</value>
+  </data>
+  <data name="CmInfoAndRing" xml:space="preserve">
+    <value>Info line + Duo ring</value>
+  </data>
+  <data name="CmInfoAndRingAbout" xml:space="preserve">
+    <value>Date, time, weather; battery, Wi-Fi, volume.</value>
+  </data>
+  <data name="CmInfoOnly" xml:space="preserve">
+    <value>Info line only</value>
+  </data>
+  <data name="CmInfoOnlyAbout" xml:space="preserve">
+    <value>Date, time, weather.</value>
+  </data>
+  <data name="CmKeepOne" xml:space="preserve">
+    <value>The bar keeps at least one bubble.</value>
+  </data>
+  <data name="CmMusic" xml:space="preserve">
+    <value>Music</value>
+  </data>
+  <data name="CmMusicAbout" xml:space="preserve">
+    <value>The pill for music and live things.</value>
+  </data>
+  <data name="CmNext" xml:space="preserve">
+    <value>Next element</value>
+  </data>
+  <data name="CmNoApps" xml:space="preserve">
+    <value>No apps on the bar now</value>
+  </data>
+  <data name="CmNoDynaland" xml:space="preserve">
+    <value>No Dynaland.</value>
+  </data>
+  <data name="CmNoTray" xml:space="preserve">
+    <value>No tray icons now</value>
+  </data>
+  <data name="CmNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="CmNoneAbout" xml:space="preserve">
+    <value>No corner widgets.</value>
+  </data>
+  <data name="CmNothingRemoved" xml:space="preserve">
+    <value>Nothing removed: everything is on</value>
+  </data>
+  <data name="CmPageOf" xml:space="preserve">
+    <value>{0} of {1}</value>
+    <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="CmPrevious" xml:space="preserve">
+    <value>Previous element</value>
+  </data>
+  <data name="CmRemove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="CmRemoveUngroup" xml:space="preserve">
+    <value>Remove (ungroup)</value>
+  </data>
+  <data name="CmReset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="CmResetTip" xml:space="preserve">
+    <value>Reset: the standard bar (Back still undoes it)</value>
+  </data>
+  <data name="CmRingOnly" xml:space="preserve">
+    <value>Duo ring only</value>
+  </data>
+  <data name="CmRingOnlyAbout" xml:space="preserve">
+    <value>Battery, Wi-Fi, volume.</value>
+  </data>
+  <data name="CmStart" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="CmStartBox" xml:space="preserve">
+    <value>Start + search box</value>
+  </data>
+  <data name="CmStartBoxAbout" xml:space="preserve">
+    <value>Type right on the bar.</value>
+  </data>
+  <data name="CmStartIcon" xml:space="preserve">
+    <value>Start + search icon</value>
+  </data>
+  <data name="CmStartIconAbout" xml:space="preserve">
+    <value>Search opens Windows' search.</value>
+  </data>
+  <data name="CmStartOnly" xml:space="preserve">
+    <value>Start only</value>
+  </data>
+  <data name="CmStartOnlyAbout" xml:space="preserve">
+    <value>No search on the bar.</value>
+  </data>
+  <data name="CmTray" xml:space="preserve">
+    <value>Tray</value>
+  </data>
+  <data name="CmTrayHiddenAbout" xml:space="preserve">
+    <value>Not on the bar: in Dynaland's general page.</value>
+  </data>
+  <data name="CmTrayOnBar" xml:space="preserve">
+    <value>Icons on the bar</value>
+  </data>
+  <data name="CmTrayOnBarAbout" xml:space="preserve">
+    <value>A bubble of its own; the ^ button holds the icons, and dragged out they stay on the bar.</value>
+  </data>
+  <data name="DockFocused" xml:space="preserve">
+    <value>in front</value>
+  </data>
+  <data name="DockNotRunning" xml:space="preserve">
+    <value>not running</value>
+  </data>
+  <data name="DockPinned" xml:space="preserve">
+    <value>pinned</value>
+  </data>
+  <data name="DockSelected" xml:space="preserve">
+    <value>selected</value>
+  </data>
+  <data name="DockWindows" xml:space="preserve">
+    <value>{0} windows</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynAnApp" xml:space="preserve">
+    <value>an app</value>
+  </data>
+  <data name="DynBackToMusic" xml:space="preserve">
+    <value>Back to the music</value>
+  </data>
+  <data name="DynCamera" xml:space="preserve">
+    <value>Camera</value>
+  </data>
+  <data name="DynCameraUses" xml:space="preserve">
+    <value>Camera: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynInUseNow" xml:space="preserve">
+    <value>In use now</value>
+  </data>
+  <data name="DynInUseNowName" xml:space="preserve">
+    <value>In use now: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynMicrophone" xml:space="preserve">
+    <value>Microphone</value>
+  </data>
+  <data name="DynMicrophoneUses" xml:space="preserve">
+    <value>Microphone: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynMoreTray" xml:space="preserve">
+    <value>{0} more tray icons</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynMuted" xml:space="preserve">
+    <value>Muted</value>
+  </data>
+  <data name="DynNext" xml:space="preserve">
+    <value>Next track</value>
+  </data>
+  <data name="DynNothingInUse" xml:space="preserve">
+    <value>Nothing is using the camera or the microphone.</value>
+  </data>
+  <data name="DynNotifications" xml:space="preserve">
+    <value>Notifications</value>
+  </data>
+  <data name="DynOpenNotifications" xml:space="preserve">
+    <value>Open Windows' notification centre</value>
+  </data>
+  <data name="DynPaused" xml:space="preserve">
+    <value>Paused: {0}, in {1}.</value>
+    <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="DynPlayPause" xml:space="preserve">
+    <value>Play or pause</value>
+  </data>
+  <data name="DynPlaying" xml:space="preserve">
+    <value>Playing {0}, in {1}.</value>
+    <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="DynPointToOpen" xml:space="preserve">
+    <value>Point at it to open Dynaland.</value>
+  </data>
+  <data name="DynPosition" xml:space="preserve">
+    <value>Playback position</value>
+  </data>
+  <data name="DynPrevious" xml:space="preserve">
+    <value>Previous track</value>
+  </data>
+  <data name="DynTitleBy" xml:space="preserve">
+    <value>{0} by {1}</value>
+    <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="DynToGeneral" xml:space="preserve">
+    <value>Show camera, microphone and notifications</value>
+  </data>
+  <data name="DynTray" xml:space="preserve">
+    <value>Tray</value>
+  </data>
+  <data name="EndTask" xml:space="preserve">
+    <value>End task</value>
+  </data>
+  <data name="FileBytes" xml:space="preserve">
+    <value>{0} bytes</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="FileCopy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="FileCopyPath" xml:space="preserve">
+    <value>Copy as path</value>
+  </data>
+  <data name="FileDimensions" xml:space="preserve">
+    <value>Dimensions</value>
+  </data>
+  <data name="FileGone" xml:space="preserve">
+    <value>This file is no longer there.</value>
+  </data>
+  <data name="FileLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="FileModified" xml:space="preserve">
+    <value>Modified {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="FileOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="FileProperties" xml:space="preserve">
+    <value>Properties</value>
+  </data>
+  <data name="FileShare" xml:space="preserve">
+    <value>Share</value>
+  </data>
+  <data name="FileSize" xml:space="preserve">
+    <value>File size</value>
+  </data>
+  <data name="FolderDocuments" xml:space="preserve">
+    <value>Documents</value>
+  </data>
+  <data name="FolderDownloads" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="FolderExplorer" xml:space="preserve">
+    <value>File Explorer</value>
+  </data>
+  <data name="FolderMachitan" xml:space="preserve">
+    <value>Machitan settings</value>
+  </data>
+  <data name="FolderMusic" xml:space="preserve">
+    <value>Music</value>
+  </data>
+  <data name="FolderNetwork" xml:space="preserve">
+    <value>Network</value>
+  </data>
+  <data name="FolderPersonal" xml:space="preserve">
+    <value>Personal folder</value>
+  </data>
+  <data name="FolderPictures" xml:space="preserve">
+    <value>Pictures</value>
+  </data>
+  <data name="FolderSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="FolderVideos" xml:space="preserve">
+    <value>Videos</value>
+  </data>
+  <data name="GroupApps" xml:space="preserve">
+    <value>Group {0} apps</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="InfoLineIn" xml:space="preserve">
+    <value>in {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="InfoLineName" xml:space="preserve">
+    <value>Info line. Opens Windows' notification centre.</value>
+  </data>
+  <data name="JumpTasks" xml:space="preserve">
+    <value>Tasks</value>
+  </data>
+  <data name="KbActive" xml:space="preserve">
+    <value>Windows key hook: active. A lone Win key opens Machitan's Start; Win combinations pass through to Windows.</value>
+  </data>
+  <data name="KbActiveNoStart" xml:space="preserve">
+    <value>Windows key hook: active, but Machitan's Start is not available, so a lone Win key opens Windows' Start.</value>
+  </data>
+  <data name="KbAdminOff" xml:space="preserve">
+    <value>While an app running as administrator is in front, Windows keeps the keys from Machitan (turn on "Shortcuts in apps running as administrator" below). If the Win key opens Windows' Start there, Machitan closes it and opens its own.</value>
+  </data>
+  <data name="KbAdminOn" xml:space="preserve">
+    <value>Apps running as administrator: Machitan's helper catches its shortcuts there too.</value>
+  </data>
+  <data name="KbCaught" xml:space="preserve">
+    <value>Owned by Windows, so Machitan catches them in its keyboard hook: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="KbFailed" xml:space="preserve">
+    <value>Could not be set up: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="KbHandles" xml:space="preserve">
+    <value>Shortcuts Machitan handles: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="KbNone" xml:space="preserve">
+    <value>none</value>
+  </data>
+  <data name="KbNotActive" xml:space="preserve">
+    <value>Windows key hook: not active (error {0}). A lone Win key opens Windows' Start.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="KbNotStarted" xml:space="preserve">
+    <value>Windows key hook and shortcuts: not started (see diagnostics.log).</value>
+  </data>
+  <data name="KbOwned" xml:space="preserve">
+    <value>Owned by Windows, so Windows handles them as usual: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="MoreOptions" xml:space="preserve">
+    <value>More options</value>
+  </data>
+  <data name="MoreOptionsFor" xml:space="preserve">
+    <value>More options for {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="MoveToNewGroup" xml:space="preserve">
+    <value>Move to a new group</value>
+  </data>
+  <data name="NetEthernet" xml:space="preserve">
+    <value>Ethernet</value>
+  </data>
+  <data name="NoActions" xml:space="preserve">
+    <value>No actions for this app</value>
+  </data>
+  <data name="Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="On" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="OpenFileLocation" xml:space="preserve">
+    <value>Open file location</value>
+  </data>
+  <data name="PinToStart" xml:space="preserve">
+    <value>Pin to Start</value>
+  </data>
+  <data name="PinToTaskbar" xml:space="preserve">
+    <value>Pin to taskbar</value>
+  </data>
+  <data name="PowerHibernate" xml:space="preserve">
+    <value>Hibernate</value>
+  </data>
+  <data name="PowerRestart" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="PowerRestartAsk" xml:space="preserve">
+    <value>Restart now?</value>
+  </data>
+  <data name="PowerShutDown" xml:space="preserve">
+    <value>Shut down</value>
+  </data>
+  <data name="PowerShutDownAsk" xml:space="preserve">
+    <value>Shut down now?</value>
+  </data>
+  <data name="PowerSleep" xml:space="preserve">
+    <value>Sleep</value>
+  </data>
+  <data name="PowerUpdateRestart" xml:space="preserve">
+    <value>Update and restart</value>
+  </data>
+  <data name="PowerUpdateRestartAsk" xml:space="preserve">
+    <value>Update and restart now?</value>
+  </data>
+  <data name="PowerUpdateShutDown" xml:space="preserve">
+    <value>Update and shut down</value>
+  </data>
+  <data name="PowerUpdateShutDownAsk" xml:space="preserve">
+    <value>Update and shut down now?</value>
+  </data>
+  <data name="PreviewMoreMany" xml:space="preserve">
+    <value>+{0} more windows</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="PreviewMoreOne" xml:space="preserve">
+    <value>+{0} more window</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="PreviewOf" xml:space="preserve">
+    <value>Preview of {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="QsBrightness" xml:space="preserve">
+    <value>Brightness</value>
+  </data>
+  <data name="QsBrightnessBuiltIn" xml:space="preserve">
+    <value>Brightness - built-in screen</value>
+  </data>
+  <data name="QsBrightnessDisplay" xml:space="preserve">
+    <value>Brightness - display {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="QsChecking" xml:space="preserve">
+    <value>Checking which screens can change brightness...</value>
+  </data>
+  <data name="QsMute" xml:space="preserve">
+    <value>Mute</value>
+  </data>
+  <data name="QsNothing" xml:space="preserve">
+    <value>Windows offers no volume or brightness control on this PC right now.</value>
+  </data>
+  <data name="QsVolume" xml:space="preserve">
+    <value>Volume</value>
+  </data>
+  <data name="QsVolumeOf" xml:space="preserve">
+    <value>Volume - {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingBattery" xml:space="preserve">
+    <value>Battery {0}%</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingBatteryCharging" xml:space="preserve">
+    <value>Battery {0}%, charging</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingConnecting" xml:space="preserve">
+    <value>Connecting...</value>
+  </data>
+  <data name="RingName" xml:space="preserve">
+    <value>Status. {0}. Opens Windows' quick settings.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingNetworkChecking" xml:space="preserve">
+    <value>Network: checking</value>
+  </data>
+  <data name="RingNoBattery" xml:space="preserve">
+    <value>No battery</value>
+  </data>
+  <data name="RingNoSignal" xml:space="preserve">
+    <value>No signal</value>
+  </data>
+  <data name="RingPlaneMode" xml:space="preserve">
+    <value>Plane mode</value>
+  </data>
+  <data name="RingVolume" xml:space="preserve">
+    <value>Volume {0}%</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingVolumeMuted" xml:space="preserve">
+    <value>Volume muted</value>
+  </data>
+  <data name="RingVolumeNoDevice" xml:space="preserve">
+    <value>Volume: no output device</value>
+  </data>
+  <data name="RingWifi" xml:space="preserve">
+    <value>Wi-Fi: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingWifiConnecting" xml:space="preserve">
+    <value>Wi-Fi: connecting</value>
+  </data>
+  <data name="RingWifiNotConnected" xml:space="preserve">
+    <value>Wi-Fi: not connected</value>
+  </data>
+  <data name="RingWifiOff" xml:space="preserve">
+    <value>Wi-Fi is off</value>
+  </data>
+  <data name="RingWired" xml:space="preserve">
+    <value>Wired: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RunAsAdmin" xml:space="preserve">
+    <value>Run as administrator</value>
+  </data>
+  <data name="SearchApps" xml:space="preserve">
+    <value>Apps</value>
+  </data>
+  <data name="SearchBoxName" xml:space="preserve">
+    <value>Search apps, or type files: to search files</value>
+  </data>
+  <data name="SearchFiles" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="SearchFilesShort" xml:space="preserve">
+    <value>Type at least two letters after files:</value>
+  </data>
+  <data name="SearchNoAppMatch" xml:space="preserve">
+    <value>No app matches.</value>
+  </data>
+  <data name="SearchNoFileMatch" xml:space="preserve">
+    <value>No file matches in your folders.</value>
+  </data>
+  <data name="SearchReadingApps" xml:space="preserve">
+    <value>Reading your apps...</value>
+  </data>
+  <data name="SearchSearchingFiles" xml:space="preserve">
+    <value>Searching your files...</value>
+  </data>
+  <data name="SetAboutText" xml:space="preserve">
+    <value>Free software under the GNU GPL, version 3. Windows build {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetAccentColour" xml:space="preserve">
+    <value>Accent colour</value>
+  </data>
+  <data name="SetAccentFromWallpaper" xml:space="preserve">
+    <value>From the wallpaper</value>
+  </data>
+  <data name="SetAccentFromWindows" xml:space="preserve">
+    <value>Windows' accent colour</value>
+  </data>
+  <data name="SetAcrylic" xml:space="preserve">
+    <value>Acrylic</value>
+  </data>
+  <data name="SetAdminApps" xml:space="preserve">
+    <value>Apps running as administrator</value>
+  </data>
+  <data name="SetAdminKeys" xml:space="preserve">
+    <value>Shortcuts in apps running as administrator</value>
+  </data>
+  <data name="SetAdminKeysNote" xml:space="preserve">
+    <value>Windows asks once. A small part of Machitan then runs as administrator, only to see the keys.</value>
+  </data>
+  <data name="SetAfterApps" xml:space="preserve">
+    <value>After the apps</value>
+  </data>
+  <data name="SetAlignment" xml:space="preserve">
+    <value>Alignment</value>
+  </data>
+  <data name="SetAlwaysInPowerMenu" xml:space="preserve">
+    <value>Always in the menu, so Machitan can always be closed from Start.</value>
+  </data>
+  <data name="SetAppNames" xml:space="preserve">
+    <value>App names</value>
+  </data>
+  <data name="SetAutoHide" xml:space="preserve">
+    <value>Auto-hide</value>
+  </data>
+  <data name="SetBarHeight" xml:space="preserve">
+    <value>Bar height</value>
+  </data>
+  <data name="SetBeforeApps" xml:space="preserve">
+    <value>Before the apps</value>
+  </data>
+  <data name="SetBottom" xml:space="preserve">
+    <value>Bottom</value>
+  </data>
+  <data name="SetBottomLeft" xml:space="preserve">
+    <value>Bottom left</value>
+  </data>
+  <data name="SetBottomRight" xml:space="preserve">
+    <value>Bottom right</value>
+  </data>
+  <data name="SetCalendar" xml:space="preserve">
+    <value>Calendar (Win+N)</value>
+  </data>
+  <data name="SetCannotSleep" xml:space="preserve">
+    <value>This PC cannot sleep.</value>
+  </data>
+  <data name="SetCenter" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="SetChoosePicture" xml:space="preserve">
+    <value>Choose picture</value>
+  </data>
+  <data name="SetChoosePictureName" xml:space="preserve">
+    <value>Choose picture: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetCorner" xml:space="preserve">
+    <value>Corner</value>
+  </data>
+  <data name="SetCover" xml:space="preserve">
+    <value>Cover</value>
+  </data>
+  <data name="SetCoverColour" xml:space="preserve">
+    <value>Cover colour</value>
+  </data>
+  <data name="SetCoverNote" xml:space="preserve">
+    <value>Needs Keep the edge clear.</value>
+  </data>
+  <data name="SetCoverOpacity" xml:space="preserve">
+    <value>Cover opacity</value>
+  </data>
+  <data name="SetCustomize" xml:space="preserve">
+    <value>Customize</value>
+  </data>
+  <data name="SetDark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="SetDate" xml:space="preserve">
+    <value>Date</value>
+  </data>
+  <data name="SetDiagnosticsLog" xml:space="preserve">
+    <value>Diagnostics log</value>
+  </data>
+  <data name="SetDragHelp" xml:space="preserve">
+    <value>Drag to move it. Alt+Up or Alt+Down moves it with the keyboard.</value>
+  </data>
+  <data name="SetDragTip" xml:space="preserve">
+    <value>Drag to move (Alt+Up, Alt+Down)</value>
+  </data>
+  <data name="SetEdgeNote" xml:space="preserve">
+    <value>The screen edge opposite the bar.</value>
+  </data>
+  <data name="SetFind" xml:space="preserve">
+    <value>Find</value>
+  </data>
+  <data name="SetFindName" xml:space="preserve">
+    <value>Find this place and use it for the weather</value>
+  </data>
+  <data name="SetFocusedAppName" xml:space="preserve">
+    <value>Focused app name</value>
+  </data>
+  <data name="SetHibernationOff" xml:space="preserve">
+    <value>Hibernation is off on this PC.</value>
+  </data>
+  <data name="SetHidden" xml:space="preserve">
+    <value>Hidden</value>
+  </data>
+  <data name="SetHotkeyStatus" xml:space="preserve">
+    <value>Hotkey status</value>
+  </data>
+  <data name="SetHotkeys" xml:space="preserve">
+    <value>Hotkeys</value>
+  </data>
+  <data name="SetIconSize" xml:space="preserve">
+    <value>Icon size</value>
+  </data>
+  <data name="SetInUseNone" xml:space="preserve">
+    <value>In use: no place yet, so the weather stays hidden. Find one, or switch back to Windows' location.</value>
+  </data>
+  <data name="SetInUsePlace" xml:space="preserve">
+    <value>In use: {0} ({1}, {2}).</value>
+    <comment>Keep {0}, {1}, {2}: Machitan fills them in.</comment>
+  </data>
+  <data name="SetInUseWindows" xml:space="preserve">
+    <value>In use: Windows' location.</value>
+  </data>
+  <data name="SetInUseWindowsKept" xml:space="preserve">
+    <value>In use: Windows' location. Chosen place kept for later: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetInfoLine" xml:space="preserve">
+    <value>Info line</value>
+  </data>
+  <data name="SetIsland" xml:space="preserve">
+    <value>Island</value>
+  </data>
+  <data name="SetKeepEdgeClear" xml:space="preserve">
+    <value>Keep the edge clear</value>
+  </data>
+  <data name="SetLanguage" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="SetLanguageNote" xml:space="preserve">
+    <value>Takes effect when Machitan starts again.</value>
+  </data>
+  <data name="SetLanguageWindows" xml:space="preserve">
+    <value>Windows' language</value>
+  </data>
+  <data name="SetLayout" xml:space="preserve">
+    <value>Layout</value>
+  </data>
+  <data name="SetLeft" xml:space="preserve">
+    <value>Left</value>
+  </data>
+  <data name="SetLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="SetList" xml:space="preserve">
+    <value>List</value>
+  </data>
+  <data name="SetLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="SetLookingUp" xml:space="preserve">
+    <value>Looking up "{0}"...</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetMode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="SetModeClassic" xml:space="preserve">
+    <value>Classic</value>
+  </data>
+  <data name="SetModeCompact" xml:space="preserve">
+    <value>Compact</value>
+  </data>
+  <data name="SetModeJoined" xml:space="preserve">
+    <value>Joined</value>
+  </data>
+  <data name="SetModeNote" xml:space="preserve">
+    <value>Compact is not built yet; it shows as Segmented.</value>
+  </data>
+  <data name="SetModeSegmented" xml:space="preserve">
+    <value>Segmented</value>
+  </data>
+  <data name="SetMoveName" xml:space="preserve">
+    <value>Move {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetNextToPower" xml:space="preserve">
+    <value>Next to the power button</value>
+  </data>
+  <data name="SetNotBuiltName" xml:space="preserve">
+    <value>{0} (not built yet)</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetNotBuiltYet" xml:space="preserve">
+    <value>Not built yet.</value>
+  </data>
+  <data name="SetNotch" xml:space="preserve">
+    <value>Notch</value>
+  </data>
+  <data name="SetOpacity" xml:space="preserve">
+    <value>Opacity</value>
+  </data>
+  <data name="SetOpenFolder" xml:space="preserve">
+    <value>Open Machitan's folder</value>
+  </data>
+  <data name="SetOppositeBar" xml:space="preserve">
+    <value>Opposite the bar</value>
+  </data>
+  <data name="SetOwnPictures" xml:space="preserve">
+    <value>My own pictures</value>
+  </data>
+  <data name="SetOwnPicturesNote" xml:space="preserve">
+    <value>Show your own pictures on the Start button instead of Machitan's logo. They fit into the logo's place. The pressed picture stays while Start is open. Choosing the normal picture turns this on.</value>
+  </data>
+  <data name="SetPageAbout" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="SetPageDynaland" xml:space="preserve">
+    <value>Dynaland</value>
+  </data>
+  <data name="SetPageEdge" xml:space="preserve">
+    <value>Edge strip</value>
+  </data>
+  <data name="SetPageGeneral" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="SetPagePrivacy" xml:space="preserve">
+    <value>Privacy</value>
+  </data>
+  <data name="SetPageShortcuts" xml:space="preserve">
+    <value>Shortcuts</value>
+  </data>
+  <data name="SetPageStart" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="SetPageTaskbar" xml:space="preserve">
+    <value>Taskbar</value>
+  </data>
+  <data name="SetPageWidgets" xml:space="preserve">
+    <value>Corner widgets</value>
+  </data>
+  <data name="SetPeekDesktop" xml:space="preserve">
+    <value>Peek at the desktop</value>
+  </data>
+  <data name="SetPeekDesktopNote" xml:space="preserve">
+    <value>Rest the pointer on Show desktop for a moment to see the desktop. Move away and the windows come back.</value>
+  </data>
+  <data name="SetPictureHovered" xml:space="preserve">
+    <value>Hovered</value>
+  </data>
+  <data name="SetPictureMissing" xml:space="preserve">
+    <value>Not found: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetPictureNoneHovered" xml:space="preserve">
+    <value>None chosen: the hovered picture shows, or the normal one.</value>
+  </data>
+  <data name="SetPictureNoneLogo" xml:space="preserve">
+    <value>None chosen: Machitan's logo shows.</value>
+  </data>
+  <data name="SetPictureNoneNormal" xml:space="preserve">
+    <value>None chosen: the normal picture shows.</value>
+  </data>
+  <data name="SetPictureNormal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="SetPicturePickFailed" xml:space="preserve">
+    <value>The picture could not be chosen. Try again.</value>
+  </data>
+  <data name="SetPicturePressed" xml:space="preserve">
+    <value>Pressed</value>
+  </data>
+  <data name="SetPlace" xml:space="preserve">
+    <value>Place</value>
+  </data>
+  <data name="SetPlaceBox" xml:space="preserve">
+    <value>A city, or latitude, longitude</value>
+  </data>
+  <data name="SetPlaceIChoose" xml:space="preserve">
+    <value>A place I choose</value>
+  </data>
+  <data name="SetPlaceInUseName" xml:space="preserve">
+    <value>Weather place in use</value>
+  </data>
+  <data name="SetPlaceSearchFailed" xml:space="preserve">
+    <value>The place search did not work.</value>
+  </data>
+  <data name="SetPlanned" xml:space="preserve">
+    <value>Planned</value>
+  </data>
+  <data name="SetPosition" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="SetPowerMenu" xml:space="preserve">
+    <value>Power menu</value>
+  </data>
+  <data name="SetPreviewsAs" xml:space="preserve">
+    <value>Show previews as</value>
+  </data>
+  <data name="SetPrivacyDots" xml:space="preserve">
+    <value>Camera and mic dots</value>
+  </data>
+  <data name="SetPrivacyDotsNote" xml:space="preserve">
+    <value>Green: camera. Orange: microphone.</value>
+  </data>
+  <data name="SetPrivacyLog" xml:space="preserve">
+    <value>A troubleshooting log at {0}. It can hold app names, file paths and window titles, and stays on this PC unless you share it.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetPrivacyRing" xml:space="preserve">
+    <value>Battery, network and volume come from Windows on this PC. The Wi-Fi name comes from Windows' network list, so no location permission is needed.</value>
+  </data>
+  <data name="SetPrivacyWeather" xml:space="preserve">
+    <value>With weather on, Machitan asks Windows for this PC's location at most once an hour, rounds it to about 1 km, and sends it to Open-Meteo (open-meteo.com) every 15 minutes. If Windows blocks location for desktop apps, the weather stays hidden. With a place you picked, its rounded coordinates go instead, and a place search sends the name you typed to Open-Meteo. Nothing else leaves this PC.</value>
+  </data>
+  <data name="SetRecentItems" xml:space="preserve">
+    <value>Recent items</value>
+  </data>
+  <data name="SetRemovePictureName" xml:space="preserve">
+    <value>Remove picture: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetRight" xml:space="preserve">
+    <value>Right</value>
+  </data>
+  <data name="SetRunAtStartup" xml:space="preserve">
+    <value>Run at startup</value>
+  </data>
+  <data name="SetSearch" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="SetSearchBox" xml:space="preserve">
+    <value>Box</value>
+  </data>
+  <data name="SetSearchIcon" xml:space="preserve">
+    <value>Icon</value>
+  </data>
+  <data name="SetSearchNote" xml:space="preserve">
+    <value>Icon opens Windows' search; Box searches on the bar.</value>
+  </data>
+  <data name="SetSeconds" xml:space="preserve">
+    <value>Seconds</value>
+  </data>
+  <data name="SetShape" xml:space="preserve">
+    <value>Shape</value>
+  </data>
+  <data name="SetShowsWhileUpdate" xml:space="preserve">
+    <value>Shows while an update is waiting.</value>
+  </data>
+  <data name="SetSize" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="SetStartButton" xml:space="preserve">
+    <value>Start button</value>
+  </data>
+  <data name="SetStartup" xml:space="preserve">
+    <value>Startup</value>
+  </data>
+  <data name="SetStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="SetStatusRing" xml:space="preserve">
+    <value>Status ring</value>
+  </data>
+  <data name="SetSystem" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="SetSystemStats" xml:space="preserve">
+    <value>System stats</value>
+  </data>
+  <data name="SetTheme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="SetThumbnails" xml:space="preserve">
+    <value>Thumbnails</value>
+  </data>
+  <data name="SetTime" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="SetTop" xml:space="preserve">
+    <value>Top</value>
+  </data>
+  <data name="SetTopLeft" xml:space="preserve">
+    <value>Top left</value>
+  </data>
+  <data name="SetTopRight" xml:space="preserve">
+    <value>Top right</value>
+  </data>
+  <data name="SetTrayOnBar" xml:space="preserve">
+    <value>Tray on the bar</value>
+  </data>
+  <data name="SetTurnOffAnimations" xml:space="preserve">
+    <value>Turn off animations</value>
+  </data>
+  <data name="SetTurnOffAnimationsNote" xml:space="preserve">
+    <value>Start, the hidden icons (^) and the bar appear and go at once, with no motion. Turning off Animation effects in Windows (Accessibility &gt; Visual effects) does the same.</value>
+  </data>
+  <data name="SetWeather" xml:space="preserve">
+    <value>Weather</value>
+  </data>
+  <data name="SetWeatherPlace" xml:space="preserve">
+    <value>Weather place</value>
+  </data>
+  <data name="SetWidth" xml:space="preserve">
+    <value>Width</value>
+  </data>
+  <data name="SetWindowTitle" xml:space="preserve">
+    <value>Machitan Settings</value>
+  </data>
+  <data name="SetWindowsLocation" xml:space="preserve">
+    <value>Windows' location</value>
+  </data>
+  <data name="SetWithStart" xml:space="preserve">
+    <value>With Start</value>
+  </data>
+  <data name="ShowDesktop" xml:space="preserve">
+    <value>Show desktop</value>
+  </data>
+  <data name="ShowHiddenIcons" xml:space="preserve">
+    <value>Show hidden icons</value>
+  </data>
+  <data name="StartAccountSettings" xml:space="preserve">
+    <value>Account settings</value>
+  </data>
+  <data name="StartAllApps" xml:space="preserve">
+    <value>All apps</value>
+  </data>
+  <data name="StartFilesHint" xml:space="preserve">
+    <value>Type at least two letters after files: to search your Desktop, Documents, Downloads, Pictures, Music and Videos.</value>
+  </data>
+  <data name="StartNoApps" xml:space="preserve">
+    <value>No apps found.</value>
+  </data>
+  <data name="StartNoPinMatch" xml:space="preserve">
+    <value>No pinned app matches.</value>
+  </data>
+  <data name="StartNoPins" xml:space="preserve">
+    <value>No pinned apps yet. Use ... next to an app in All apps, then Pin to Start.</value>
+  </data>
+  <data name="StartPinned" xml:space="preserve">
+    <value>Pinned</value>
+  </data>
+  <data name="StartPower" xml:space="preserve">
+    <value>Power</value>
+  </data>
+  <data name="StartPowerNothing" xml:space="preserve">
+    <value>Nothing chosen in Settings &gt; Start</value>
+  </data>
+  <data name="StartResults" xml:space="preserve">
+    <value>Results</value>
+  </data>
+  <data name="StartSearchPlaceholder" xml:space="preserve">
+    <value>Search apps (files: for files)</value>
+  </data>
+  <data name="SwMany" xml:space="preserve">
+    <value>{0} open windows</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SwMinimised" xml:space="preserve">
+    <value>{0} - minimised</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SwNone" xml:space="preserve">
+    <value>No open windows</value>
+  </data>
+  <data name="SwOne" xml:space="preserve">
+    <value>1 open window</value>
+  </data>
+  <data name="SwOpenWindows" xml:space="preserve">
+    <value>Open windows</value>
+  </data>
+  <data name="TrayHiddenIcons" xml:space="preserve">
+    <value>Hidden icons</value>
+  </data>
+  <data name="TrayIcon" xml:space="preserve">
+    <value>Tray icon</value>
+  </data>
+  <data name="Ungroup" xml:space="preserve">
+    <value>Ungroup</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="UninstallAsk" xml:space="preserve">
+    <value>Uninstall {0} and its data?</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="UninstallFailed" xml:space="preserve">
+    <value>Windows could not uninstall it.</value>
+  </data>
+  <data name="UninstallNotAllowed" xml:space="preserve">
+    <value>Windows does not let this app be uninstalled.</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>Uninstalling {0}...</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="UnpinFromStart" xml:space="preserve">
+    <value>Unpin from Start</value>
+  </data>
+  <data name="UnpinFromTaskbar" xml:space="preserve">
+    <value>Unpin from taskbar</value>
+  </data>
+  <data name="UnpinXFromStart" xml:space="preserve">
+    <value>Unpin {0} from Start</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WinXComputerManagement" xml:space="preserve">
+    <value>Computer Mana&amp;gement</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXDesktop" xml:space="preserve">
+    <value>&amp;Desktop</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXDeviceManager" xml:space="preserve">
+    <value>Device &amp;Manager</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXDiskManagement" xml:space="preserve">
+    <value>Dis&amp;k Management</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXEventViewer" xml:space="preserve">
+    <value>Event &amp;Viewer</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXFileExplorer" xml:space="preserve">
+    <value>File &amp;Explorer</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXHibernate" xml:space="preserve">
+    <value>&amp;Hibernate</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXInstalledApps" xml:space="preserve">
+    <value>Installed a&amp;pps</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXMenuName" xml:space="preserve">
+    <value>Quick Link menu</value>
+    <comment>What screen readers call Machitan's Win+X menu (Windows' name for it).</comment>
+  </data>
+  <data name="WinXMobilityCenter" xml:space="preserve">
+    <value>Mo&amp;bility Center</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXNetworkConnections" xml:space="preserve">
+    <value>Net&amp;work Connections</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXPowerOptions" xml:space="preserve">
+    <value>Power &amp;Options</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXPowerShell" xml:space="preserve">
+    <value>W&amp;indows PowerShell</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. Shown instead of Terminal when Windows Terminal is not installed.</comment>
+  </data>
+  <data name="WinXPowerShellAdmin" xml:space="preserve">
+    <value>Windows PowerShell (&amp;Admin)</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. Shown instead of Terminal (Admin) when Windows Terminal is not installed.</comment>
+  </data>
+  <data name="WinXRestart" xml:space="preserve">
+    <value>&amp;Restart</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXRun" xml:space="preserve">
+    <value>&amp;Run</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXSearch" xml:space="preserve">
+    <value>&amp;Search</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXSettings" xml:space="preserve">
+    <value>Setti&amp;ngs</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXShutDown" xml:space="preserve">
+    <value>Sh&amp;ut down</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXShutDownMenu" xml:space="preserve">
+    <value>Sh&amp;ut down or sign out</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. Opens the submenu with the entries below.</comment>
+  </data>
+  <data name="WinXSignOut" xml:space="preserve">
+    <value>S&amp;ign out</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXSleep" xml:space="preserve">
+    <value>&amp;Sleep</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXSystem" xml:space="preserve">
+    <value>S&amp;ystem</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXTaskManager" xml:space="preserve">
+    <value>&amp;Task Manager</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXTerminal" xml:space="preserve">
+    <value>Term&amp;inal</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXTerminalAdmin" xml:space="preserve">
+    <value>Terminal (&amp;Admin)</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXUpdateRestart" xml:space="preserve">
+    <value>Up&amp;date and restart</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXUpdateShutDown" xml:space="preserve">
+    <value>U&amp;pdate and shut down</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WxClear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="WxClearNight" xml:space="preserve">
+    <value>Clear night</value>
+  </data>
+  <data name="WxCode" xml:space="preserve">
+    <value>Weather code {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxDrizzle" xml:space="preserve">
+    <value>Drizzle</value>
+  </data>
+  <data name="WxFog" xml:space="preserve">
+    <value>Fog</value>
+  </data>
+  <data name="WxFreezingDrizzle" xml:space="preserve">
+    <value>Freezing drizzle</value>
+  </data>
+  <data name="WxFreezingRain" xml:space="preserve">
+    <value>Freezing rain</value>
+  </data>
+  <data name="WxMainlyClear" xml:space="preserve">
+    <value>Mainly clear</value>
+  </data>
+  <data name="WxNoCoordinates" xml:space="preserve">
+    <value>Open-Meteo's answer for "{0}" had no coordinates.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxNoPlace" xml:space="preserve">
+    <value>No place found for "{0}". Try another spelling, or add the country.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxOvercast" xml:space="preserve">
+    <value>Overcast</value>
+  </data>
+  <data name="WxPartlyCloudy" xml:space="preserve">
+    <value>Partly cloudy</value>
+  </data>
+  <data name="WxRain" xml:space="preserve">
+    <value>Rain</value>
+  </data>
+  <data name="WxRainShowers" xml:space="preserve">
+    <value>Rain showers</value>
+  </data>
+  <data name="WxSearchAnswered" xml:space="preserve">
+    <value>Open-Meteo's place search answered {0}. Try again in a moment.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxSearchFailed" xml:space="preserve">
+    <value>The place search did not work ({0}). Check the connection and try again.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxSnow" xml:space="preserve">
+    <value>Snow</value>
+  </data>
+  <data name="WxSnowShowers" xml:space="preserve">
+    <value>Snow showers</value>
+  </data>
+  <data name="WxThunderHail" xml:space="preserve">
+    <value>Thunderstorm with hail</value>
+  </data>
+  <data name="WxThunderstorm" xml:space="preserve">
+    <value>Thunderstorm</value>
+  </data>
+  <data name="WxTypeMore" xml:space="preserve">
+    <value>Type at least two letters of a place, or latitude, longitude.</value>
+  </data>
+</root>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Machitan.Bar;
 using Machitan.Config;
 using Machitan.Core;
+using Machitan.Custom;
 using Machitan.Flyouts;
 using Machitan.Interop;
 using Machitan.SettingsUi;
@@ -20,15 +21,21 @@ internal sealed class ShellHost
     private BarWindow? _bar;
     private SettingsWindow? _settingsWindow;
     private KeyboardService? _keyboard;
+    private SystemUiWatcher? _systemUi;
     private CalendarFlyout? _calendar;
     private QuickSettingsFlyout? _quickSettings;
     private SwitcherWindow? _switcher;
     private PreviewWindow? _preview;
     private SearchResultsFlyout? _searchResults;
+    private TrayBoxWindow? _trayBox;
+    private WinXMenuWindow? _winX;
     private InfoLineWindow? _infoLine;
     private DuoRingWindow? _duoRing;
     private DynalandWindow? _dynaland;
     private TopStrip? _topStrip;
+    private DispatcherQueueTimer? _fitTimer;
+    private int _fitPasses;
+    private WindowChangeWatch? _windowWatch;
     private TopStripCoverWindow? _cover;
     private bool _coverFailed;
     private bool _layingOut;
@@ -39,17 +46,94 @@ internal sealed class ShellHost
     internal ShellHost()
     {
         Tasks = new TaskService(DispatcherQueue.GetForCurrentThread());
+        Tasks.ShortcutAppIds = program => Catalog.ShortcutAppIdsFor(program);
+        Accent = new AccentService(DispatcherQueue.GetForCurrentThread());
+        Custom = new CustomMode(this);
+        Tray = new TrayIconService(DispatcherQueue.GetForCurrentThread());
+    }
+
+    /// <summary>
+    /// The tray icons, received straight from the apps (Batch 6): shown in Dynaland's general
+    /// page, or in the bar's tray bubble. Runs while either is on (once started, until Machitan stops).
+    /// </summary>
+    internal TrayIconService Tray { get; }
+
+    /// <summary>Starts the tray receiver when Dynaland or the bar's tray bubble needs it.</summary>
+    private void StartTrayWhenWanted()
+    {
+        ShellSettings s = Settings.Current;
+        if (!_shuttingDown && (s.EnableDynaland || s.TrayOnBar))
+        {
+            Tray.Start();
+        }
+    }
+
+    /// <summary>Custom mode (Batch 7): picking, removing and choosing variants of the bar's elements.</summary>
+    internal CustomMode Custom { get; }
+
+    /// <summary>
+    /// The apps in the order the bar shows them, from the left: the shown bubbles in their order,
+    /// each bubble's apps in its order (what dragging changes). Win+1..9 count these; built
+    /// fresh from the pins and running apps each time.
+    /// </summary>
+    internal List<DockItem> BarOrderedApps()
+    {
+        List<DockItem> items = DockModel.Build(Pins.Pins, Tasks.Groups);
+        Dictionary<string, List<DockItem>> arranged = BarLayout.Arrange(items);
+        IReadOnlyList<string> order = _bar is BarWindow bar && bar.ShownBubbleIds.Count > 0 ? bar.ShownBubbleIds : BarLayout.Order;
+        var ordered = new List<DockItem>(items.Count);
+        foreach (string id in order)
+        {
+            if (arranged.TryGetValue(id, out List<DockItem>? list))
+            {
+                ordered.AddRange(list);
+            }
+        }
+
+        return ordered;
+    }
+
+    /// <summary>How many bubbles the bar shows now (custom mode keeps at least one).</summary>
+    internal int ShownBubbleCount => _bar?.ShownBubbleCount ?? 0;
+
+    /// <summary>The title of what plays now, as Dynaland shows it, or null.</summary>
+    internal string? NowPlayingTitle => _dynaland?.NowPlayingTitle;
+
+    /// <summary>Where a custom-mode piece is on screen (physical pixels), or null when it is not shown.</summary>
+    internal RECT? ElementRect(CustomTarget target)
+    {
+        return target.Piece switch
+        {
+            CustomPiece.Start => _bar?.BubbleScreenRect(BarLayoutStore.StartId),
+            CustomPiece.Apps => _bar?.BubbleScreenRect(BarLayoutStore.AppsId),
+            CustomPiece.Group => target.GroupId is string id ? _bar?.BubbleScreenRect(id) : null,
+            CustomPiece.Tray => _bar?.BubbleScreenRect(BarLayoutStore.TrayId),
+            CustomPiece.Dynaland => _dynaland?.BadgeRect,
+            CustomPiece.InfoLine => _infoLine?.ShapeScreenRect(),
+            CustomPiece.DuoRing => _duoRing?.ShapeScreenRect(),
+            _ => null,
+        };
     }
 
     internal SettingsStore Settings { get; } = new();
 
-    internal PinStore Pins { get; } = new();
+    /// <summary>Apps pinned to the bar ("Pin to taskbar").</summary>
+    internal PinStore Pins { get; } = new(AppPaths.PinsFile, "Pins");
+
+    /// <summary>Apps pinned to Start's Pinned box ("Pin to Start"); first a copy of the bar's list.</summary>
+    internal PinStore StartPins { get; } = new(AppPaths.StartPinsFile, "Start pins", AppPaths.PinsFile);
+
+    /// <summary>The bar's bubbles and which apps sit where.</summary>
+    internal BarLayoutStore BarLayout { get; } = new();
 
     internal TaskService Tasks { get; }
 
     internal IconService Icons { get; } = new();
 
     internal DesktopToggle Desktop { get; } = new();
+
+    /// <summary>Machitan's accent colour: the wallpaper's strongest colour, or Windows' accent (Batch 7).</summary>
+    internal AccentService Accent { get; }
 
     internal AppCatalog Catalog { get; } = new();
 
@@ -64,7 +148,7 @@ internal sealed class ShellHost
 
     /// <summary>The "System status" text in Settings: the Windows key hook and each shortcut, as they really are.</summary>
     internal string SystemStatus =>
-        _keyboard?.Describe() ?? "Windows key hook and shortcuts: not started (see diagnostics.log).";
+        _keyboard?.Describe() ?? Strings.KbNotStarted;
 
     /// <summary>Opens the Settings window, or brings it forward when it is already open.</summary>
     internal void OpenSettings()
@@ -172,6 +256,30 @@ internal sealed class ShellHost
         }
     }
 
+    /// <summary>Win+X: Machitan's Win+X menu above the Start button. Made on first use.</summary>
+    internal void ToggleWinXMenu()
+    {
+        if (_shuttingDown)
+        {
+            return;
+        }
+
+        try
+        {
+            _winX ??= new WinXMenuWindow(this);
+            if (!_winX.IsOpen)
+            {
+                CloseOtherPopups(_winX);
+            }
+
+            _winX.Toggle();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("The Win+X menu could not be opened.", ex);
+        }
+    }
+
     /// <summary>The bar's window (0 before it exists).</summary>
     internal nint BarHandle => _bar?.Handle ?? 0;
 
@@ -230,12 +338,114 @@ internal sealed class ShellHost
     internal void CloseOtherPopups(FlyoutWindow keep)
     {
         StartMenu?.HideMenu();
-        foreach (FlyoutWindow? flyout in new FlyoutWindow?[] { _calendar, _quickSettings, _switcher, _preview, _searchResults })
+        foreach (FlyoutWindow? flyout in new FlyoutWindow?[] { _calendar, _quickSettings, _switcher, _preview, _searchResults, _trayBox, _winX })
         {
             if (flyout is not null && !ReferenceEquals(flyout, keep))
             {
                 flyout.HideFlyout();
             }
+        }
+    }
+
+    /// <summary>True when the shortcuts-in-admin-apps option is on for this copy of Machitan.exe.</summary>
+    internal bool AdminAppShortcutsOn
+    {
+        get
+        {
+            ShellSettings s = Settings.Current;
+            return s.AdminAppShortcuts && string.Equals(s.AdminAppShortcutsFor, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>At start: the admin-keys helper, when its option is on for this copy.</summary>
+    private void StartAdminKeysIfOn()
+    {
+        ShellSettings s = Settings.Current;
+        if (!s.AdminAppShortcuts || _keyboard is null)
+        {
+            return;
+        }
+
+        if (!AdminAppShortcutsOn)
+        {
+            Log.Warn("Admin keys: the option was turned on for another copy of Machitan (" + s.AdminAppShortcutsFor + "); turn it on again in Settings > Shortcuts for this one.");
+            return;
+        }
+
+        try
+        {
+            StartMenuWindow? menu = StartMenu;
+            AdminKeys.Start(_keyboard, menu is not null ? menu.ToggleFromKeyboard : null);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Admin keys: the helper could not be started.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Settings > Shortcuts: turns the shortcuts-in-admin-apps option on (Windows asks to make
+    /// the task) or off (the helper ends; Windows asks to remove the task). True when it took.
+    /// </summary>
+    internal async System.Threading.Tasks.Task<bool> SetAdminAppShortcutsAsync(bool on)
+    {
+        if (on)
+        {
+            if (!await AdminKeys.RegisterTaskAsync())
+            {
+                return false;
+            }
+
+            string exe = Environment.ProcessPath ?? string.Empty;
+            Settings.Update(s =>
+            {
+                s.AdminAppShortcuts = true;
+                s.AdminAppShortcutsFor = exe;
+            });
+            StartAdminKeysIfOn();
+            return true;
+        }
+
+        Settings.Update(s =>
+        {
+            s.AdminAppShortcuts = false;
+            s.AdminAppShortcutsFor = string.Empty;
+        });
+        AdminKeys.Current?.Dispose();
+        await AdminKeys.RemoveTaskAsync();
+        return true;
+    }
+
+    /// <summary>The bar's ^ button: opens or closes the tray box by it (its place on screen, physical pixels).</summary>
+    internal void ToggleTrayBox(RECT anchor)
+    {
+        if (_shuttingDown)
+        {
+            return;
+        }
+
+        try
+        {
+            _trayBox ??= new TrayBoxWindow(this);
+            if (!_trayBox.IsOpen)
+            {
+                CloseOtherPopups(_trayBox);
+            }
+
+            _trayBox.Toggle(anchor);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("The tray box could not be opened.", ex);
+        }
+    }
+
+    /// <summary>An icon dragged out of the tray box: the bar's drag takes it over.</summary>
+    internal void StartTrayDragFromBox(TrayIcon icon)
+    {
+        if (!_shuttingDown)
+        {
+            _bar?.BeginTrayDragFromBox(icon);
         }
     }
 
@@ -394,8 +604,8 @@ internal sealed class ShellHost
     }
 
     /// <summary>
-    /// The strip at the free edge (the one without the bar): one row (8 + 32 + 8 DIP) when a
-    /// widget is in a corner of that edge (widgets in one corner stand side by side), and at
+    /// The strip at the free edge (the one without the bar): one row (8 + the tallest widget's
+    /// height + 8 DIP; 32 at standard size) when a widget is in a corner of that edge (widgets in one corner stand side by side), and at
     /// least the small Dynaland pill plus a margin while Dynaland is on that edge. Nothing when
     /// neither is there, when the setting is off, or while shutting down.
     /// </summary>
@@ -411,7 +621,8 @@ internal sealed class ShellHost
                 bool widgetTop = widget is not null && widget.Corner is ScreenCorner.TopLeft or ScreenCorner.TopRight;
                 if (widget is not null && widget.WantsSpace && widgetTop == stripTop)
                 {
-                    dip = (2 * CornerWidgetWindow.EdgeMarginDip) + CornerWidgetWindow.LineHeightDip;
+                    // As tall as the tallest widget there (each has its own size setting).
+                    dip = Math.Max(dip, (2 * CornerWidgetWindow.EdgeMarginDip) + widget.LineHeightNowDip);
                 }
             }
 
@@ -425,6 +636,7 @@ internal sealed class ShellHost
         if (dip <= 0 || bar == 0 || !User32.TryGetMonitorRect(bar, out RECT monitor))
         {
             _topStrip?.Release();
+            StopWindowWatch();
             return;
         }
 
@@ -435,9 +647,82 @@ internal sealed class ShellHost
         {
             _topStrip = new TopStrip();
             _topStrip.Moved += () => _queue?.TryEnqueue(LayoutCorners);
+            _topStrip.Applied += FitMaximizedSoon;
         }
 
         _topStrip.Set(monitor, (int)Math.Round(dip * scale), stripTop);
+    }
+
+    /// <summary>
+    /// A moment after the strip is taken (Windows' own re-fit comes first), moves windows that
+    /// fill the screen and still reach into it (see MaximizedFit); from then on, windows that
+    /// appear, move or change size are checked one by one (WindowChangeWatch).
+    /// </summary>
+    private void FitMaximizedSoon()
+    {
+        if (_queue is null)
+        {
+            return;
+        }
+
+        if (_windowWatch is null)
+        {
+            try
+            {
+                _windowWatch = new WindowChangeWatch(_queue, CheckStripFor);
+            }
+            catch (Exception ex)
+            {
+                _windowWatch = null;
+                Log.Warn("Strip: windows that move or change size later cannot be watched this run.", ex);
+            }
+        }
+
+        if (_fitTimer is null)
+        {
+            // Twice: Windows may still re-fit windows itself after the first look (Explorer's
+            // taskbar going to auto-hide at start changes the work area again).
+            _fitTimer = _queue.CreateTimer();
+            _fitTimer.Interval = TimeSpan.FromMilliseconds(800);
+            _fitTimer.IsRepeating = true;
+            _fitTimer.Tick += (_, _) =>
+            {
+                _fitPasses++;
+                if (_fitPasses >= 2)
+                {
+                    _fitTimer?.Stop();
+                }
+                else if (_fitTimer is not null)
+                {
+                    _fitTimer.Interval = TimeSpan.FromMilliseconds(2000);
+                }
+
+                if (!_shuttingDown && BarHandle != 0 && _topStrip?.Granted is RECT strip)
+                {
+                    MaximizedFit.Run(BarHandle, strip, _topStrip.OnTop, _fitPasses >= 2 ? "2.8 s after the strip was taken" : "0.8 s after the strip was taken");
+                }
+            };
+        }
+
+        _fitTimer.Stop();
+        _fitPasses = 0;
+        _fitTimer.Interval = TimeSpan.FromMilliseconds(800);
+        _fitTimer.Start();
+    }
+
+    /// <summary>A window appeared, moved or changed size: keeps it out of the strip if it fills the screen.</summary>
+    private void CheckStripFor(nint hwnd)
+    {
+        if (!_shuttingDown && BarHandle != 0 && _topStrip?.Granted is RECT strip)
+        {
+            MaximizedFit.Check(hwnd, BarHandle, strip, _topStrip.OnTop);
+        }
+    }
+
+    private void StopWindowWatch()
+    {
+        _windowWatch?.Dispose();
+        _windowWatch = null;
     }
 
     /// <summary>
@@ -492,6 +777,7 @@ internal sealed class ShellHost
         try
         {
             _cover ??= new TopStripCoverWindow();
+            _cover.AccentColour = Accent.Current;
             nint bar = BarHandle;
             uint dpi = bar != 0 ? User32.GetDpiForWindow(bar) : 96;
             if (_cover.ShowOver(strip, settings, (dpi == 0 ? 96 : dpi) / 96.0))
@@ -517,11 +803,29 @@ internal sealed class ShellHost
 
         _queue = queue;
         Settings.Load();
+
+        // Before any window is made: its text comes in this language.
+        Languages.Apply(Settings.Current.Language);
         Settings.StartWatching(queue);
         Pins.Load();
+        StartPins.Load();
+        BarLayout.Load();
+
+        Accent.Start(Settings.Current.AccentSource);
+        Settings.Changed += () => Accent.SetSource(Settings.Current.AccentSource);
+        Settings.Changed += StartTrayWhenWanted;
+        Accent.Changed += () =>
+        {
+            // The strip cover's accent colour (the bar and Start follow the accent themselves).
+            if (!_shuttingDown)
+            {
+                LayoutCorners();
+            }
+        };
 
         _bar = new BarWindow(this);
         _bar.Start();
+        StartTrayWhenWanted();
 
         // Only now that Machitan's bar is on screen: no moment without any taskbar.
         // (Restored in Main's finally block, on sign-out, and by the guardian.)
@@ -550,6 +854,18 @@ internal sealed class ShellHost
         {
             _keyboard = null;
             Log.Error("The keyboard hook and shortcuts could not be started; Windows handles the keys as usual.", ex);
+        }
+
+        StartAdminKeysIfOn();
+
+        try
+        {
+            _systemUi = new SystemUiWatcher(this);
+        }
+        catch (Exception ex)
+        {
+            _systemUi = null;
+            Log.Error("Windows' Start cannot be watched this run.", ex);
         }
 
         StartCornerWidgets();
@@ -615,11 +931,15 @@ internal sealed class ShellHost
 
         _shuttingDown = true;
         Log.Info("Shutdown requested.");
+        Accent.Dispose();
 
         try
         {
             // First, so no key press reaches a window that is closing.
             _keyboard?.Stop();
+            AdminKeys.Current?.Dispose();
+            _systemUi?.Dispose();
+            _systemUi = null;
         }
         catch (Exception ex)
         {
@@ -628,8 +948,10 @@ internal sealed class ShellHost
 
         try
         {
+            _bar?.CancelDrag();
+            Custom.Done();
             StartMenu?.HideMenu();
-            foreach (FlyoutWindow? flyout in new FlyoutWindow?[] { _calendar, _quickSettings, _switcher, _preview, _searchResults })
+            foreach (FlyoutWindow? flyout in new FlyoutWindow?[] { _calendar, _quickSettings, _switcher, _preview, _searchResults, _trayBox, _winX })
             {
                 flyout?.HideFlyout();
             }
@@ -640,6 +962,8 @@ internal sealed class ShellHost
             _cover?.HideCover();
 
             // Maximised windows get the top of the screen back at once.
+            StopWindowWatch();
+            _fitTimer?.Stop();
             _topStrip?.Dispose();
             _topStrip = null;
         }
@@ -669,6 +993,8 @@ internal sealed class ShellHost
                      ("the switcher", _switcher),
                      ("the window preview", _preview),
                      ("the search results", _searchResults),
+                     ("the tray box", _trayBox),
+                     ("the Win+X menu", _winX),
                  })
         {
             if (flyout is not null)
@@ -695,6 +1021,16 @@ internal sealed class ShellHost
         if (_cover is TopStripCoverWindow cover)
         {
             steps.Enqueue(("the top strip cover", cover.Close));
+        }
+
+        if (_bar?.DragLayer is BarDragLayer dragLayer)
+        {
+            steps.Enqueue(("the bar's drag layer", dragLayer.Close));
+        }
+
+        foreach (Window custom in Custom.OpenWindows)
+        {
+            steps.Enqueue(("a custom mode window", custom.Close));
         }
 
         if (_queue is null || !_queue.TryEnqueue(DispatcherQueuePriority.Low, () => RunShutdownSteps(steps)))
@@ -741,6 +1077,16 @@ internal sealed class ShellHost
     /// <summary>The bar, then Explorer's taskbar comes back, then the app ends.</summary>
     private void FinishShutdown()
     {
+        try
+        {
+            // The tray receiver steps aside, so the apps reach Explorer's tray again.
+            Tray.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("The tray receiver did not stop cleanly.", ex);
+        }
+
         try
         {
             Log.Info("Shutdown: closing the bar.");

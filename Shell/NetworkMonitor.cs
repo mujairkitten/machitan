@@ -214,7 +214,7 @@ internal sealed class NetworkMonitor : IDisposable
 
         if (internet is not null && !internet.IsWlanConnectionProfile && IsUsable(internet))
         {
-            string name = "Ethernet";
+            string name = Strings.NetEthernet;
             try
             {
                 if (internet.NetworkAdapter is { IanaInterfaceType: not 6 } && internet.ProfileName.Length > 0)

@@ -6,6 +6,7 @@ using Machitan.Config;
 using Machitan.Core;
 using Machitan.Interop;
 using Machitan.Shell;
+using Machitan.Visuals;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Text;
@@ -31,19 +32,32 @@ namespace Machitan.Flyouts;
 /// pointer is over it, and goes about 0.3 s after the pointer leaves both.
 /// The cards are made once and reused, so hovering around builds nothing new.
 ///
-/// Peek: resting on a card for about 0.3 s brings its window to the front for a moment
-/// (shown without activating if it was minimised), without taking the keyboard. Moving to
-/// another card switches at once; moving away puts the window back exactly where it was
-/// (behind the same window, or minimised again). A click keeps it in front for real.
-/// Windows does not let a background program simply move another app's window in front of
-/// the active one, so for the moment of the peek the window is made always-on-top (the bar
-/// and this preview are raised above it again), and that is always undone afterwards.
-/// Windows' own Peek also turns the other windows see-through; that needs an undocumented
-/// Windows call, so it is not done here.
+/// List (Settings > Taskbar > Show previews as): instead of pictures, one box with a row per
+/// window (the app's icon, the window's title, a close button), like Windows' list previews.
+/// Pointing, peeking and clicking work the same.
+///
+/// Peek: resting on a card for about 0.3 s shows its window in place, as Windows' taskbar
+/// does: Windows' own peek (Shell/LivePeek.cs) draws that window and turns every other
+/// window see-through, without moving, activating or restoring anything (a minimised window
+/// shows as it last looked), so ending the peek puts nothing back. Moving to another card
+/// switches at once; a click keeps the window in front for real. A window whose app asked
+/// for no peek (DWMWA_DISALLOW_PEEK) is not peeked at, as on Windows' taskbar.
+/// When Windows refuses its own peek, Machitan peeks its own way: the window is brought to
+/// the front for a moment (shown without activating if it was minimised), without taking the
+/// keyboard, and moving away puts it back exactly where it was (behind the same window, or
+/// minimised again). Windows does not let a background program simply move another app's
+/// window in front of the active one, so for that moment the window is made always-on-top
+/// (the bar and this preview are raised above it again), and that is always undone.
 /// </summary>
 public sealed partial class PreviewWindow : FlyoutWindow
 {
     private const int MaxCards = 8;
+    private const int MaxRows = 12;
+    private const double ListWidthDip = 300;
+    private const double RowHeightDip = 36;
+    private const double RowSpacingDip = 2;
+    private const double ListPadDip = 4;
+    private const double ListMoreHeightDip = 28;
     private const double CardWidthDip = 232;
     private const double MinCardWidthDip = 160;
     private const double MoreCardWidthDip = 96;
@@ -51,7 +65,7 @@ public sealed partial class PreviewWindow : FlyoutWindow
     private const double HeaderHeightDip = 36;
     private const double PictureGapDip = 6;
     private const double CardSpacingDip = 8;
-    private const double CardRadius = 12;
+    private const double CardRadius = Radii.Large;
     private const double ScreenMarginDip = 8;
     private const double PictureAspect = 0.6;
 
@@ -65,6 +79,9 @@ public sealed partial class PreviewWindow : FlyoutWindow
 
     private readonly StackPanel _strip;
     private readonly List<Card> _cards = new();
+    private readonly Grid _listBox;
+    private readonly List<ListRow> _rows = new();
+    private readonly TextBlock _listMore;
     private readonly Grid _moreBox;
     private readonly TextBlock _moreText;
     private readonly DispatcherQueueTimer _showTimer;
@@ -78,6 +95,7 @@ public sealed partial class PreviewWindow : FlyoutWindow
     private RECT _button;
     private bool _pointerInside;
     private string _pictureSignature = string.Empty;
+    private bool _listShown;
 
     private nint _peekCandidate;
     private nint _peekWindow;
@@ -85,6 +103,9 @@ public sealed partial class PreviewWindow : FlyoutWindow
     private nint _peekWasBehind;
     private bool _peekMadeTopmost;
     private bool _peekLogged;
+
+    /// <summary>The peek shown now is Windows' own (nothing to put back).</summary>
+    private bool _peekLive;
 
     internal PreviewWindow(ShellHost host)
         : base(host, "Window preview", takesFocus: false)
@@ -121,6 +142,30 @@ public sealed partial class PreviewWindow : FlyoutWindow
         moreBox.Visibility = Visibility.Collapsed;
         _strip.Children.Add(moreBox);
         _moreBox = moreBox;
+
+        // List style: one box, a row per window.
+        var list = new StackPanel { Spacing = RowSpacingDip, Padding = new Thickness(ListPadDip) };
+        for (int i = 0; i < MaxRows; i++)
+        {
+            var row = new ListRow(this);
+            _rows.Add(row);
+            list.Children.Add(row.Content);
+        }
+
+        _listMore = new TextBlock
+        {
+            FontSize = 12,
+            Opacity = 0.75,
+            Height = ListMoreHeightDip,
+            Padding = new Thickness(12, 6, 12, 0),
+            Visibility = Visibility.Collapsed,
+        };
+        list.Children.Add(_listMore);
+        _listBox = MakeBox(list, CardRadius);
+        _listBox.HorizontalAlignment = HorizontalAlignment.Left;
+        _listBox.VerticalAlignment = VerticalAlignment.Top;
+        _listBox.Visibility = Visibility.Collapsed;
+        Root.Children.Add(_listBox);
 
         Root.LayoutUpdated += (_, _) => UpdatePictures();
 
@@ -237,34 +282,34 @@ public sealed partial class PreviewWindow : FlyoutWindow
         ReleasePictures();
     }
 
-    /// <summary>The pointer rests on a card.</summary>
-    private void OnCardEntered(Card card)
+    /// <summary>The pointer rests on a card or a list row (its window).</summary>
+    private void OnWindowEntered(nint window)
     {
         _peekEndTimer.Stop();
-        if (card.Window == 0)
+        if (window == 0)
         {
             return;
         }
 
-        if (_peekWindow == card.Window)
+        if (_peekWindow == window)
         {
             return;
         }
 
         if (_peekWindow != 0)
         {
-            // Already peeking: switch to this card's window at once.
+            // Already peeking: switch to this window at once.
             EndPeek(putBack: true);
-            StartPeek(card.Window);
+            StartPeek(window);
             return;
         }
 
-        _peekCandidate = card.Window;
+        _peekCandidate = window;
         _peekTimer.Stop();
         _peekTimer.Start();
     }
 
-    /// <summary>The pointer left a card.</summary>
+    /// <summary>The pointer left a card or a list row.</summary>
     private void OnCardExited()
     {
         _peekTimer.Stop();
@@ -292,6 +337,22 @@ public sealed partial class PreviewWindow : FlyoutWindow
             return;
         }
 
+        if (Dwmapi.DwmGetWindowAttribute(window, Dwmapi.DWMWA_DISALLOW_PEEK, out int disallowed, sizeof(int)) == 0
+            && disallowed != 0)
+        {
+            // Its app asked Windows not to peek at it; Windows' taskbar does not either.
+            return;
+        }
+
+        // Windows' own peek first: nothing is moved, so there is nothing to put back.
+        if (LivePeek.Start(window, Hwnd, desktop: false, "a window from the previews"))
+        {
+            _peekWindow = window;
+            _peekLive = true;
+            return;
+        }
+
+        _peekLive = false;
         _peekWasMinimized = User32.IsIconic(window);
         _peekWasBehind = User32.GetWindow(window, User32.GW_HWNDPREV);
         _peekMadeTopmost = (User32.GetWindowLongPtrW(window, User32.GWL_EXSTYLE) & User32.WS_EX_TOPMOST) == 0;
@@ -337,6 +398,14 @@ public sealed partial class PreviewWindow : FlyoutWindow
         }
 
         _peekWindow = 0;
+        if (_peekLive)
+        {
+            // Windows' own peek moved nothing; a click then brings the window in front itself.
+            _peekLive = false;
+            LivePeek.End();
+            return;
+        }
+
         if (!User32.IsWindow(window))
         {
             return;
@@ -397,6 +466,12 @@ public sealed partial class PreviewWindow : FlyoutWindow
 
         // Same windows: only the titles may have changed. Otherwise lay the cards out again.
         List<TaskWindow> windows = Ordered(group);
+        if (_listShown)
+        {
+            UpdateList(windows);
+            return;
+        }
+
         bool same = true;
         int shown = 0;
         foreach (Card card in _cards)
@@ -440,6 +515,15 @@ public sealed partial class PreviewWindow : FlyoutWindow
         ReleasePictures();
 
         List<TaskWindow> windows = Ordered(group);
+        if (Host.Settings.Current.PreviewStyle == PreviewStyle.List)
+        {
+            ShowList(windows, item, button);
+            return;
+        }
+
+        _listShown = false;
+        _listBox.Visibility = Visibility.Collapsed;
+        _strip.Visibility = Visibility.Visible;
         double scale = Scale();
         RectInt32 screen = DisplayArea.Primary.OuterBounds;
         double room = (screen.Width / scale) - (2 * ScreenMarginDip) - (2 * PadDip);
@@ -485,7 +569,7 @@ public sealed partial class PreviewWindow : FlyoutWindow
         if (more)
         {
             int rest = count - shown;
-            _moreText.Text = "+" + rest.ToString(CultureInfo.CurrentCulture) + (rest == 1 ? " more window" : " more windows");
+            _moreText.Text = Fmt.F(rest == 1 ? Strings.PreviewMoreOne : Strings.PreviewMoreMany, rest);
             _moreBox.Width = MoreCardWidthDip;
             _moreBox.Height = cardHeight;
             _moreBox.Visibility = Visibility.Visible;
@@ -496,8 +580,86 @@ public sealed partial class PreviewWindow : FlyoutWindow
         }
 
         double contentWidth = (shown * cardWidth) + ((shown - 1) * CardSpacingDip) + (more ? CardSpacingDip + MoreCardWidthDip : 0);
+        _pictureSignature = string.Empty;
+        PlaceAbove(button, contentWidth, cardHeight);
+    }
+
+    /// <summary>The list style: one row per window (up to MaxRows, then "+N more").</summary>
+    private void ShowList(List<TaskWindow> windows, DockItem item, RECT button)
+    {
+        _listShown = true;
+        _strip.Visibility = Visibility.Collapsed;
+        foreach (Card card in _cards)
+        {
+            card.Window = 0;
+            card.Box.Visibility = Visibility.Collapsed;
+        }
+
+        _moreBox.Visibility = Visibility.Collapsed;
+
+        int iconPixels = IconService.PickSize((int)Math.Ceiling(16 * Scale()));
+        ImageSource? icon = Host.Icons.GetIcon(item, iconPixels);
+        int shown = Math.Min(windows.Count, MaxRows);
+        for (int i = 0; i < _rows.Count; i++)
+        {
+            if (i < shown)
+            {
+                _rows[i].Bind(windows[i], item.DisplayName, icon);
+            }
+            else
+            {
+                _rows[i].Clear();
+            }
+        }
+
+        int rest = windows.Count - shown;
+        _listMore.Text = rest > 0
+            ? Fmt.F(rest == 1 ? Strings.PreviewMoreOne : Strings.PreviewMoreMany, rest)
+            : string.Empty;
+        _listMore.Visibility = rest > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        double height = (2 * ListPadDip) + (shown * RowHeightDip) + ((shown - 1) * RowSpacingDip)
+            + (rest > 0 ? RowSpacingDip + ListMoreHeightDip : 0);
+        _listBox.Width = ListWidthDip;
+        _listBox.Height = height;
+        _listBox.Visibility = Visibility.Visible;
+        PlaceAbove(button, ListWidthDip, height);
+    }
+
+    /// <summary>Windows changed while the list shows: new titles in place, or the list laid out again.</summary>
+    private void UpdateList(List<TaskWindow> windows)
+    {
+        int shown = 0;
+        foreach (ListRow row in _rows)
+        {
+            if (row.Window == 0)
+            {
+                break;
+            }
+
+            if (shown >= windows.Count || windows[shown].Handle != row.Window)
+            {
+                Show(_groupKey, _button);
+                return;
+            }
+
+            row.SetTitle(windows[shown]);
+            shown++;
+        }
+
+        if (shown != Math.Min(windows.Count, MaxRows) || (windows.Count > MaxRows) != (_listMore.Visibility == Visibility.Visible))
+        {
+            Show(_groupKey, _button);
+        }
+    }
+
+    /// <summary>Puts the window (content of this size in DIP) above the button, or below it for a top bar, on the screen.</summary>
+    private void PlaceAbove(RECT button, double contentWidth, double contentHeight)
+    {
+        double scale = Scale();
+        RectInt32 screen = DisplayArea.Primary.OuterBounds;
         int width = (int)Math.Round((contentWidth + (2 * PadDip)) * scale);
-        int height = (int)Math.Round((cardHeight + (2 * PadDip)) * scale);
+        int height = (int)Math.Round((contentHeight + (2 * PadDip)) * scale);
         int pad = (int)Math.Round(PadDip * scale);
         int gap = (int)Math.Round(GapToBarDip * scale);
 
@@ -510,8 +672,6 @@ public sealed partial class PreviewWindow : FlyoutWindow
         int rightmost = Math.Max(leftmost, screen.X + screen.Width - width - margin + pad);
         x = Math.Max(leftmost, Math.Min(x, rightmost));
         y = Math.Clamp(y, screen.Y, Math.Max(screen.Y, screen.Y + screen.Height - height));
-
-        _pictureSignature = string.Empty;
         PresentAt(new RectInt32(x, y, width, height));
     }
 
@@ -692,13 +852,13 @@ public sealed partial class PreviewWindow : FlyoutWindow
                 Width = 28,
                 Height = 28,
                 Padding = new Thickness(0),
-                CornerRadius = new CornerRadius(6),
+                CornerRadius = new CornerRadius(Radii.Small),
                 Background = new SolidColorBrush(Colors.Transparent),
                 BorderThickness = new Thickness(0),
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            AutomationProperties.SetName(_close, "Close window");
-            ToolTipService.SetToolTip(_close, "Close window");
+            AutomationProperties.SetName(_close, Strings.CloseWindow);
+            ToolTipService.SetToolTip(_close, Strings.CloseWindow);
             _close.Click += (_, _) =>
             {
                 if (Window != 0)
@@ -723,7 +883,7 @@ public sealed partial class PreviewWindow : FlyoutWindow
             Area = new Border
             {
                 Margin = new Thickness(0, PictureGapDip, 0, 0),
-                CornerRadius = new CornerRadius(6),
+                CornerRadius = new CornerRadius(Radii.Small),
             };
 
             var body = new Grid { Padding = new Thickness(CardPadDip) };
@@ -740,7 +900,7 @@ public sealed partial class PreviewWindow : FlyoutWindow
             {
                 _surface.Background = new SolidColorBrush(
                     _owner.IsDark ? ColorHelper.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : ColorHelper.FromArgb(0x18, 0x00, 0x00, 0x00));
-                _owner.OnCardEntered(this);
+                _owner.OnWindowEntered(Window);
             };
             _surface.PointerExited += (_, _) =>
             {
@@ -789,6 +949,117 @@ public sealed partial class PreviewWindow : FlyoutWindow
             }
 
             _owner.SwitchTo(Window);
+        }
+    }
+
+    /// <summary>One window's row in the list style: the app's icon, the window's title, a close button.</summary>
+    private sealed class ListRow
+    {
+        private readonly PreviewWindow _owner;
+        private readonly Grid _surface;
+        private readonly Image _icon;
+        private readonly TextBlock _title;
+        private readonly Button _close;
+        private string _appName = string.Empty;
+
+        internal ListRow(PreviewWindow owner)
+        {
+            _owner = owner;
+            _icon = new Image { Width = 16, Height = 16, VerticalAlignment = VerticalAlignment.Center };
+            _title = new TextBlock
+            {
+                FontSize = 13,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            _close = new Button
+            {
+                Content = MakeGlyph(CloseGlyph, 10),
+                Width = 28,
+                Height = 28,
+                Padding = new Thickness(0),
+                CornerRadius = new CornerRadius(Radii.Small),
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            AutomationProperties.SetName(_close, Strings.CloseWindow);
+            ToolTipService.SetToolTip(_close, Strings.CloseWindow);
+            _close.Click += (_, _) =>
+            {
+                if (Window != 0)
+                {
+                    // Closing what is being peeked at: nothing to put back.
+                    _owner.EndPeek(putBack: _owner._peekWindow != Window);
+                    User32.PostMessageW(Window, User32.WM_CLOSE, 0, 0);
+                }
+            };
+
+            _surface = new Grid
+            {
+                Height = RowHeightDip,
+                Padding = new Thickness(10, 0, 4, 0),
+                ColumnSpacing = 10,
+                CornerRadius = new CornerRadius(Radii.Small),
+                Background = new SolidColorBrush(Colors.Transparent),
+                Visibility = Visibility.Collapsed,
+            };
+            _surface.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
+            _surface.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _surface.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            _surface.Children.Add(_icon);
+            Grid.SetColumn(_title, 1);
+            _surface.Children.Add(_title);
+            Grid.SetColumn(_close, 2);
+            _surface.Children.Add(_close);
+
+            _surface.PointerEntered += (_, _) =>
+            {
+                _surface.Background = new SolidColorBrush(
+                    _owner.IsDark ? ColorHelper.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : ColorHelper.FromArgb(0x18, 0x00, 0x00, 0x00));
+                _owner.OnWindowEntered(Window);
+            };
+            _surface.PointerExited += (_, _) =>
+            {
+                _surface.Background = new SolidColorBrush(Colors.Transparent);
+                _owner.OnCardExited();
+            };
+            _surface.Tapped += (_, e) =>
+            {
+                if (Window != 0 && !IsWithin(e.OriginalSource, _close))
+                {
+                    _owner.SwitchTo(Window);
+                }
+            };
+        }
+
+        internal UIElement Content => _surface;
+
+        internal nint Window { get; private set; }
+
+        internal void Bind(TaskWindow window, string appName, ImageSource? icon)
+        {
+            Window = window.Handle;
+            _appName = appName;
+            _icon.Source = icon;
+            SetTitle(window);
+            _surface.Background = new SolidColorBrush(Colors.Transparent);
+            _surface.Visibility = Visibility.Visible;
+        }
+
+        internal void SetTitle(TaskWindow window)
+        {
+            string title = window.Title.Length > 0 ? window.Title : _appName;
+            _title.Text = title;
+            ToolTipService.SetToolTip(_surface, title);
+            AutomationProperties.SetName(_surface, _appName + ", " + title);
+        }
+
+        internal void Clear()
+        {
+            Window = 0;
+            _icon.Source = null;
+            _surface.Visibility = Visibility.Collapsed;
         }
     }
 }

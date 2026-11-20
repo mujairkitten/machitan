@@ -1,0 +1,1364 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ActionsFor" xml:space="preserve">
+    <value>Tindakan untuk {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="AppSettings" xml:space="preserve">
+    <value>Pengaturan aplikasi</value>
+  </data>
+  <data name="BarCustomize" xml:space="preserve">
+    <value>Sesuaikan</value>
+  </data>
+  <data name="BarCustomizeName" xml:space="preserve">
+    <value>Sesuaikan bilah</value>
+  </data>
+  <data name="BarExit" xml:space="preserve">
+    <value>Keluar dari Machitan</value>
+  </data>
+  <data name="BarSearch" xml:space="preserve">
+    <value>Cari</value>
+  </data>
+  <data name="BarSearchPlaceholder" xml:space="preserve">
+    <value>Cari aplikasi</value>
+  </data>
+  <data name="BarSettings" xml:space="preserve">
+    <value>Pengaturan</value>
+  </data>
+  <data name="BarStart" xml:space="preserve">
+    <value>Mulai</value>
+  </data>
+  <data name="CalCalendar" xml:space="preserve">
+    <value>Kalender</value>
+  </data>
+  <data name="CalHide" xml:space="preserve">
+    <value>Sembunyikan kalender</value>
+  </data>
+  <data name="CalShow" xml:space="preserve">
+    <value>Tampilkan kalender</value>
+  </data>
+  <data name="CalToday" xml:space="preserve">
+    <value>Hari ini</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Batal</value>
+  </data>
+  <data name="ClearSelection" xml:space="preserve">
+    <value>Hapus pilihan</value>
+  </data>
+  <data name="CloseAllWindows" xml:space="preserve">
+    <value>Tutup semua jendela</value>
+  </data>
+  <data name="CloseWindow" xml:space="preserve">
+    <value>Tutup jendela</value>
+  </data>
+  <data name="CmAdd" xml:space="preserve">
+    <value>Tambah</value>
+  </data>
+  <data name="CmAddTip" xml:space="preserve">
+    <value>Tambahkan sesuatu yang Anda hapus</value>
+  </data>
+  <data name="CmApps" xml:space="preserve">
+    <value>Aplikasi</value>
+  </data>
+  <data name="CmAutoArrange" xml:space="preserve">
+    <value>Atur otomatis</value>
+  </data>
+  <data name="CmAutoArrangeTip" xml:space="preserve">
+    <value>Atur otomatis: Mulai dulu, lalu aplikasi; di tengah</value>
+  </data>
+  <data name="CmBack" xml:space="preserve">
+    <value>Kembali</value>
+  </data>
+  <data name="CmBackTip" xml:space="preserve">
+    <value>Kembali: batalkan semua sejak Sesuaikan</value>
+  </data>
+  <data name="CmClosePicker" xml:space="preserve">
+    <value>Tutup pemilih</value>
+  </data>
+  <data name="CmDone" xml:space="preserve">
+    <value>Selesai</value>
+  </data>
+  <data name="CmDoneCustomizing" xml:space="preserve">
+    <value>Selesai menyesuaikan</value>
+  </data>
+  <data name="CmDoneCustomizingTip" xml:space="preserve">
+    <value>Selesai menyesuaikan: simpan perubahan</value>
+  </data>
+  <data name="CmDoneTip" xml:space="preserve">
+    <value>Selesai: simpan perubahan</value>
+  </data>
+  <data name="CmDynalandSample" xml:space="preserve">
+    <value>Musik, volume, kamera, dan mikrofon</value>
+  </data>
+  <data name="CmIconsLabels" xml:space="preserve">
+    <value>Ikon dengan label</value>
+  </data>
+  <data name="CmIconsLabelsAbout" xml:space="preserve">
+    <value>Nama setiap aplikasi di samping ikonnya.</value>
+  </data>
+  <data name="CmIconsOnly" xml:space="preserve">
+    <value>Hanya ikon</value>
+  </data>
+  <data name="CmIconsOnlyAbout" xml:space="preserve">
+    <value>Setiap aplikasi sebagai ikonnya.</value>
+  </data>
+  <data name="CmInUse" xml:space="preserve">
+    <value>dipakai</value>
+  </data>
+  <data name="CmInfoAndRing" xml:space="preserve">
+    <value>Baris info + Cincin ganda</value>
+  </data>
+  <data name="CmInfoAndRingAbout" xml:space="preserve">
+    <value>Tanggal, waktu, cuaca; baterai, Wi-Fi, volume.</value>
+  </data>
+  <data name="CmInfoOnly" xml:space="preserve">
+    <value>Hanya baris info</value>
+  </data>
+  <data name="CmInfoOnlyAbout" xml:space="preserve">
+    <value>Tanggal, waktu, cuaca.</value>
+  </data>
+  <data name="CmKeepOne" xml:space="preserve">
+    <value>Bilah menyimpan setidaknya satu gelembung.</value>
+  </data>
+  <data name="CmMusic" xml:space="preserve">
+    <value>Musik</value>
+  </data>
+  <data name="CmMusicAbout" xml:space="preserve">
+    <value>Pil untuk musik dan hal yang sedang berlangsung.</value>
+  </data>
+  <data name="CmNext" xml:space="preserve">
+    <value>Elemen berikutnya</value>
+  </data>
+  <data name="CmNoApps" xml:space="preserve">
+    <value>Belum ada aplikasi di bilah</value>
+  </data>
+  <data name="CmNoDynaland" xml:space="preserve">
+    <value>Tanpa Dynaland.</value>
+  </data>
+  <data name="CmNoTray" xml:space="preserve">
+    <value>Belum ada ikon baki</value>
+  </data>
+  <data name="CmNone" xml:space="preserve">
+    <value>Tidak ada</value>
+  </data>
+  <data name="CmNoneAbout" xml:space="preserve">
+    <value>Tanpa widget sudut.</value>
+  </data>
+  <data name="CmNothingRemoved" xml:space="preserve">
+    <value>Tidak ada yang dihapus: semuanya tampil</value>
+  </data>
+  <data name="CmPageOf" xml:space="preserve">
+    <value>{0} dari {1}</value>
+    <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="CmPrevious" xml:space="preserve">
+    <value>Elemen sebelumnya</value>
+  </data>
+  <data name="CmRemove" xml:space="preserve">
+    <value>Hapus</value>
+  </data>
+  <data name="CmRemoveUngroup" xml:space="preserve">
+    <value>Hapus (pisahkan grup)</value>
+  </data>
+  <data name="CmReset" xml:space="preserve">
+    <value>Atur ulang</value>
+  </data>
+  <data name="CmResetTip" xml:space="preserve">
+    <value>Atur ulang: bilah standar (Kembali masih bisa membatalkannya)</value>
+  </data>
+  <data name="CmRingOnly" xml:space="preserve">
+    <value>Hanya cincin ganda</value>
+  </data>
+  <data name="CmRingOnlyAbout" xml:space="preserve">
+    <value>Baterai, Wi-Fi, volume.</value>
+  </data>
+  <data name="CmStart" xml:space="preserve">
+    <value>Mulai</value>
+  </data>
+  <data name="CmStartBox" xml:space="preserve">
+    <value>Mulai + kotak pencarian</value>
+  </data>
+  <data name="CmStartBoxAbout" xml:space="preserve">
+    <value>Ketik langsung di bilah.</value>
+  </data>
+  <data name="CmStartIcon" xml:space="preserve">
+    <value>Mulai + ikon pencarian</value>
+  </data>
+  <data name="CmStartIconAbout" xml:space="preserve">
+    <value>Pencarian membuka pencarian Windows.</value>
+  </data>
+  <data name="CmStartOnly" xml:space="preserve">
+    <value>Hanya Mulai</value>
+  </data>
+  <data name="CmStartOnlyAbout" xml:space="preserve">
+    <value>Tanpa pencarian di bilah.</value>
+  </data>
+  <data name="CmTray" xml:space="preserve">
+    <value>Baki</value>
+  </data>
+  <data name="CmTrayHiddenAbout" xml:space="preserve">
+    <value>Tidak di bilah: di halaman umum Dynaland.</value>
+  </data>
+  <data name="CmTrayOnBar" xml:space="preserve">
+    <value>Ikon di bilah</value>
+  </data>
+  <data name="CmTrayOnBarAbout" xml:space="preserve">
+    <value>Gelembung tersendiri; tombol ^ menyimpan ikon, dan yang diseret keluar tetap di bilah.</value>
+  </data>
+  <data name="DockFocused" xml:space="preserve">
+    <value>di depan</value>
+  </data>
+  <data name="DockNotRunning" xml:space="preserve">
+    <value>tidak berjalan</value>
+  </data>
+  <data name="DockPinned" xml:space="preserve">
+    <value>disematkan</value>
+  </data>
+  <data name="DockSelected" xml:space="preserve">
+    <value>dipilih</value>
+  </data>
+  <data name="DockWindows" xml:space="preserve">
+    <value>{0} jendela</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynAnApp" xml:space="preserve">
+    <value>sebuah aplikasi</value>
+  </data>
+  <data name="DynBackToMusic" xml:space="preserve">
+    <value>Kembali ke musik</value>
+  </data>
+  <data name="DynCamera" xml:space="preserve">
+    <value>Kamera</value>
+  </data>
+  <data name="DynCameraUses" xml:space="preserve">
+    <value>Kamera: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynInUseNow" xml:space="preserve">
+    <value>Sedang dipakai</value>
+  </data>
+  <data name="DynInUseNowName" xml:space="preserve">
+    <value>Sedang dipakai: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynMicrophone" xml:space="preserve">
+    <value>Mikrofon</value>
+  </data>
+  <data name="DynMicrophoneUses" xml:space="preserve">
+    <value>Mikrofon: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynMoreTray" xml:space="preserve">
+    <value>{0} ikon baki lagi</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="DynMuted" xml:space="preserve">
+    <value>Dibisukan</value>
+  </data>
+  <data name="DynNext" xml:space="preserve">
+    <value>Lagu berikutnya</value>
+  </data>
+  <data name="DynNothingInUse" xml:space="preserve">
+    <value>Tidak ada yang memakai kamera atau mikrofon.</value>
+  </data>
+  <data name="DynNotifications" xml:space="preserve">
+    <value>Pemberitahuan</value>
+  </data>
+  <data name="DynOpenNotifications" xml:space="preserve">
+    <value>Buka pusat pemberitahuan Windows</value>
+  </data>
+  <data name="DynPaused" xml:space="preserve">
+    <value>Dijeda: {0}, di {1}.</value>
+    <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="DynPlayPause" xml:space="preserve">
+    <value>Putar atau jeda</value>
+  </data>
+  <data name="DynPlaying" xml:space="preserve">
+    <value>Memutar {0}, di {1}.</value>
+    <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="DynPointToOpen" xml:space="preserve">
+    <value>Arahkan penunjuk ke sini untuk membuka Dynaland.</value>
+  </data>
+  <data name="DynPosition" xml:space="preserve">
+    <value>Posisi pemutaran</value>
+  </data>
+  <data name="DynPrevious" xml:space="preserve">
+    <value>Lagu sebelumnya</value>
+  </data>
+  <data name="DynTitleBy" xml:space="preserve">
+    <value>{0} oleh {1}</value>
+    <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="DynToGeneral" xml:space="preserve">
+    <value>Tampilkan kamera, mikrofon, dan pemberitahuan</value>
+  </data>
+  <data name="DynTray" xml:space="preserve">
+    <value>Baki</value>
+  </data>
+  <data name="EndTask" xml:space="preserve">
+    <value>Akhiri tugas</value>
+  </data>
+  <data name="FileBytes" xml:space="preserve">
+    <value>{0} byte</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="FileCopy" xml:space="preserve">
+    <value>Salin</value>
+  </data>
+  <data name="FileCopyPath" xml:space="preserve">
+    <value>Salin sebagai jalur</value>
+  </data>
+  <data name="FileDimensions" xml:space="preserve">
+    <value>Dimensi</value>
+  </data>
+  <data name="FileGone" xml:space="preserve">
+    <value>File ini sudah tidak ada.</value>
+  </data>
+  <data name="FileLocation" xml:space="preserve">
+    <value>Lokasi</value>
+  </data>
+  <data name="FileModified" xml:space="preserve">
+    <value>Diubah {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="FileOpen" xml:space="preserve">
+    <value>Buka</value>
+  </data>
+  <data name="FileProperties" xml:space="preserve">
+    <value>Properti</value>
+  </data>
+  <data name="FileShare" xml:space="preserve">
+    <value>Bagikan</value>
+  </data>
+  <data name="FileSize" xml:space="preserve">
+    <value>Ukuran file</value>
+  </data>
+  <data name="FolderDocuments" xml:space="preserve">
+    <value>Dokumen</value>
+  </data>
+  <data name="FolderDownloads" xml:space="preserve">
+    <value>Unduhan</value>
+  </data>
+  <data name="FolderExplorer" xml:space="preserve">
+    <value>File Explorer</value>
+  </data>
+  <data name="FolderMachitan" xml:space="preserve">
+    <value>Pengaturan Machitan</value>
+  </data>
+  <data name="FolderMusic" xml:space="preserve">
+    <value>Musik</value>
+  </data>
+  <data name="FolderNetwork" xml:space="preserve">
+    <value>Jaringan</value>
+  </data>
+  <data name="FolderPersonal" xml:space="preserve">
+    <value>Folder pribadi</value>
+  </data>
+  <data name="FolderPictures" xml:space="preserve">
+    <value>Gambar</value>
+  </data>
+  <data name="FolderSettings" xml:space="preserve">
+    <value>Pengaturan</value>
+  </data>
+  <data name="FolderVideos" xml:space="preserve">
+    <value>Video</value>
+  </data>
+  <data name="GroupApps" xml:space="preserve">
+    <value>Kelompokkan {0} aplikasi</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="InfoLineIn" xml:space="preserve">
+    <value>di {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="InfoLineName" xml:space="preserve">
+    <value>Baris info. Membuka pusat pemberitahuan Windows.</value>
+  </data>
+  <data name="JumpTasks" xml:space="preserve">
+    <value>Tugas</value>
+  </data>
+  <data name="KbActive" xml:space="preserve">
+    <value>Kait tombol Windows: aktif. Tombol Win sendiri membuka Mulai milik Machitan; kombinasi Win diteruskan ke Windows.</value>
+  </data>
+  <data name="KbActiveNoStart" xml:space="preserve">
+    <value>Kait tombol Windows: aktif, tetapi Mulai milik Machitan tidak tersedia, jadi tombol Win sendiri membuka Mulai Windows.</value>
+  </data>
+  <data name="KbAdminOff" xml:space="preserve">
+    <value>Saat aplikasi yang berjalan sebagai administrator ada di depan, Windows menahan tombol dari Machitan (aktifkan "Pintasan di aplikasi yang berjalan sebagai administrator" di bawah). Jika tombol Win membuka Mulai Windows di sana, Machitan menutupnya dan membuka Mulai miliknya.</value>
+  </data>
+  <data name="KbAdminOn" xml:space="preserve">
+    <value>Aplikasi yang berjalan sebagai administrator: pembantu Machitan juga menangkap pintasannya di sana.</value>
+  </data>
+  <data name="KbCaught" xml:space="preserve">
+    <value>Milik Windows, jadi Machitan menangkapnya lewat kait keyboard: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="KbFailed" xml:space="preserve">
+    <value>Tidak bisa disiapkan: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="KbHandles" xml:space="preserve">
+    <value>Pintasan yang ditangani Machitan: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="KbNone" xml:space="preserve">
+    <value>tidak ada</value>
+  </data>
+  <data name="KbNotActive" xml:space="preserve">
+    <value>Kait tombol Windows: tidak aktif (galat {0}). Tombol Win sendiri membuka Mulai Windows.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="KbNotStarted" xml:space="preserve">
+    <value>Kait tombol Windows dan pintasan: belum dimulai (lihat diagnostics.log).</value>
+  </data>
+  <data name="KbOwned" xml:space="preserve">
+    <value>Milik Windows, jadi Windows menanganinya seperti biasa: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="MoreOptions" xml:space="preserve">
+    <value>Opsi lainnya</value>
+  </data>
+  <data name="MoreOptionsFor" xml:space="preserve">
+    <value>Opsi lainnya untuk {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="MoveToNewGroup" xml:space="preserve">
+    <value>Pindahkan ke grup baru</value>
+  </data>
+  <data name="NetEthernet" xml:space="preserve">
+    <value>Ethernet</value>
+  </data>
+  <data name="NoActions" xml:space="preserve">
+    <value>Tidak ada tindakan untuk aplikasi ini</value>
+  </data>
+  <data name="Off" xml:space="preserve">
+    <value>Nonaktif</value>
+  </data>
+  <data name="On" xml:space="preserve">
+    <value>Aktif</value>
+  </data>
+  <data name="OpenFileLocation" xml:space="preserve">
+    <value>Buka lokasi file</value>
+  </data>
+  <data name="PinToStart" xml:space="preserve">
+    <value>Sematkan ke Mulai</value>
+  </data>
+  <data name="PinToTaskbar" xml:space="preserve">
+    <value>Sematkan ke bilah tugas</value>
+  </data>
+  <data name="PowerHibernate" xml:space="preserve">
+    <value>Hibernasi</value>
+  </data>
+  <data name="PowerRestart" xml:space="preserve">
+    <value>Mulai ulang</value>
+  </data>
+  <data name="PowerRestartAsk" xml:space="preserve">
+    <value>Mulai ulang sekarang?</value>
+  </data>
+  <data name="PowerShutDown" xml:space="preserve">
+    <value>Matikan</value>
+  </data>
+  <data name="PowerShutDownAsk" xml:space="preserve">
+    <value>Matikan sekarang?</value>
+  </data>
+  <data name="PowerSleep" xml:space="preserve">
+    <value>Tidur</value>
+  </data>
+  <data name="PowerUpdateRestart" xml:space="preserve">
+    <value>Perbarui dan mulai ulang</value>
+  </data>
+  <data name="PowerUpdateRestartAsk" xml:space="preserve">
+    <value>Perbarui dan mulai ulang sekarang?</value>
+  </data>
+  <data name="PowerUpdateShutDown" xml:space="preserve">
+    <value>Perbarui dan matikan</value>
+  </data>
+  <data name="PowerUpdateShutDownAsk" xml:space="preserve">
+    <value>Perbarui dan matikan sekarang?</value>
+  </data>
+  <data name="PreviewMoreMany" xml:space="preserve">
+    <value>+{0} jendela lagi</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="PreviewMoreOne" xml:space="preserve">
+    <value>+{0} jendela lagi</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="PreviewOf" xml:space="preserve">
+    <value>Pratinjau {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="QsBrightness" xml:space="preserve">
+    <value>Kecerahan</value>
+  </data>
+  <data name="QsBrightnessBuiltIn" xml:space="preserve">
+    <value>Kecerahan - layar bawaan</value>
+  </data>
+  <data name="QsBrightnessDisplay" xml:space="preserve">
+    <value>Kecerahan - layar {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="QsChecking" xml:space="preserve">
+    <value>Memeriksa layar mana yang bisa diatur kecerahannya...</value>
+  </data>
+  <data name="QsMute" xml:space="preserve">
+    <value>Bisukan</value>
+  </data>
+  <data name="QsNothing" xml:space="preserve">
+    <value>Windows tidak menyediakan kontrol volume atau kecerahan di PC ini saat ini.</value>
+  </data>
+  <data name="QsVolume" xml:space="preserve">
+    <value>Volume</value>
+  </data>
+  <data name="QsVolumeOf" xml:space="preserve">
+    <value>Volume - {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingBattery" xml:space="preserve">
+    <value>Baterai {0}%</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingBatteryCharging" xml:space="preserve">
+    <value>Baterai {0}%, mengisi daya</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingConnecting" xml:space="preserve">
+    <value>Menyambungkan...</value>
+  </data>
+  <data name="RingName" xml:space="preserve">
+    <value>Status. {0}. Membuka pengaturan cepat Windows.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingNetworkChecking" xml:space="preserve">
+    <value>Jaringan: memeriksa</value>
+  </data>
+  <data name="RingNoBattery" xml:space="preserve">
+    <value>Tanpa baterai</value>
+  </data>
+  <data name="RingNoSignal" xml:space="preserve">
+    <value>Tidak ada sinyal</value>
+  </data>
+  <data name="RingPlaneMode" xml:space="preserve">
+    <value>Mode pesawat</value>
+  </data>
+  <data name="RingVolume" xml:space="preserve">
+    <value>Volume {0}%</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingVolumeMuted" xml:space="preserve">
+    <value>Volume dibisukan</value>
+  </data>
+  <data name="RingVolumeNoDevice" xml:space="preserve">
+    <value>Volume: tidak ada perangkat keluaran</value>
+  </data>
+  <data name="RingWifi" xml:space="preserve">
+    <value>Wi-Fi: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RingWifiConnecting" xml:space="preserve">
+    <value>Wi-Fi: menyambungkan</value>
+  </data>
+  <data name="RingWifiNotConnected" xml:space="preserve">
+    <value>Wi-Fi: tidak tersambung</value>
+  </data>
+  <data name="RingWifiOff" xml:space="preserve">
+    <value>Wi-Fi nonaktif</value>
+  </data>
+  <data name="RingWired" xml:space="preserve">
+    <value>Kabel: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="RunAsAdmin" xml:space="preserve">
+    <value>Jalankan sebagai administrator</value>
+  </data>
+  <data name="SearchApps" xml:space="preserve">
+    <value>Aplikasi</value>
+  </data>
+  <data name="SearchBoxName" xml:space="preserve">
+    <value>Cari aplikasi, atau ketik files: untuk mencari file</value>
+  </data>
+  <data name="SearchFiles" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="SearchFilesShort" xml:space="preserve">
+    <value>Ketik minimal dua huruf setelah files:</value>
+  </data>
+  <data name="SearchNoAppMatch" xml:space="preserve">
+    <value>Tidak ada aplikasi yang cocok.</value>
+  </data>
+  <data name="SearchNoFileMatch" xml:space="preserve">
+    <value>Tidak ada file yang cocok di folder Anda.</value>
+  </data>
+  <data name="SearchReadingApps" xml:space="preserve">
+    <value>Membaca aplikasi Anda...</value>
+  </data>
+  <data name="SearchSearchingFiles" xml:space="preserve">
+    <value>Mencari file Anda...</value>
+  </data>
+  <data name="SetAboutText" xml:space="preserve">
+    <value>Perangkat lunak bebas di bawah GNU GPL, versi 3. Build Windows {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetAccentColour" xml:space="preserve">
+    <value>Warna aksen</value>
+  </data>
+  <data name="SetAccentFromWallpaper" xml:space="preserve">
+    <value>Dari wallpaper</value>
+  </data>
+  <data name="SetAccentFromWindows" xml:space="preserve">
+    <value>Warna aksen Windows</value>
+  </data>
+  <data name="SetAcrylic" xml:space="preserve">
+    <value>Akrilik</value>
+  </data>
+  <data name="SetAdminApps" xml:space="preserve">
+    <value>Aplikasi yang berjalan sebagai administrator</value>
+  </data>
+  <data name="SetAdminKeys" xml:space="preserve">
+    <value>Pintasan di aplikasi yang berjalan sebagai administrator</value>
+  </data>
+  <data name="SetAdminKeysNote" xml:space="preserve">
+    <value>Windows bertanya sekali. Sebagian kecil Machitan lalu berjalan sebagai administrator, hanya untuk melihat tombol yang ditekan.</value>
+  </data>
+  <data name="SetAfterApps" xml:space="preserve">
+    <value>Setelah aplikasi</value>
+  </data>
+  <data name="SetAlignment" xml:space="preserve">
+    <value>Perataan</value>
+  </data>
+  <data name="SetAlwaysInPowerMenu" xml:space="preserve">
+    <value>Selalu ada di menu, agar Machitan selalu bisa ditutup dari Mulai.</value>
+  </data>
+  <data name="SetAppNames" xml:space="preserve">
+    <value>Nama aplikasi</value>
+  </data>
+  <data name="SetAutoHide" xml:space="preserve">
+    <value>Sembunyikan otomatis</value>
+  </data>
+  <data name="SetBarHeight" xml:space="preserve">
+    <value>Tinggi bilah</value>
+  </data>
+  <data name="SetBeforeApps" xml:space="preserve">
+    <value>Sebelum aplikasi</value>
+  </data>
+  <data name="SetBottom" xml:space="preserve">
+    <value>Bawah</value>
+  </data>
+  <data name="SetBottomLeft" xml:space="preserve">
+    <value>Kiri bawah</value>
+  </data>
+  <data name="SetBottomRight" xml:space="preserve">
+    <value>Kanan bawah</value>
+  </data>
+  <data name="SetCalendar" xml:space="preserve">
+    <value>Kalender (Win+N)</value>
+  </data>
+  <data name="SetCannotSleep" xml:space="preserve">
+    <value>PC ini tidak bisa tidur.</value>
+  </data>
+  <data name="SetCenter" xml:space="preserve">
+    <value>Tengah</value>
+  </data>
+  <data name="SetChoosePicture" xml:space="preserve">
+    <value>Pilih gambar</value>
+  </data>
+  <data name="SetChoosePictureName" xml:space="preserve">
+    <value>Pilih gambar: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetCorner" xml:space="preserve">
+    <value>Sudut</value>
+  </data>
+  <data name="SetCover" xml:space="preserve">
+    <value>Penutup</value>
+  </data>
+  <data name="SetCoverColour" xml:space="preserve">
+    <value>Warna penutup</value>
+  </data>
+  <data name="SetCoverNote" xml:space="preserve">
+    <value>Perlu Kosongkan tepi.</value>
+  </data>
+  <data name="SetCoverOpacity" xml:space="preserve">
+    <value>Opasitas penutup</value>
+  </data>
+  <data name="SetCustomize" xml:space="preserve">
+    <value>Sesuaikan</value>
+  </data>
+  <data name="SetDark" xml:space="preserve">
+    <value>Gelap</value>
+  </data>
+  <data name="SetDate" xml:space="preserve">
+    <value>Tanggal</value>
+  </data>
+  <data name="SetDiagnosticsLog" xml:space="preserve">
+    <value>Log diagnostik</value>
+  </data>
+  <data name="SetDragHelp" xml:space="preserve">
+    <value>Seret untuk memindahkannya. Alt+Atas atau Alt+Bawah memindahkannya dengan keyboard.</value>
+  </data>
+  <data name="SetDragTip" xml:space="preserve">
+    <value>Seret untuk memindahkan (Alt+Atas, Alt+Bawah)</value>
+  </data>
+  <data name="SetEdgeNote" xml:space="preserve">
+    <value>Tepi layar yang berseberangan dengan bilah.</value>
+  </data>
+  <data name="SetFind" xml:space="preserve">
+    <value>Cari</value>
+  </data>
+  <data name="SetFindName" xml:space="preserve">
+    <value>Cari tempat ini dan pakai untuk cuaca</value>
+  </data>
+  <data name="SetFocusedAppName" xml:space="preserve">
+    <value>Nama aplikasi yang aktif</value>
+  </data>
+  <data name="SetHibernationOff" xml:space="preserve">
+    <value>Hibernasi nonaktif di PC ini.</value>
+  </data>
+  <data name="SetHidden" xml:space="preserve">
+    <value>Tersembunyi</value>
+  </data>
+  <data name="SetHotkeyStatus" xml:space="preserve">
+    <value>Status pintasan</value>
+  </data>
+  <data name="SetHotkeys" xml:space="preserve">
+    <value>Pintasan</value>
+  </data>
+  <data name="SetIconSize" xml:space="preserve">
+    <value>Ukuran ikon</value>
+  </data>
+  <data name="SetInUseNone" xml:space="preserve">
+    <value>Dipakai: belum ada tempat, jadi cuaca tetap tersembunyi. Cari satu, atau kembali ke lokasi dari Windows.</value>
+  </data>
+  <data name="SetInUsePlace" xml:space="preserve">
+    <value>Dipakai: {0} ({1}, {2}).</value>
+    <comment>Keep {0}, {1}, {2}: Machitan fills them in.</comment>
+  </data>
+  <data name="SetInUseWindows" xml:space="preserve">
+    <value>Dipakai: lokasi dari Windows.</value>
+  </data>
+  <data name="SetInUseWindowsKept" xml:space="preserve">
+    <value>Dipakai: lokasi dari Windows. Tempat pilihan disimpan untuk nanti: {0}.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetInfoLine" xml:space="preserve">
+    <value>Baris info</value>
+  </data>
+  <data name="SetIsland" xml:space="preserve">
+    <value>Pulau</value>
+  </data>
+  <data name="SetKeepEdgeClear" xml:space="preserve">
+    <value>Kosongkan tepi</value>
+  </data>
+  <data name="SetLanguage" xml:space="preserve">
+    <value>Bahasa</value>
+  </data>
+  <data name="SetLanguageNote" xml:space="preserve">
+    <value>Berlaku saat Machitan dimulai lagi.</value>
+  </data>
+  <data name="SetLanguageWindows" xml:space="preserve">
+    <value>Bahasa Windows</value>
+  </data>
+  <data name="SetLayout" xml:space="preserve">
+    <value>Tata letak</value>
+  </data>
+  <data name="SetLeft" xml:space="preserve">
+    <value>Kiri</value>
+  </data>
+  <data name="SetLight" xml:space="preserve">
+    <value>Terang</value>
+  </data>
+  <data name="SetList" xml:space="preserve">
+    <value>Daftar</value>
+  </data>
+  <data name="SetLocation" xml:space="preserve">
+    <value>Lokasi</value>
+  </data>
+  <data name="SetLookingUp" xml:space="preserve">
+    <value>Mencari "{0}"...</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetMode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="SetModeClassic" xml:space="preserve">
+    <value>Klasik</value>
+  </data>
+  <data name="SetModeCompact" xml:space="preserve">
+    <value>Ringkas</value>
+  </data>
+  <data name="SetModeJoined" xml:space="preserve">
+    <value>Tersambung</value>
+  </data>
+  <data name="SetModeNote" xml:space="preserve">
+    <value>Ringkas belum dibuat; tampil sebagai Tersegmen.</value>
+  </data>
+  <data name="SetModeSegmented" xml:space="preserve">
+    <value>Tersegmen</value>
+  </data>
+  <data name="SetMoveName" xml:space="preserve">
+    <value>Pindahkan {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetNextToPower" xml:space="preserve">
+    <value>Di samping tombol daya</value>
+  </data>
+  <data name="SetNotBuiltName" xml:space="preserve">
+    <value>{0} (belum dibuat)</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetNotBuiltYet" xml:space="preserve">
+    <value>Belum dibuat.</value>
+  </data>
+  <data name="SetNotch" xml:space="preserve">
+    <value>Takik</value>
+  </data>
+  <data name="SetOpacity" xml:space="preserve">
+    <value>Opasitas</value>
+  </data>
+  <data name="SetOpenFolder" xml:space="preserve">
+    <value>Buka folder Machitan</value>
+  </data>
+  <data name="SetOppositeBar" xml:space="preserve">
+    <value>Berseberangan dengan bilah</value>
+  </data>
+  <data name="SetOwnPictures" xml:space="preserve">
+    <value>Gambar saya sendiri</value>
+  </data>
+  <data name="SetOwnPicturesNote" xml:space="preserve">
+    <value>Tampilkan gambar Anda sendiri di tombol Mulai sebagai ganti logo Machitan. Gambar disesuaikan ke tempat logo. Gambar saat ditekan tetap tampil selama Mulai terbuka. Memilih gambar normal akan menyalakan ini.</value>
+  </data>
+  <data name="SetPageAbout" xml:space="preserve">
+    <value>Tentang</value>
+  </data>
+  <data name="SetPageDynaland" xml:space="preserve">
+    <value>Dynaland</value>
+  </data>
+  <data name="SetPageEdge" xml:space="preserve">
+    <value>Strip tepi</value>
+  </data>
+  <data name="SetPageGeneral" xml:space="preserve">
+    <value>Umum</value>
+  </data>
+  <data name="SetPagePrivacy" xml:space="preserve">
+    <value>Privasi</value>
+  </data>
+  <data name="SetPageShortcuts" xml:space="preserve">
+    <value>Pintasan</value>
+  </data>
+  <data name="SetPageStart" xml:space="preserve">
+    <value>Mulai</value>
+  </data>
+  <data name="SetPageTaskbar" xml:space="preserve">
+    <value>Bilah tugas</value>
+  </data>
+  <data name="SetPageWidgets" xml:space="preserve">
+    <value>Widget sudut</value>
+  </data>
+  <data name="SetPeekDesktop" xml:space="preserve">
+    <value>Intip desktop</value>
+  </data>
+  <data name="SetPeekDesktopNote" xml:space="preserve">
+    <value>Diamkan penunjuk di Tampilkan desktop sebentar untuk melihat desktop. Geser menjauh dan jendela kembali.</value>
+  </data>
+  <data name="SetPictureHovered" xml:space="preserve">
+    <value>Saat ditunjuk</value>
+  </data>
+  <data name="SetPictureMissing" xml:space="preserve">
+    <value>Tidak ditemukan: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetPictureNoneHovered" xml:space="preserve">
+    <value>Belum dipilih: gambar saat ditunjuk yang tampil, atau gambar normal.</value>
+  </data>
+  <data name="SetPictureNoneLogo" xml:space="preserve">
+    <value>Belum dipilih: logo Machitan yang tampil.</value>
+  </data>
+  <data name="SetPictureNoneNormal" xml:space="preserve">
+    <value>Belum dipilih: gambar normal yang tampil.</value>
+  </data>
+  <data name="SetPictureNormal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="SetPicturePickFailed" xml:space="preserve">
+    <value>Gambar tidak dapat dipilih. Coba lagi.</value>
+  </data>
+  <data name="SetPicturePressed" xml:space="preserve">
+    <value>Saat ditekan</value>
+  </data>
+  <data name="SetPlace" xml:space="preserve">
+    <value>Tempat</value>
+  </data>
+  <data name="SetPlaceBox" xml:space="preserve">
+    <value>Kota, atau lintang, bujur</value>
+  </data>
+  <data name="SetPlaceIChoose" xml:space="preserve">
+    <value>Tempat yang saya pilih</value>
+  </data>
+  <data name="SetPlaceInUseName" xml:space="preserve">
+    <value>Lokasi cuaca yang dipakai</value>
+  </data>
+  <data name="SetPlaceSearchFailed" xml:space="preserve">
+    <value>Pencarian tempat tidak berhasil.</value>
+  </data>
+  <data name="SetPlanned" xml:space="preserve">
+    <value>Direncanakan</value>
+  </data>
+  <data name="SetPosition" xml:space="preserve">
+    <value>Posisi</value>
+  </data>
+  <data name="SetPowerMenu" xml:space="preserve">
+    <value>Menu daya</value>
+  </data>
+  <data name="SetPreviewsAs" xml:space="preserve">
+    <value>Tampilkan pratinjau sebagai</value>
+  </data>
+  <data name="SetPrivacyDots" xml:space="preserve">
+    <value>Titik kamera dan mikrofon</value>
+  </data>
+  <data name="SetPrivacyDotsNote" xml:space="preserve">
+    <value>Hijau: kamera. Oranye: mikrofon.</value>
+  </data>
+  <data name="SetPrivacyLog" xml:space="preserve">
+    <value>Log pemecahan masalah di {0}. Isinya bisa berupa nama aplikasi, jalur file, dan judul jendela, dan tetap di PC ini kecuali Anda membagikannya.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetPrivacyRing" xml:space="preserve">
+    <value>Baterai, jaringan, dan volume berasal dari Windows di PC ini. Nama Wi-Fi berasal dari daftar jaringan Windows, jadi izin lokasi tidak diperlukan.</value>
+  </data>
+  <data name="SetPrivacyWeather" xml:space="preserve">
+    <value>Saat cuaca aktif, Machitan meminta lokasi PC ini kepada Windows paling banyak sekali sejam, membulatkannya hingga sekitar 1 km, lalu mengirimkannya ke Open-Meteo (open-meteo.com) setiap 15 menit. Jika Windows memblokir lokasi untuk aplikasi desktop, cuaca tetap tersembunyi. Dengan tempat yang Anda pilih, koordinat bulatnya yang dikirim, dan pencarian tempat mengirim nama yang Anda ketik ke Open-Meteo. Tidak ada hal lain yang keluar dari PC ini.</value>
+  </data>
+  <data name="SetRecentItems" xml:space="preserve">
+    <value>Item terbaru</value>
+  </data>
+  <data name="SetRemovePictureName" xml:space="preserve">
+    <value>Hapus gambar: {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SetRight" xml:space="preserve">
+    <value>Kanan</value>
+  </data>
+  <data name="SetRunAtStartup" xml:space="preserve">
+    <value>Jalankan saat Windows dimulai</value>
+  </data>
+  <data name="SetSearch" xml:space="preserve">
+    <value>Pencarian</value>
+  </data>
+  <data name="SetSearchBox" xml:space="preserve">
+    <value>Kotak</value>
+  </data>
+  <data name="SetSearchIcon" xml:space="preserve">
+    <value>Ikon</value>
+  </data>
+  <data name="SetSearchNote" xml:space="preserve">
+    <value>Ikon membuka pencarian Windows; Kotak mencari langsung di bilah.</value>
+  </data>
+  <data name="SetSeconds" xml:space="preserve">
+    <value>Detik</value>
+  </data>
+  <data name="SetShape" xml:space="preserve">
+    <value>Bentuk</value>
+  </data>
+  <data name="SetShowsWhileUpdate" xml:space="preserve">
+    <value>Tampil saat ada pembaruan yang menunggu.</value>
+  </data>
+  <data name="SetSize" xml:space="preserve">
+    <value>Ukuran</value>
+  </data>
+  <data name="SetStartButton" xml:space="preserve">
+    <value>Tombol Mulai</value>
+  </data>
+  <data name="SetStartup" xml:space="preserve">
+    <value>Saat Windows dimulai</value>
+  </data>
+  <data name="SetStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="SetStatusRing" xml:space="preserve">
+    <value>Cincin status</value>
+  </data>
+  <data name="SetSystem" xml:space="preserve">
+    <value>Sistem</value>
+  </data>
+  <data name="SetSystemStats" xml:space="preserve">
+    <value>Statistik sistem</value>
+  </data>
+  <data name="SetTheme" xml:space="preserve">
+    <value>Tema</value>
+  </data>
+  <data name="SetThumbnails" xml:space="preserve">
+    <value>Gambar mini</value>
+  </data>
+  <data name="SetTime" xml:space="preserve">
+    <value>Waktu</value>
+  </data>
+  <data name="SetTop" xml:space="preserve">
+    <value>Atas</value>
+  </data>
+  <data name="SetTopLeft" xml:space="preserve">
+    <value>Kiri atas</value>
+  </data>
+  <data name="SetTopRight" xml:space="preserve">
+    <value>Kanan atas</value>
+  </data>
+  <data name="SetTrayOnBar" xml:space="preserve">
+    <value>Baki di bilah</value>
+  </data>
+  <data name="SetTurnOffAnimations" xml:space="preserve">
+    <value>Matikan animasi</value>
+  </data>
+  <data name="SetTurnOffAnimationsNote" xml:space="preserve">
+    <value>Mulai, ikon tersembunyi (^), dan bilah langsung muncul dan hilang tanpa gerakan. Mematikan Efek animasi di Windows (Aksesibilitas &gt; Efek visual) juga sama.</value>
+  </data>
+  <data name="SetWeather" xml:space="preserve">
+    <value>Cuaca</value>
+  </data>
+  <data name="SetWeatherPlace" xml:space="preserve">
+    <value>Lokasi cuaca</value>
+  </data>
+  <data name="SetWidth" xml:space="preserve">
+    <value>Lebar</value>
+  </data>
+  <data name="SetWindowTitle" xml:space="preserve">
+    <value>Pengaturan Machitan</value>
+  </data>
+  <data name="SetWindowsLocation" xml:space="preserve">
+    <value>Lokasi dari Windows</value>
+  </data>
+  <data name="SetWithStart" xml:space="preserve">
+    <value>Bersama Mulai</value>
+  </data>
+  <data name="ShowDesktop" xml:space="preserve">
+    <value>Tampilkan desktop</value>
+  </data>
+  <data name="ShowHiddenIcons" xml:space="preserve">
+    <value>Tampilkan ikon tersembunyi</value>
+  </data>
+  <data name="StartAccountSettings" xml:space="preserve">
+    <value>Pengaturan akun</value>
+  </data>
+  <data name="StartAllApps" xml:space="preserve">
+    <value>Semua aplikasi</value>
+  </data>
+  <data name="StartFilesHint" xml:space="preserve">
+    <value>Ketik minimal dua huruf setelah files: untuk mencari di Desktop, Dokumen, Unduhan, Gambar, Musik, dan Video.</value>
+  </data>
+  <data name="StartNoApps" xml:space="preserve">
+    <value>Tidak ada aplikasi.</value>
+  </data>
+  <data name="StartNoPinMatch" xml:space="preserve">
+    <value>Tidak ada aplikasi tersemat yang cocok.</value>
+  </data>
+  <data name="StartNoPins" xml:space="preserve">
+    <value>Belum ada aplikasi yang disematkan. Pakai ... di samping aplikasi di Semua aplikasi, lalu Sematkan ke Mulai.</value>
+  </data>
+  <data name="StartPinned" xml:space="preserve">
+    <value>Disematkan</value>
+  </data>
+  <data name="StartPower" xml:space="preserve">
+    <value>Daya</value>
+  </data>
+  <data name="StartPowerNothing" xml:space="preserve">
+    <value>Belum ada yang dipilih di Pengaturan &gt; Mulai</value>
+  </data>
+  <data name="StartResults" xml:space="preserve">
+    <value>Hasil</value>
+  </data>
+  <data name="StartSearchPlaceholder" xml:space="preserve">
+    <value>Cari aplikasi (files: untuk file)</value>
+  </data>
+  <data name="SwMany" xml:space="preserve">
+    <value>{0} jendela terbuka</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SwMinimised" xml:space="preserve">
+    <value>{0} - diminimalkan</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="SwNone" xml:space="preserve">
+    <value>Tidak ada jendela yang terbuka</value>
+  </data>
+  <data name="SwOne" xml:space="preserve">
+    <value>1 jendela terbuka</value>
+  </data>
+  <data name="SwOpenWindows" xml:space="preserve">
+    <value>Jendela yang terbuka</value>
+  </data>
+  <data name="TrayHiddenIcons" xml:space="preserve">
+    <value>Ikon tersembunyi</value>
+  </data>
+  <data name="TrayIcon" xml:space="preserve">
+    <value>Ikon baki</value>
+  </data>
+  <data name="Ungroup" xml:space="preserve">
+    <value>Pisahkan grup</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>Copot pemasangan</value>
+  </data>
+  <data name="UninstallAsk" xml:space="preserve">
+    <value>Copot pemasangan {0} beserta datanya?</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="UninstallFailed" xml:space="preserve">
+    <value>Windows tidak bisa mencopotnya.</value>
+  </data>
+  <data name="UninstallNotAllowed" xml:space="preserve">
+    <value>Windows tidak mengizinkan aplikasi ini dicopot.</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>Mencopot pemasangan {0}...</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="UnpinFromStart" xml:space="preserve">
+    <value>Lepas sematan dari Mulai</value>
+  </data>
+  <data name="UnpinFromTaskbar" xml:space="preserve">
+    <value>Lepas sematan dari bilah tugas</value>
+  </data>
+  <data name="UnpinXFromStart" xml:space="preserve">
+    <value>Lepas sematan {0} dari Mulai</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WinXComputerManagement" xml:space="preserve">
+    <value>Manajemen Kompute&amp;r</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXDesktop" xml:space="preserve">
+    <value>&amp;Desktop</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXDeviceManager" xml:space="preserve">
+    <value>&amp;Manajer Perangkat</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXDiskManagement" xml:space="preserve">
+    <value>Manajemen Dis&amp;k</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXEventViewer" xml:space="preserve">
+    <value>Penampil Peristi&amp;wa</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXFileExplorer" xml:space="preserve">
+    <value>File &amp;Explorer</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXHibernate" xml:space="preserve">
+    <value>&amp;Hibernasi</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXInstalledApps" xml:space="preserve">
+    <value>A&amp;plikasi yang diinstal</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXMenuName" xml:space="preserve">
+    <value>Menu Tautan Cepat</value>
+    <comment>What screen readers call Machitan's Win+X menu (Windows' name for it).</comment>
+  </data>
+  <data name="WinXMobilityCenter" xml:space="preserve">
+    <value>Pusat Mo&amp;bilitas</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXNetworkConnections" xml:space="preserve">
+    <value>Koneksi &amp;Jaringan</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXPowerOptions" xml:space="preserve">
+    <value>&amp;Opsi Daya</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXPowerShell" xml:space="preserve">
+    <value>W&amp;indows PowerShell</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. Shown instead of Terminal when Windows Terminal is not installed.</comment>
+  </data>
+  <data name="WinXPowerShellAdmin" xml:space="preserve">
+    <value>Windows PowerShell (&amp;Admin)</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. Shown instead of Terminal (Admin) when Windows Terminal is not installed.</comment>
+  </data>
+  <data name="WinXRestart" xml:space="preserve">
+    <value>Mulai &amp;ulang</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXRun" xml:space="preserve">
+    <value>Ja&amp;lankan</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXSearch" xml:space="preserve">
+    <value>&amp;Cari</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXSettings" xml:space="preserve">
+    <value>Pe&amp;ngaturan</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXShutDown" xml:space="preserve">
+    <value>&amp;Matikan</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXShutDownMenu" xml:space="preserve">
+    <value>Matikan atau kel&amp;uar</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. Opens the submenu with the entries below.</comment>
+  </data>
+  <data name="WinXSignOut" xml:space="preserve">
+    <value>&amp;Keluar</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXSleep" xml:space="preserve">
+    <value>&amp;Tidur</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXSystem" xml:space="preserve">
+    <value>&amp;Sistem</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXTaskManager" xml:space="preserve">
+    <value>Manajer &amp;Tugas</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXTerminal" xml:space="preserve">
+    <value>Term&amp;inal</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXTerminalAdmin" xml:space="preserve">
+    <value>Terminal (&amp;Admin)</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;.</comment>
+  </data>
+  <data name="WinXUpdateRestart" xml:space="preserve">
+    <value>Per&amp;barui dan mulai ulang</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WinXUpdateShutDown" xml:space="preserve">
+    <value>&amp;Perbarui dan matikan</value>
+    <comment>Win+X menu. The letter after &amp; is the key that picks this entry (underlined): keep one &amp;, before a letter no other entry of the same menu uses. &amp;&amp; shows a plain &amp;. (Shut down or sign out submenu.)</comment>
+  </data>
+  <data name="WxClear" xml:space="preserve">
+    <value>Cerah</value>
+  </data>
+  <data name="WxClearNight" xml:space="preserve">
+    <value>Malam cerah</value>
+  </data>
+  <data name="WxCode" xml:space="preserve">
+    <value>Kode cuaca {0}</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxDrizzle" xml:space="preserve">
+    <value>Gerimis</value>
+  </data>
+  <data name="WxFog" xml:space="preserve">
+    <value>Berkabut</value>
+  </data>
+  <data name="WxFreezingDrizzle" xml:space="preserve">
+    <value>Gerimis beku</value>
+  </data>
+  <data name="WxFreezingRain" xml:space="preserve">
+    <value>Hujan beku</value>
+  </data>
+  <data name="WxMainlyClear" xml:space="preserve">
+    <value>Sebagian besar cerah</value>
+  </data>
+  <data name="WxNoCoordinates" xml:space="preserve">
+    <value>Jawaban Open-Meteo untuk "{0}" tidak berisi koordinat.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxNoPlace" xml:space="preserve">
+    <value>Tidak ada tempat untuk "{0}". Coba ejaan lain, atau tambahkan negaranya.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxOvercast" xml:space="preserve">
+    <value>Mendung</value>
+  </data>
+  <data name="WxPartlyCloudy" xml:space="preserve">
+    <value>Berawan sebagian</value>
+  </data>
+  <data name="WxRain" xml:space="preserve">
+    <value>Hujan</value>
+  </data>
+  <data name="WxRainShowers" xml:space="preserve">
+    <value>Hujan lokal</value>
+  </data>
+  <data name="WxSearchAnswered" xml:space="preserve">
+    <value>Pencarian tempat Open-Meteo menjawab {0}. Coba lagi sebentar lagi.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxSearchFailed" xml:space="preserve">
+    <value>Pencarian tempat tidak berhasil ({0}). Periksa koneksi lalu coba lagi.</value>
+    <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="WxSnow" xml:space="preserve">
+    <value>Salju</value>
+  </data>
+  <data name="WxSnowShowers" xml:space="preserve">
+    <value>Hujan salju</value>
+  </data>
+  <data name="WxThunderHail" xml:space="preserve">
+    <value>Badai petir disertai es</value>
+  </data>
+  <data name="WxThunderstorm" xml:space="preserve">
+    <value>Badai petir</value>
+  </data>
+  <data name="WxTypeMore" xml:space="preserve">
+    <value>Ketik minimal dua huruf nama tempat, atau lintang, bujur.</value>
+  </data>
+</root>

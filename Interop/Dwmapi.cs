@@ -15,6 +15,18 @@ internal struct DWM_BLURBEHIND
 /// <summary>dwmapi.dll imports. Grows batch by batch; only what is used is declared.</summary>
 internal static partial class Dwmapi
 {
+    /// <summary>
+    /// Window attribute (documented): an app sets TRUE so its window is never peeked at.
+    /// Value is a Win32 BOOL (4 bytes); Windows may not answer when it is read.
+    /// </summary>
+    internal const uint DWMWA_DISALLOW_PEEK = 11;
+
+    /// <summary>
+    /// Window attribute (documented): TRUE keeps the window from fading while another
+    /// window is peeked at. Value is a Win32 BOOL (4 bytes).
+    /// </summary>
+    internal const uint DWMWA_EXCLUDED_FROM_PEEK = 12;
+
     /// <summary>Window attribute: non-zero when the window is cloaked (hidden by the system).</summary>
     internal const uint DWMWA_CLOAKED = 14;
 
@@ -70,6 +82,17 @@ internal static partial class Dwmapi
 
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmQueryThumbnailSourceSize(nint thumbnail, out SIZE size);
+
+    /// <summary>
+    /// Windows' own Peek (undocumented, dwmapi.dll ordinal 113, the call Explorer's taskbar
+    /// uses): with <paramref name="peekOn"/> 1, Windows draws <paramref name="peekWindow"/>
+    /// as it is and turns every other window see-through, <paramref name="keepAbove"/> staying
+    /// on top; 0 ends it. Windows 10 and 11 take a fifth argument (0 here); passed to a build
+    /// that takes four, the fifth is simply not read. Returns an HRESULT: 0 means Windows
+    /// accepted it. See Shell/LivePeek.cs.
+    /// </summary>
+    [LibraryImport("dwmapi.dll", EntryPoint = "#113")]
+    internal static partial int DwmpActivateLivePreview(int peekOn, nint peekWindow, nint keepAbove, uint peekType, nint reserved);
 }
 
 /// <summary>

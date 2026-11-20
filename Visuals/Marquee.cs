@@ -30,13 +30,14 @@ internal sealed class Marquee
 
     /// <summary>Not in the window: used only to measure the text's full width.</summary>
     private readonly TextBlock _measure;
-    private readonly double _maxWidth;
+    private double _maxWidth;
     private readonly Visual _visual;
     private readonly CompositionEasingFunction _linear;
     private readonly ScalarKeyFrameAnimation _scroll;
     private string _text = string.Empty;
     private double _textWidth;
     private bool _scrolling;
+    private bool _paused;
 
     /// <summary>The text changed and the sliding has not been set up for it yet.</summary>
     private bool _dirty;
@@ -78,6 +79,45 @@ internal sealed class Marquee
 
     /// <summary>The element to put in the layout.</summary>
     internal FrameworkElement Element => _root;
+
+    /// <summary>Paused: the sliding stops where it is (music paused) and goes on from there when unpaused.</summary>
+    internal bool Paused
+    {
+        get => _paused;
+        set
+        {
+            if (_paused == value)
+            {
+                return;
+            }
+
+            _paused = value;
+            ApplyPause();
+        }
+    }
+
+    private void ApplyPause()
+    {
+        if (!_scrolling)
+        {
+            return;
+        }
+
+        AnimationController? controller = _visual.TryGetAnimationController("Translation.X");
+        if (controller is null)
+        {
+            return;
+        }
+
+        if (_paused)
+        {
+            controller.Pause();
+        }
+        else
+        {
+            controller.Resume();
+        }
+    }
 
     internal string Text
     {
@@ -127,6 +167,22 @@ internal sealed class Marquee
         }
     }
 
+    /// <summary>
+    /// A new longest width, for a line made with one (a line that fills its place follows the
+    /// place instead).
+    /// </summary>
+    internal void SetMaxWidth(double maxWidth)
+    {
+        if (double.IsNaN(_maxWidth) || double.IsNaN(maxWidth) || Math.Abs(maxWidth - _maxWidth) < 0.5)
+        {
+            return;
+        }
+
+        _maxWidth = maxWidth;
+        MeasureText();
+        Update(force: true);
+    }
+
     /// <summary>Starts or stops the sliding to match the room the line has.</summary>
     private void Update(bool force)
     {
@@ -160,5 +216,9 @@ internal sealed class Marquee
         _scroll.DelayTime = TimeSpan.FromSeconds(1.5);
         _scroll.IterationBehavior = AnimationIterationBehavior.Forever;
         _visual.StartAnimation("Translation.X", _scroll);
+        if (_paused)
+        {
+            ApplyPause();
+        }
     }
 }

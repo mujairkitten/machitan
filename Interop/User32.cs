@@ -13,6 +13,7 @@ internal static unsafe partial class User32
     internal const long WS_DLGFRAME = 0x00400000;
     internal const long WS_SYSMENU = 0x00080000;
     internal const long WS_THICKFRAME = 0x00040000;
+    internal const long WS_CAPTION = 0x00C00000;
     internal const long WS_MINIMIZEBOX = 0x00020000;
     internal const long WS_MAXIMIZEBOX = 0x00010000;
 
@@ -33,7 +34,12 @@ internal static unsafe partial class User32
     internal const uint SMTO_ABORTIFHUNG = 0x0002;
 
     internal const int SM_MAXIMUMTOUCHES = 95;
+    internal const int SM_SWAPBUTTON = 23;
 
+    internal const int VK_LBUTTON = 0x01;
+    internal const int VK_RBUTTON = 0x02;
+
+    internal const uint INPUT_MOUSE = 0;
     internal const uint INPUT_KEYBOARD = 1;
     internal const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
     internal const uint KEYEVENTF_KEYUP = 0x0002;
@@ -73,6 +79,7 @@ internal static unsafe partial class User32
 
     internal const long SIZE_MINIMIZED = 1;
     internal const long SC_MINIMIZE = 0xF020;
+    internal const long SC_MONITORPOWER = 0xF170;
     internal const long SPI_SETWORKAREA = 0x002F;
 
     /// <summary>Returns the DPI of the window (96 = 100% scale), or 0 for an invalid handle.</summary>
@@ -99,6 +106,13 @@ internal static unsafe partial class User32
 
     [LibraryImport("user32.dll")]
     internal static partial nint GetForegroundWindow();
+
+    /// <summary>Any process may come to the front next (after a click Machitan passes on).</summary>
+    internal const int ASFW_ANY = -1;
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool AllowSetForegroundWindow(int processId);
 
     internal const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
     internal const uint WINEVENT_OUTOFCONTEXT = 0x0000;
@@ -243,4 +257,27 @@ internal static unsafe partial class User32
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool IsZoomed(nint hwnd);
+
+    internal const uint GA_ROOT = 2;
+
+    internal const uint GA_ROOTOWNER = 3;
+
+    /// <summary>The window under a point on the screen (physical pixels); 0 when none.</summary>
+    [LibraryImport("user32.dll")]
+    internal static partial nint WindowFromPoint(POINT point);
+
+    [LibraryImport("user32.dll")]
+    internal static partial nint GetAncestor(nint hwnd, uint flags);
+
+    /// <summary>A window property's value; 0 when the window has none by that name.</summary>
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint GetPropW(nint hwnd, string name);
+
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetPropW(nint hwnd, string name, nint data);
+
+    /// <summary>Takes a property off a window (each one set must go before the window does).</summary>
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint RemovePropW(nint hwnd, string name);
 }

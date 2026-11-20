@@ -1,6 +1,7 @@
 using System;
 using Machitan.Config;
 using Machitan.Core;
+using Machitan.Custom;
 using Machitan.Interop;
 using Machitan.Shell;
 using Machitan.Visuals;
@@ -8,6 +9,7 @@ using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 
 namespace Machitan.Widgets;
@@ -46,11 +48,20 @@ public abstract partial class CornerWidgetWindow : Window
     private readonly string _name;
     private readonly double _widthDip;
     private readonly WindowCutter _cutter;
+
+    /// <summary>The window's content: the widget at its standard size, scaled as a whole (size setting).</summary>
+    private readonly Canvas _canvas;
+    private readonly ScaleTransform _zoom = new();
+    private double _size = 1;
     private readonly DispatcherQueueTimer _heal;
     private WindowSubclass? _subclass;
     private RECT _placed;
     private bool _started;
     private bool _closed;
+
+    /// <summary>Custom mode: on top of the widget, takes its clicks (pick) and right-clicks (black menu).</summary>
+    private Border? _shield;
+    private MenuFlyout? _customMenu;
     private bool _onLeft = true;
     private bool _onTop = true;
 
@@ -62,12 +73,19 @@ public abstract partial class CornerWidgetWindow : Window
         _widthDip = widthDip;
         Title = "Machitan " + name;
 
+        // The widget is laid out at its standard size and scaled as a whole by its size
+        // setting; the canvas lets the scaled widget fill the window without layout clipping.
         Root = new Grid
         {
             Padding = new Thickness(PadDip),
             Background = new SolidColorBrush(Colors.Transparent),
+            Width = widthDip + (2 * PadDip),
+            Height = LineHeightDip + (2 * PadDip),
+            RenderTransform = _zoom,
         };
-        Content = Root;
+        _canvas = new Canvas { Background = new SolidColorBrush(Colors.Transparent) };
+        _canvas.Children.Add(Root);
+        Content = _canvas;
 
         Hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         SeeThrough.Prepare(this, Hwnd, alwaysOnTop: true);
@@ -78,7 +96,7 @@ public abstract partial class CornerWidgetWindow : Window
         User32.SetWindowLongPtrW(Hwnd, User32.GWL_EXSTYLE, (nint)(exStyle | User32.WS_EX_NOACTIVATE));
 
         _subclass = new WindowSubclass(Hwnd, OnWindowMessage);
-        _cutter = new WindowCutter(Hwnd, Root);
+        _cutter = new WindowCutter(Hwnd, _canvas);
         Root.LayoutUpdated += (_, _) => _cutter.Update();
 
         _heal = DispatcherQueue.CreateTimer();
@@ -87,12 +105,14 @@ public abstract partial class CornerWidgetWindow : Window
 
         Host.Settings.Changed += OnSettingsChanged;
         Host.FullScreenChanged += OnFullScreenChanged;
+        Host.Custom.Changed += OnCustomChanged;
         Closed += (_, _) =>
         {
             _closed = true;
             _heal.Stop();
             Host.Settings.Changed -= OnSettingsChanged;
             Host.FullScreenChanged -= OnFullScreenChanged;
+            Host.Custom.Changed -= OnCustomChanged;
             _subclass?.Dispose();
             _subclass = null;
             try
@@ -109,6 +129,78 @@ public abstract partial class CornerWidgetWindow : Window
     /// <summary>True while the widget is on screen.</summary>
     internal bool IsShown { get; private set; }
 
+    /// <summary>Which custom-mode piece this widget is.</summary>
+    private protected abstract CustomPiece Piece { get; }
+
+    /// <summary>Where the widget's shape is on screen (physical pixels), for custom mode's badge; null when hidden.</summary>
+    internal RECT? ShapeScreenRect()
+    {
+        if (!IsShown || _closed || !User32.GetWindowRect(Hwnd, out RECT window))
+        {
+            return null;
+        }
+
+        uint dpi = User32.GetDpiForWindow(Hwnd);
+        double scale = (dpi == 0 ? 96 : dpi) / 96.0;
+        int pad = (int)Math.Round(PadDip * scale * _size);
+        int width = (int)Math.Round(VisibleWidthDip * scale);
+        int height = (int)Math.Round(LineHeightNowDip * scale);
+        bool left = Corner is ScreenCorner.TopLeft or ScreenCorner.BottomLeft;
+        int x = left ? window.Left + pad : window.Right - pad - width;
+        return new RECT { Left = x, Top = window.Top + pad, Right = x + width, Bottom = window.Top + pad + height };
+    }
+
+    /// <summary>Custom mode on: a see-through cover takes the widget's clicks; off: it goes.</summary>
+    private void OnCustomChanged()
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        bool on = Host.Custom.IsOn;
+        if (on && _shield is null)
+        {
+            var shield = new Border { Background = new SolidColorBrush(Colors.Transparent) };
+            Grid.SetRowSpan(shield, 16);
+            Grid.SetColumnSpan(shield, 16);
+            shield.Tapped += (_, e) =>
+            {
+                e.Handled = true;
+                Host.Custom.Select(new CustomTarget(Piece));
+            };
+            shield.RightTapped += (_, e) =>
+            {
+                e.Handled = true;
+                ShowCustomMenu(shield, e.GetPosition(shield));
+            };
+            _shield = shield;
+            Root.Children.Add(shield);
+        }
+        else if (!on && _shield is not null)
+        {
+            Root.Children.Remove(_shield);
+            _shield = null;
+        }
+    }
+
+    private void ShowCustomMenu(FrameworkElement at, Windows.Foundation.Point point)
+    {
+        try
+        {
+            _customMenu ??= new MenuFlyout { ShouldConstrainToRootBounds = false };
+            CustomMenus.Fill(_customMenu, Host.Custom, new CustomTarget(Piece));
+
+            // The widget never takes focus by itself; for the menu it must, so a click elsewhere closes it.
+            User32.SetForegroundWindow(Hwnd);
+            _customMenu.ShowAt(at, new FlyoutShowOptions { Position = point });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(_name + ": the custom mode menu could not be shown.", ex);
+        }
+    }
+
     /// <summary>
     /// True when the widget is meant to be on screen: on, with something to show. Unlike
     /// <see cref="IsShown"/> it stays true while a full-screen app hides it, so the top strip
@@ -120,7 +212,13 @@ public abstract partial class CornerWidgetWindow : Window
     internal ScreenCorner Corner => CornerOf(Host.Settings.Current);
 
     /// <summary>The widget's visible width now (DIP), for standing widgets side by side.</summary>
-    internal double VisibleWidthDip => ShapeWidthDip();
+    internal double VisibleWidthDip => ShapeWidthDip() * _size;
+
+    /// <summary>The widget's height on screen (DIP): the standard line times its size setting.</summary>
+    internal double LineHeightNowDip => LineHeightDip * _size;
+
+    /// <summary>The size setting as a factor (1 = standard).</summary>
+    private protected double SizeFactor => _size;
 
     /// <summary>The visible shape's width (DIP); the whole window unless the widget says otherwise.</summary>
     private protected virtual double ShapeWidthDip() => _widthDip;
@@ -197,10 +295,12 @@ public abstract partial class CornerWidgetWindow : Window
             bool left = corner is ScreenCorner.TopLeft or ScreenCorner.BottomLeft;
             bool top = corner is ScreenCorner.TopLeft or ScreenCorner.TopRight;
 
-            int pad = (int)Math.Round(PadDip * scale);
-            int width = (int)Math.Round((_widthDip + (2 * PadDip)) * scale);
-            int height = (int)Math.Round((LineHeightDip + (2 * PadDip)) * scale);
-            int line = (int)Math.Round(LineHeightDip * scale);
+            // The widget's own sizes scale with its size setting; the margins do not.
+            double sized = scale * _size;
+            int pad = (int)Math.Round(PadDip * sized);
+            int width = (int)Math.Round((_widthDip + (2 * PadDip)) * sized);
+            int height = (int)Math.Round((LineHeightDip + (2 * PadDip)) * sized);
+            int line = (int)Math.Round(LineHeightDip * sized);
             int edge = (int)Math.Round(EdgeMarginDip * scale);
             int side = (int)Math.Round(SideMarginDip * scale);
             int gap = (int)Math.Round(StackGapDip * scale);
@@ -354,6 +454,9 @@ public abstract partial class CornerWidgetWindow : Window
     /// <summary>The widget's corner setting.</summary>
     private protected abstract ScreenCorner CornerOf(ShellSettings settings);
 
+    /// <summary>The widget's size setting as a factor (1 = standard).</summary>
+    private protected virtual double SizeOf(ShellSettings settings) => 1;
+
     /// <summary>False when there is nothing to show (the widget then hides).</summary>
     private protected virtual bool HasContent => true;
 
@@ -410,6 +513,17 @@ public abstract partial class CornerWidgetWindow : Window
             ThemeMode.Light => false,
             _ => Application.Current.RequestedTheme == ApplicationTheme.Dark,
         };
+
+        double size = SizeOf(settings);
+        if (size != _size)
+        {
+            _size = size;
+            _zoom.ScaleX = size;
+            _zoom.ScaleY = size;
+            _cutter.RadiusScale = size;
+            _cutter.Invalidate();
+            _placed = default;
+        }
 
         try
         {

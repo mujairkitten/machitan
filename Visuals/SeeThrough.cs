@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml;
 namespace Machitan.Visuals;
 
 /// <summary>
-/// The see-through window recipe proven on the bar (--seethrough test): a plain popup window
+/// The see-through window recipe proven on the bar (Batch 2's see-through test): a plain popup window
 /// (frame styles stripped, so Windows 11 draws no outline), a backdrop that draws nothing,
 /// Windows alpha (DWM blur-behind with a region off the window), and the background erase
 /// answered with black. Pair it with <see cref="WindowCutter"/> to cut the window to its shapes.

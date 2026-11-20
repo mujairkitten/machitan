@@ -8,7 +8,6 @@ namespace Machitan;
 
 public partial class App : Application
 {
-    private Window? _testWindow;
     private ShellHost? _shell;
 
     public App()
@@ -24,20 +23,6 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        if (EntryPoint.Mode == StartupMode.Proof)
-        {
-            _testWindow = new MainWindow();
-            _testWindow.Activate();
-            return;
-        }
-
-        if (EntryPoint.Mode == StartupMode.SeeThrough)
-        {
-            _testWindow = new SeeThroughTestWindow();
-            _testWindow.Activate();
-            return;
-        }
-
         try
         {
             _shell = new ShellHost();

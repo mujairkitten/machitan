@@ -273,6 +273,26 @@ internal sealed class WallpaperSampler
         }
     }
 
+    /// <summary>
+    /// The wallpaper's accent: its strongest colour (TrackAccent's pick, lightened to read on
+    /// dark surfaces); for a solid-colour background, that colour's. Null when there is no real
+    /// colour (black and white, grey).
+    /// </summary>
+    internal Windows.UI.Color? Accent()
+    {
+        if (_pixels is not null)
+        {
+            return TrackAccent.FromPixels(_pixels);
+        }
+
+        // COLORREF: 0x00BBGGRR.
+        uint colour = _settings.BackColour;
+        byte r = (byte)(colour & 0xFF);
+        byte g = (byte)((colour >> 8) & 0xFF);
+        byte b = (byte)((colour >> 16) & 0xFF);
+        return TrackAccent.FromPixels(new byte[] { b, g, r, 255 });
+    }
+
     /// <summary>True when the middle of <paramref name="region"/> is on this wallpaper's screen.</summary>
     internal bool Covers(RECT region)
     {

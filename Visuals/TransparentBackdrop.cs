@@ -9,8 +9,8 @@ namespace Machitan.Visuals;
 /// <summary>
 /// A backdrop that draws nothing: a fully see-through brush.
 /// Setting any backdrop makes WinUI drop its solid window fill; this one then leaves the
-/// space empty, so only the XAML content is visible. The window itself must also be a
-/// layered window whose background erase is handled (see SeeThroughTestWindow).
+/// space empty, so only the XAML content is visible. The window itself must also be made
+/// see-through by Windows, with its background erase handled (see <see cref="SeeThrough"/>).
 /// Its target and brush stay referenced until exit (see <see cref="BackdropKeeper"/>).
 /// </summary>
 public sealed partial class TransparentBackdrop : SystemBackdrop

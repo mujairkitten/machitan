@@ -2,12 +2,12 @@
 
 An alternative modern shell for Windows 11: a segmented pill bar, a floating Start menu, corner widgets and Dynaland.
 
-**Status: early build (line i1, Batch 5).** Explorer's taskbar is replaced by a see-through Machitan bar (Start cluster and app dock as separate pills, or joined, or full width; pinned apps; Show Desktop; auto-hide) and Machitan's own Start menu (search with `apps:` and `files:`, Pinned, All apps, power). A Settings window (right-click the bar > Settings) covers every option. A lone Win key opens Machitan's Start; Win+1..9, Win+N (calendar), Win+A (volume and brightness) and Win+` (window switcher) are Machitan's (Settings > System status shows each shortcut's state). Hovering a running app on the bar shows live previews of its windows. In any corner (side by side when they share one, beside the bar on its edge), kept clear of maximised windows: an info line (date, time, weather from Open-Meteo for Windows' location or a place you choose; a click opens Windows' notification centre) and a status ring (battery rim, Wi-Fi, volume dots, colours that follow the wallpaper; a click opens Windows' quick settings). At the top or bottom centre (opposite the bar by default), Dynaland: a small pill (notch or island shape) that grows only for live things (music in the colour of its cover, a volume change, camera or microphone use with green and orange dots); pointing at it opens it: the player first while music plays, and a general page (who uses the camera and microphone, and a button for Windows' notification centre). The strip kept at the free edge can have a colour cover, like a menu bar. The bar's search icon opens Windows' own search; its search box lets you type right on the bar, with results next to it. See `CHANGELOG-i1.md`.
+**Status: early build (line i1, Batch 7).** Explorer's taskbar is replaced by a see-through Machitan bar (Machitan's logo on Start; Start cluster and app dock as separate pills, or joined, or full width; pinned apps; Show Desktop; auto-hide; drag Start, an app bubble, the search icon or any app to rearrange the bar; Ctrl+click apps and right-click > Group apps for a new bubble; right-click the bar > Customize to pick, remove and change the bar's bubbles, Dynaland and the corner widgets; the tray can sit on the bar as its own bubble (Settings > Taskbar > Tray on the bar), with its icons in a box behind a ^ button as on Windows' taskbar and any of them dragged out onto the bar, and tray icons drag to a new order, on the bar and in Dynaland; an accent colour taken from the wallpaper) and Machitan's own Start menu (search with `apps:` and `files:`, Pinned, All apps with a "..." menu per app (pin to Start or the taskbar, run as administrator, app settings, uninstall, the app's own jump list tasks), a preview of a found file with its action icons below the picture, folder buttons (and one for Machitan's settings) in the order you drag them to in Settings, and a power menu you choose in Settings > Start: sleep, hibernate, shut down, restart, and update and shut down or restart while an update waits). A Settings window (right-click the bar > Settings) covers every option. A lone Win key opens Machitan's Start; Win+1..9 and Win+0 (the apps in the bar's order), Win+N (calendar), Win+A (volume and brightness) and Win+` (window switcher) are Machitan's (Settings > Shortcuts shows each shortcut's state; turn on "Shortcuts in apps running as administrator" to keep them while such an app is in front). Hovering a running app on the bar shows live previews of its windows, or a list of them (Settings > Taskbar > Show previews as). Windows that carry an app ID of their own (Firefox's private windows) get their own button, as on Windows' taskbar. Windows' own Win+X menu opens next to Machitan's Start button. In any corner (side by side when they share one, beside the bar on its edge), kept clear of maximised windows: an info line (date, time, weather from Open-Meteo for Windows' location or a place you choose; a click opens Windows' notification centre) and a status ring (battery rim, Wi-Fi, volume dots, colours that follow the wallpaper; a click opens Windows' quick settings). At the top or bottom centre (opposite the bar by default), Dynaland: a small pill (notch or island shape) that grows only for live things (music in the colour of its cover, a volume change, camera or microphone use with green and orange dots); pointing at it opens it: the player first while music plays, and a general page (who uses the camera and microphone, as Windows' audio sessions and camera monitor report it, the apps' tray icons, received straight from the apps, with clicks, double-clicks and their menus, and a button for Windows' notification centre). The strip kept at the free edge can have a colour cover, like a menu bar. The bar's search icon opens Windows' own search; its search box lets you type right on the bar, with results next to it. Machitan speaks English and Bahasa Indonesia (Settings > General > Language); `TRANSLATING.md` says how to add a language. See `CHANGELOG-i1.md`.
 
 ## Stack
 
 - .NET 10 (`net10.0-windows10.0.19041.0`), C#, WinUI 3
-- Windows App SDK 2.6.5
+- Windows App SDK 2.7.0 (its WinUI 3 part only, not the AI parts)
 - System.Management (Windows' WMI, for the laptop screen's brightness)
 - x64, unpackaged, self-contained
 - WinUI 3 and native Win32 interop only. No WebView, no web tech.
@@ -21,25 +21,45 @@ An alternative modern shell for Windows 11: a segmented pill bar, a floating Sta
 
 If a build complains about a symbol that no longer exists, delete `bin/`, `obj/` and `.vs/`, then rebuild.
 
+## Installer
+
+`build-installer.cmd` (double-click it) makes two installers in `publish\`, to run on any Windows 10 (2004 or later) or 11 PC, x64:
+
+| Installer | What it brings |
+|---|---|
+| `Machitan-Setup-<version>-Full.exe` | Everything Machitan needs, the .NET 10 runtime included. |
+| `Machitan-Setup-<version>-Trimmed.exe` | The same without the .NET 10 runtime: the PC needs the .NET 10 Runtime (x64). Setup checks first and can open Microsoft's download page. |
+
+Both bring the parts of the Windows App SDK Machitan uses (WinUI 3), not its AI parts. Either one installs over the other.
+
+1. Once: install Inno Setup 7 (`winget install --id JRSoftware.InnoSetup.7 -e`, or from jrsoftware.org). Inno Setup 6.3 or later works too.
+2. Run `build-installer.cmd`. It publishes a Release build per edition to `publish\Machitan-Full` and `publish\Machitan-Trimmed`, then compiles `installer\Machitan.iss` for each. The folder opens when it is done.
+
+The version is `<Version>` in `Machitan.csproj` (Windows stamps it with four numbers, 0.9.0.0; the installer's name and Windows' Apps list say 0.9.0). Each installer installs for all users in `C:\Program Files\Machitan` (Windows asks for administrator rights once), adds Machitan to the Start menu, closes a running Machitan cleanly first, and can start it at the end. Uninstall it in Windows' Settings > Apps: it also removes Machitan's "Run at startup" entry and the `Machitan\AdminKeys` task; your settings in `%AppData%\Machitan` stay. The installers are not signed, so on another PC Windows may warn first (More info > Run anyway).
+
 ## Running
 
 | Start it as | What happens |
 |---|---|
 | `Machitan.exe` | Runs the shell. Explorer's taskbar is hidden until Machitan exits. |
 | `Machitan.exe --exit` | Asks the running shell to close cleanly. |
-| `Machitan.exe --proof` | Opens only the backdrop proof window. Explorer is left alone. |
-| `Machitan.exe --seethrough` | Opens only the see-through test window. Explorer is left alone. |
 
 You can also right-click the bar and choose **Exit Machitan**.
 
+Settings > General > Run at startup adds Machitan to Windows' own startup list (off by default).
+
 If Machitan crashes or is killed, a small guardian process puts Explorer's taskbar back.
+
+Settings > Shortcuts > Shortcuts in apps running as administrator (off by default) makes a Windows scheduled task, `Machitan\AdminKeys`, which starts `Machitan.exe --adminkeys` as administrator (Windows asks once). Turning it off removes the task (Windows asks again).
 
 ## Files it keeps
 
 All in `%AppData%\Machitan`:
 
 - `settings.json` - your settings. Edits are picked up while Machitan runs.
-- `pins.json` - pinned apps (created on the first pin).
+- `pins.json` - apps pinned to the bar (created on the first pin).
+- `start-pins.json` - apps pinned to Start (first a copy of `pins.json`, which held both before).
+- `bar-layout.json` - the bar's bubbles and their order, the tray icons' order, and which tray icons sit on the bar outside the tray box.
 - `diagnostics.log` - what happened, for troubleshooting. It can contain app names and file paths.
 
 ## Principles
@@ -50,4 +70,4 @@ All in `%AppData%\Machitan`:
 
 ## License
 
-GNU General Public License, version 3. See `LICENSE`.
+GNU General Public License, version 3. See `LICENSE`. Others' work Machitan includes, and its licence, is listed in `THIRD-PARTY-NOTICES.md`.

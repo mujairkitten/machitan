@@ -77,7 +77,7 @@ public sealed partial class CalendarFlyout : FlyoutWindow
         clockText.Children.Add(_time);
         clockText.Children.Add(_date);
 
-        _today = MakeTextButton("Today", ShowToday);
+        _today = MakeTextButton(Strings.CalToday, ShowToday);
 
         _foldIcon = MakeGlyph(FoldGlyph, 12);
         _fold = new Button
@@ -112,7 +112,7 @@ public sealed partial class CalendarFlyout : FlyoutWindow
             BorderThickness = new Thickness(0),
             HorizontalAlignment = HorizontalAlignment.Center,
         };
-        AutomationProperties.SetName(_calendar, "Calendar");
+        AutomationProperties.SetName(_calendar, Strings.CalCalendar);
         _calendar.LayoutUpdated += OnCalendarLayoutUpdated;
         _calendar.SizeChanged += (_, e) => OnCalendarSized(e.NewSize.Height);
 
@@ -189,7 +189,7 @@ public sealed partial class CalendarFlyout : FlyoutWindow
         _today.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
         _foldIcon.Glyph = ((char)(collapsed ? UnfoldGlyph : FoldGlyph)).ToString();
 
-        string name = collapsed ? "Show the calendar" : "Hide the calendar";
+        string name = collapsed ? Strings.CalShow : Strings.CalHide;
         AutomationProperties.SetName(_fold, name);
         ToolTipService.SetToolTip(_fold, name);
 

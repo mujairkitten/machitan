@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Machitan.Config;
 
@@ -15,6 +16,13 @@ public enum TaskbarMode
     Joined = 1,
     Classic = 2,
     Compact = 3,
+}
+
+/// <summary>How hovering a running app on the bar shows its windows (Windows: "Show taskbar previews as").</summary>
+public enum PreviewStyle
+{
+    Thumbnails = 0,
+    List = 1,
 }
 
 public enum DockEdge
@@ -35,6 +43,14 @@ public enum SearchMode
     Icon = 0,
     Box = 1,
     Hidden = 2,
+}
+
+/// <summary>Where search sits: with Start, or inside the apps group at its start or end.</summary>
+public enum SearchPlace
+{
+    WithStart = 0,
+    BeforeApps = 1,
+    AfterApps = 2,
 }
 
 public enum ScreenCorner
@@ -70,8 +86,18 @@ public enum StripCoverColour
     Dark = 0,
     Light = 1,
 
-    /// <summary>Windows' accent colour.</summary>
+    /// <summary>Machitan's accent colour (see <see cref="AccentSource"/>).</summary>
     Accent = 2,
+}
+
+/// <summary>Where Machitan's accent colour comes from.</summary>
+public enum AccentSource
+{
+    /// <summary>The wallpaper's strongest colour (the spec's default).</summary>
+    Wallpaper = 0,
+
+    /// <summary>Windows' own accent colour.</summary>
+    WindowsAccent = 1,
 }
 
 /// <summary>
@@ -91,6 +117,9 @@ public sealed record ShellSettings
 
     public TaskbarMode TaskbarMode { get; set; } = TaskbarMode.Segmented;
 
+    /// <summary>Window previews on the bar: live pictures (default) or a list of titles.</summary>
+    public PreviewStyle PreviewStyle { get; set; } = PreviewStyle.Thumbnails;
+
     public DockEdge DockEdge { get; set; } = DockEdge.Bottom;
 
     public DockAlignment DockAlignment { get; set; } = DockAlignment.Center;
@@ -103,7 +132,34 @@ public sealed record ShellSettings
 
     public bool EnableAcrylic { get; set; } = true;
 
+    /// <summary>
+    /// Start, the tray box and the bar appear and go at once, with no motion (Visuals/Motion.cs).
+    /// Off by default; Windows' own Animation effects setting being off does the same.
+    /// </summary>
+    public bool TurnOffAnimations { get; set; }
+
     public SearchMode SearchMode { get; set; } = SearchMode.Icon;
+
+    /// <summary>Set by dragging the search icon on the bar, or in Settings.</summary>
+    public SearchPlace SearchPlace { get; set; } = SearchPlace.WithStart;
+
+    /// <summary>App dock variant: each app's name beside its icon (custom mode, Settings).</summary>
+    public bool DockLabels { get; set; }
+
+    /// <summary>The Start bubble is on the bar (custom mode can remove it).</summary>
+    public bool ShowStartOnBar { get; set; } = true;
+
+    /// <summary>The apps bubble is on the bar (custom mode can remove it; groups stay).</summary>
+    public bool ShowAppsOnBar { get; set; } = true;
+
+    /// <summary>The tray icons sit in their own bubble on the bar instead of Dynaland's general page.</summary>
+    public bool TrayOnBar { get; set; }
+
+    /// <summary>
+    /// Resting the pointer on Show Desktop peeks at the desktop (every window see-through, as
+    /// Windows 7 and 10 did). Off by default, as in Windows 11.
+    /// </summary>
+    public bool PeekAtDesktop { get; set; }
 
     public bool ShowSystemStats { get; set; }
 
@@ -168,17 +224,158 @@ public sealed record ShellSettings
 
     public ScreenCorner DuoRingCorner { get; set; } = ScreenCorner.TopRight;
 
+    /// <summary>Machitan's accent colour: from the wallpaper (spec) or Windows' own.</summary>
+    public AccentSource AccentSource { get; set; } = AccentSource.Wallpaper;
+
+    public const int MinWidgetSize = 75;
+    public const int MaxWidgetSize = 150;
+
+    /// <summary>The info line's size, in percent of its standard size (32 DIP tall).</summary>
+    public int InfoLineSize { get; set; } = 100;
+
+    /// <summary>The status ring's size, in percent of its standard size (32 DIP tall).</summary>
+    public int DuoRingSize { get; set; } = 100;
+
+    /// <summary>Dynaland's size, in percent: the pill and every page it opens.</summary>
+    public int DynalandSize { get; set; } = 100;
+
+    public const int MinDynalandWidth = 360;
+    public const int MaxDynalandWidth = 560;
+
+    /// <summary>Width of Dynaland's open pages (player, general page), DIP at 100% size.</summary>
+    public int DynalandWidth { get; set; } = 400;
+
     /// <summary>
     /// Keeps a strip at the top of the screen for widgets in the top corners (an AppBar of its
     /// own), so maximised windows start below them. On by default.
     /// </summary>
     public bool ReserveTopStrip { get; set; } = true;
 
+    /// <summary>
+    /// Machitan's language: empty for Windows' display language, else a language code ("en",
+    /// "id"). Read when Machitan starts.
+    /// </summary>
+    public string Language { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Machitan's shortcuts also while an app running as administrator is in front (a helper
+    /// runs as administrator; Windows asks once when it is turned on). Off by default.
+    /// </summary>
+    public bool AdminAppShortcuts { get; set; }
+
+    /// <summary>The Machitan.exe the admin-keys task was made for (another copy needs it made again).</summary>
+    public string AdminAppShortcutsFor { get; set; } = string.Empty;
+
     /// <summary>Calendar flyout (Win+N): show seconds on its clock.</summary>
     public bool CalendarShowSeconds { get; set; }
 
     /// <summary>Calendar flyout (Win+N): the month calendar is folded away (set from the flyout itself).</summary>
     public bool CalendarCollapsed { get; set; }
+
+    // Start's power menu. Restart and Shut down were always there; the rest are new and off.
+
+    /// <summary>Power menu: Sleep (shown only when this PC can sleep).</summary>
+    public bool PowerSleep { get; set; }
+
+    /// <summary>Power menu: Hibernate (shown only when hibernation is turned on).</summary>
+    public bool PowerHibernate { get; set; }
+
+    public bool PowerRestart { get; set; } = true;
+
+    public bool PowerShutDown { get; set; } = true;
+
+    /// <summary>Power menu: Update and restart (shown only while Windows has an update waiting).</summary>
+    public bool PowerUpdateRestart { get; set; }
+
+    /// <summary>Power menu: Update and shut down (shown only while Windows has an update waiting).</summary>
+    public bool PowerUpdateShutDown { get; set; }
+
+    // Start's buttons next to the power button, as in Windows' Start > Folders. All off.
+
+    /// <summary>The folder buttons' ids, in their default order (left to right, the power button after the last).</summary>
+    public static readonly string[] FolderIds =
+    {
+        "Settings", "Explorer", "Documents", "Downloads", "Music", "Pictures", "Videos", "Network", "Personal", "Machitan",
+    };
+
+    /// <summary>The folder buttons' order: their ids, comma separated (see FolderIds).</summary>
+    public string FolderOrder { get; set; } = string.Join(",", FolderIds);
+
+    public bool FolderSettings { get; set; }
+
+    public bool FolderExplorer { get; set; }
+
+    public bool FolderDocuments { get; set; }
+
+    public bool FolderDownloads { get; set; }
+
+    public bool FolderMusic { get; set; }
+
+    public bool FolderPictures { get; set; }
+
+    public bool FolderVideos { get; set; }
+
+    public bool FolderNetwork { get; set; }
+
+    public bool FolderPersonal { get; set; }
+
+    /// <summary>A button for Machitan's own settings.</summary>
+    public bool FolderMachitan { get; set; }
+
+    /// <summary>The Start button shows the user's own pictures instead of Machitan's logo. Off by default.</summary>
+    public bool CustomStartButton { get; set; }
+
+    /// <summary>Full path of the Start button's picture at rest; empty for none (the logo stays).</summary>
+    public string StartButtonPicture { get; set; } = string.Empty;
+
+    /// <summary>Full path of its picture while the pointer is on it; empty: the picture at rest.</summary>
+    public string StartButtonPictureHover { get; set; } = string.Empty;
+
+    /// <summary>Full path of its picture while it is pressed; empty: the hover picture, else the one at rest.</summary>
+    public string StartButtonPicturePressed { get; set; } = string.Empty;
+
+    /// <summary>Longest picture path kept (longer ones are dropped as broken).</summary>
+    public const int MaxPicturePath = 2048;
+
+    /// <summary>The folder order as a list: every known id once, unknown ones dropped, missing ones added at their default place.</summary>
+    public static List<string> ParseFolderOrder(string? order)
+    {
+        var ids = new List<string>();
+        foreach (string part in (order ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            string? known = Array.Find(FolderIds, id => string.Equals(id, part, StringComparison.OrdinalIgnoreCase));
+            if (known is not null && !ids.Contains(known))
+            {
+                ids.Add(known);
+            }
+        }
+
+        for (int i = 0; i < FolderIds.Length; i++)
+        {
+            if (ids.Contains(FolderIds[i]))
+            {
+                continue;
+            }
+
+            // After the one that comes before it by default, so a new button lands where it would be.
+            int after = i == 0 ? -1 : ids.IndexOf(FolderIds[i - 1]);
+            ids.Insert(after + 1, FolderIds[i]);
+        }
+
+        return ids;
+    }
+
+    /// <summary>A picture path as kept: trimmed; empty when missing, too long or not a full path.</summary>
+    private static string CleanPicturePath(string? path)
+    {
+        string clean = (path ?? string.Empty).Trim();
+        if (clean.Length == 0 || clean.Length > MaxPicturePath)
+        {
+            return string.Empty;
+        }
+
+        return System.IO.Path.IsPathFullyQualified(clean) ? clean : string.Empty;
+    }
 
     /// <summary>Pulls every value back into its allowed range.</summary>
     public void Normalize()
@@ -203,6 +400,13 @@ public sealed record ShellSettings
             TaskbarMode = TaskbarMode.Segmented;
         }
 
+        if (!Enum.IsDefined(PreviewStyle))
+        {
+            PreviewStyle = PreviewStyle.Thumbnails;
+        }
+
+        FolderOrder = string.Join(",", ParseFolderOrder(FolderOrder));
+
         if (!Enum.IsDefined(DockEdge))
         {
             DockEdge = DockEdge.Bottom;
@@ -216,6 +420,11 @@ public sealed record ShellSettings
         if (!Enum.IsDefined(SearchMode))
         {
             SearchMode = SearchMode.Icon;
+        }
+
+        if (!Enum.IsDefined(SearchPlace))
+        {
+            SearchPlace = SearchPlace.WithStart;
         }
 
         if (!Enum.IsDefined(InfoLineCorner))
@@ -249,6 +458,20 @@ public sealed record ShellSettings
         }
 
         TopStripCoverOpacity = Math.Clamp(TopStripCoverOpacity, MinCoverOpacity, MaxCoverOpacity);
+
+        if (!Enum.IsDefined(AccentSource))
+        {
+            AccentSource = AccentSource.Wallpaper;
+        }
+
+        InfoLineSize = Math.Clamp(InfoLineSize, MinWidgetSize, MaxWidgetSize);
+        DuoRingSize = Math.Clamp(DuoRingSize, MinWidgetSize, MaxWidgetSize);
+        DynalandSize = Math.Clamp(DynalandSize, MinWidgetSize, MaxWidgetSize);
+        DynalandWidth = Math.Clamp(DynalandWidth, MinDynalandWidth, MaxDynalandWidth);
+
+        StartButtonPicture = CleanPicturePath(StartButtonPicture);
+        StartButtonPictureHover = CleanPicturePath(StartButtonPictureHover);
+        StartButtonPicturePressed = CleanPicturePath(StartButtonPicturePressed);
 
         WeatherPlaceName = (WeatherPlaceName ?? string.Empty).Trim();
         if (WeatherPlaceName.Length > 200)

@@ -71,10 +71,19 @@ internal sealed unsafe class KeyboardService
     private const int FirstHotkeyId = 0x4D00;
 
     // The hook callback is static (Windows calls it directly), so its state is too.
-    // Only one KeyboardService runs at a time.
+    // Only one KeyboardService runs at a time (or the admin-keys helper's hook, in its process).
     private static DispatcherQueue? s_queue;
     private static Action? s_onLoneWin;
     private static volatile bool s_takeLoneWin;
+
+    /// <summary>Where a lone Win press goes, called on the hook thread (the shell: Start, through the UI thread).</summary>
+    private static Action? s_loneWinSink;
+
+    /// <summary>Where a caught shortcut goes, called on the hook thread (the shell: its action on the UI thread).</summary>
+    private static Action<HotkeyDefinition>? s_caughtSink;
+
+    /// <summary>The admin-keys helper only: act only while this says yes (an app above Machitan's rights is in front).</summary>
+    private static Func<bool>? s_actFilter;
     private static bool s_winDown;
     private static bool s_chord;
     private static bool s_heldBackDuringWin;
@@ -82,6 +91,7 @@ internal sealed unsafe class KeyboardService
 
     // Hook-thread only (the hook runs on the thread that installed it).
     private static readonly bool[] s_heldBack = new bool[256];
+    private static readonly long[] s_heldBackAt = new long[256];
     private static List<HotkeyDefinition> s_caught = new();
 
     private readonly DispatcherQueue _queue;
@@ -121,6 +131,23 @@ internal sealed unsafe class KeyboardService
         s_queue = queue;
         s_onLoneWin = onLoneWin;
         s_takeLoneWin = onLoneWin is not null;
+        s_actFilter = null;
+        s_caughtSink = definition => RunOnUiThread(queue, definition);
+        s_loneWinSink = () =>
+        {
+            Action? lone = s_onLoneWin;
+            queue.TryEnqueue(() =>
+            {
+                try
+                {
+                    lone?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Keyboard: opening Start from the Win key failed.", ex);
+                }
+            });
+        };
 
         service._thread = new Thread(service.Run)
         {
@@ -137,11 +164,72 @@ internal sealed unsafe class KeyboardService
         return service;
     }
 
+    /// <summary>The shortcuts caught in the hook, with their place in the full list (for the admin-keys helper).</summary>
+    internal IReadOnlyList<(int Index, HotkeyDefinition Definition)> CaughtByHook
+    {
+        get
+        {
+            var caught = new List<(int, HotkeyDefinition)>();
+            for (int i = 0; i < _definitions.Count; i++)
+            {
+                if (_states[i].Result == HotkeyResult.CaughtByHook)
+                {
+                    caught.Add((i, _definitions[i]));
+                }
+            }
+
+            return caught;
+        }
+    }
+
+    /// <summary>Runs a shortcut by its place in the full list (the admin-keys helper caught it). UI thread.</summary>
+    internal void RunByIndex(int index)
+    {
+        if (index < 0 || index >= _definitions.Count)
+        {
+            return;
+        }
+
+        HotkeyDefinition definition = _definitions[index];
+        try
+        {
+            definition.Run();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Shortcut " + definition.Name + " failed.", ex);
+        }
+    }
+
+    /// <summary>
+    /// The admin-keys helper (an elevated Machitan process with no UI): the same hook, on the
+    /// calling thread (which must pump messages), acting only while <paramref name="filter"/>
+    /// says yes. Lone Win and caught shortcuts go to the sinks. Returns the hook, or 0.
+    /// </summary>
+    internal static nint InstallHelperHook(Func<bool> filter, Action loneWin, Action<HotkeyDefinition> caught)
+    {
+        s_queue = null;
+        s_onLoneWin = null;
+        s_takeLoneWin = true;
+        s_actFilter = filter;
+        s_loneWinSink = loneWin;
+        s_caughtSink = caught;
+        return User32.SetWindowsHookExW(User32.WH_KEYBOARD_LL, &HookProc, Kernel32.GetModuleHandleW(null), 0);
+    }
+
+    /// <summary>The admin-keys helper: the shortcuts to catch (set on the hook's thread).</summary>
+    internal static void SetHelperShortcuts(List<HotkeyDefinition> caught)
+    {
+        s_caught = caught;
+    }
+
     /// <summary>Removes the hook and the shortcuts. Safe to call more than once.</summary>
     internal void Stop()
     {
         s_takeLoneWin = false;
         s_onLoneWin = null;
+        s_loneWinSink = null;
+        s_caughtSink = null;
 
         uint threadId = _threadId;
         if (threadId != 0)
@@ -159,34 +247,39 @@ internal sealed unsafe class KeyboardService
         if (HookActive)
         {
             text.Append(s_takeLoneWin
-                ? "Windows key hook: active. A lone Win key opens Machitan's Start; Win combinations pass through to Windows."
-                : "Windows key hook: active, but Machitan's Start is not available, so a lone Win key opens Windows' Start.");
+                ? Strings.KbActive
+                : Strings.KbActiveNoStart);
         }
         else
         {
-            text.Append("Windows key hook: not active (error " + _hookError + "). A lone Win key opens Windows' Start.");
+            text.Append(Fmt.F(Strings.KbNotActive, _hookError));
         }
+
+        text.AppendLine();
+        text.Append(AdminKeys.Current is { Connected: true }
+            ? Strings.KbAdminOn
+            : Strings.KbAdminOff);
 
         (List<string> registered, List<string> caught, List<string> owned, List<string> failed) = SortResults();
 
         text.AppendLine();
-        text.Append("Shortcuts Machitan handles: " + (registered.Count > 0 ? string.Join(", ", registered) : "none") + ".");
+        text.Append(Fmt.F(Strings.KbHandles, registered.Count > 0 ? string.Join(", ", registered) : Strings.KbNone));
         if (caught.Count > 0)
         {
             text.AppendLine();
-            text.Append("Owned by Windows, so Machitan catches them in its keyboard hook: " + string.Join(", ", caught) + ".");
+            text.Append(Fmt.F(Strings.KbCaught, string.Join(", ", caught)));
         }
 
         if (owned.Count > 0)
         {
             text.AppendLine();
-            text.Append("Owned by Windows, so Windows handles them as usual: " + string.Join(", ", owned) + ".");
+            text.Append(Fmt.F(Strings.KbOwned, string.Join(", ", owned)));
         }
 
         if (failed.Count > 0)
         {
             text.AppendLine();
-            text.Append("Could not be set up: " + string.Join(", ", failed) + ".");
+            text.Append(Fmt.F(Strings.KbFailed, string.Join(", ", failed)));
         }
 
         return text.ToString();
@@ -438,9 +531,26 @@ internal sealed unsafe class KeyboardService
             return false;
         }
 
+        // The admin-keys helper acts only while an app with more rights than Machitan is in
+        // front (Machitan's own hook sees nothing then); otherwise the keys are Machitan's own hook's.
+        if (s_actFilter is { } filter && !filter())
+        {
+            return false;
+        }
+
         bool down = message is User32.WM_KEYDOWN or User32.WM_SYSKEYDOWN;
         uint virtualKey = key->vkCode;
         long now = Environment.TickCount64;
+
+        // Presses and releases that went to an app running as administrator never reach this
+        // hook (Windows hides them). Keep the state honest against the keyboard's real state.
+        if (s_winDown && !(virtualKey is User32.VK_LWIN or User32.VK_RWIN)
+            && !IsDown(User32.VK_LWIN) && !IsDown(User32.VK_RWIN))
+        {
+            s_winDown = false;
+            s_chord = false;
+            s_heldBackDuringWin = false;
+        }
 
         if (virtualKey is User32.VK_LWIN or User32.VK_RWIN)
         {
@@ -471,9 +581,8 @@ internal sealed unsafe class KeyboardService
                 return KeyChord.SendMaskedWinRelease((ushort)virtualKey);
             }
 
-            Action? onLoneWin = s_onLoneWin;
-            DispatcherQueue? queue = s_queue;
-            if (!lone || !s_takeLoneWin || onLoneWin is null || queue is null)
+            Action? sink = s_loneWinSink;
+            if (!lone || !s_takeLoneWin || sink is null || (s_actFilter is null && s_onLoneWin is null))
             {
                 return false;
             }
@@ -485,23 +594,22 @@ internal sealed unsafe class KeyboardService
                 return false;
             }
 
-            queue.TryEnqueue(() =>
-            {
-                try
-                {
-                    onLoneWin();
-                }
-                catch (Exception ex)
-                {
-                    Log.Error("Keyboard: opening Start from the Win key failed.", ex);
-                }
-            });
+            sink();
             return true;
+        }
+
+        if (virtualKey < 256 && s_heldBack[virtualKey] && down && now - s_heldBackAt[virtualKey] > FreshPressGapMs)
+        {
+            // Repeats come far faster than this gap, so this is a new press: the release of the
+            // held-back press went somewhere this hook cannot see (an app running as
+            // administrator). Start over with this press.
+            s_heldBack[virtualKey] = false;
         }
 
         if (virtualKey < 256 && s_heldBack[virtualKey])
         {
             // Repeats and the release of a key whose press was held back go the same way.
+            s_heldBackAt[virtualKey] = now;
             if (!down)
             {
                 s_heldBack[virtualKey] = false;
@@ -510,7 +618,7 @@ internal sealed unsafe class KeyboardService
             return true;
         }
 
-        if (down && s_winDown && s_queue is not null && virtualKey < 256)
+        if (down && s_winDown && s_caughtSink is { } caughtSink && virtualKey < 256)
         {
             HotkeyDefinition? caught = FindCaught(virtualKey);
             if (caught is not null)
@@ -518,7 +626,8 @@ internal sealed unsafe class KeyboardService
                 s_chord = true;
                 s_heldBackDuringWin = true;
                 s_heldBack[virtualKey] = true;
-                RunOnUiThread(s_queue, caught);
+                s_heldBackAt[virtualKey] = now;
+                caughtSink(caught);
                 return true;
             }
         }

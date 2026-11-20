@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using Machitan.Config;
 using Machitan.Core;
+using Machitan.Custom;
 using Machitan.Interop;
+using Machitan.Shell;
 using Machitan.Visuals;
 using Microsoft.UI;
 using Microsoft.UI.Composition.SystemBackdrops;
@@ -15,12 +17,21 @@ using Microsoft.UI.Xaml.Media;
 namespace Machitan.Bar;
 
 /// <summary>
-/// The bar's layout: segments per mode, the Start cluster and the Show Desktop strip.
+/// The bar's layout: its bubbles per mode (the Start group, the apps, and app groups made with
+/// "Group apps"), and the Show Desktop strip.
 ///
-/// Segmented: Start cluster and App dock are separate pills with a see-through gap.
-/// Joined: one pill holding both, with a thin divider.
-/// Classic: one full-width bar (16 DIP corners), Start cluster left, dock placed per the
-///          alignment setting, Show Desktop at the far right.
+/// Segmented: every bubble is its own pill, with a see-through gap between.
+/// Joined: one pill holding them all, with thin dividers.
+/// Classic: one full-width bar (16 DIP corners): Start at the left end (or the right end when
+///          it is not first), the app bubbles side by side placed per the alignment setting,
+///          Show Desktop at the far right.
+/// The bubbles' order and which apps sit in which bubble are in bar-layout.json
+/// (BarLayoutStore); where search sits (with Start, or before or after the apps) is a
+/// setting. Dragging on the bar sets them (BarWindow.Drag.cs).
+/// Show Desktop is always at the bar's far right end. In that pill, an empty space as wide as
+/// the strip sits at the other end, so the pill stays symmetrical. A bubble with no apps is not
+/// shown (the apps bubble stays while search sits in it); with no app on the bar at all,
+/// Show Desktop goes too.
 /// Compact: not built yet (optional per the plan); shown as Segmented.
 /// </summary>
 public sealed partial class BarWindow
@@ -28,23 +39,73 @@ public sealed partial class BarWindow
     private const double SegmentGapDip = 8;
     private const double SegmentPaddingDip = 6;
     private const double ItemSpacingDip = 2;
-    private const double ClassicRadiusDip = 16;
+    private const double ClassicRadiusDip = Radii.Large;
     private const double SearchBoxWidthDip = 180;
 
     private const double DesktopLineWidthDip = 2;
     private const double DesktopLineHeightRatio = 0.38;
     private const double DesktopHitWidthDip = 12;
 
+    /// <summary>Peek at the desktop (Settings): the pointer rests this long on Show Desktop first.</summary>
+    private const int DesktopPeekDelayMs = 500;
+
     private readonly List<(FrameworkElement Element, double RadiusDip)> _shapes = new();
     private readonly List<FrameworkElement> _fills = new();
     private readonly bool _hasTouch = User32.GetSystemMetrics(User32.SM_MAXIMUMTOUCHES) > 0;
 
-    private StackPanel _dockPanel = new();
+    /// <summary>The app bubbles as built, from the left.</summary>
+    private readonly List<AppBubble> _bubbles = new();
+
+    /// <summary>The bubbles shown, from the left (Start included), as built.</summary>
+    private List<string> _builtIds = new();
+
+    private FrameworkElement? _startGroup;
+    private Grid? _startSegment;
+
+    /// <summary>The tray bubble's row of icons (Settings: tray on the bar), and its own pill (Segmented).</summary>
+    private StackPanel? _trayRow;
+    private Grid? _traySegment;
+    private readonly Dictionary<string, Button> _trayButtons = new(StringComparer.Ordinal);
+
+    /// <summary>The tray bubble's ^ button, which opens the tray box (null while the box is empty).</summary>
+    private Button? _trayChevron;
+    private string? _trayLastKey;
+    private long _trayLastAt;
+    private Button? _startButton;
+    private bool _searchInApps;
+    private FrameworkElement? _desktopSpacer;
     private Button? _desktopButton;
     private Border? _desktopLine;
     private bool _barHovered;
     private bool _desktopHovered;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _desktopPeekTimer;
+    private bool _desktopPeeking;
+
+    // The Start button's own pictures, when they are on (null: Machitan's logo).
+    private StartButtonPictures? _startPictures;
     private bool _compactNoted;
+
+    /// <summary>One app bubble on the bar: the apps (with search when it sits there) or a group.</summary>
+    private sealed class AppBubble
+    {
+        internal AppBubble(string id, StackPanel panel, StackPanel row)
+        {
+            Id = id;
+            Panel = panel;
+            Row = row;
+        }
+
+        internal string Id { get; }
+
+        /// <summary>The app buttons.</summary>
+        internal StackPanel Panel { get; }
+
+        /// <summary>The buttons' panel, with search before or after it (the apps bubble).</summary>
+        internal StackPanel Row { get; }
+
+        /// <summary>Its own pill (Segmented).</summary>
+        internal Grid? Pill { get; set; }
+    }
 
     /// <summary>Builds the whole bar from the current settings.</summary>
     private void BuildLayout()
@@ -53,7 +114,9 @@ public sealed partial class BarWindow
         {
             ShellSettings settings = _host.Settings.Current;
 
-            // The search box is rebuilt below; a search in progress ends with it.
+            // Everything is rebuilt below: a drag or a search in progress ends with it.
+            CancelDrag();
+            StopDesktopPeek();
             EndTyping(restoreFocus: false);
             _searchBox = null;
 
@@ -79,13 +142,34 @@ public sealed partial class BarWindow
 
             double pillRadius = PillHeightDip() / 2;
 
-            FrameworkElement start = BuildStartCluster();
-            _dockPanel = new StackPanel
+            SearchPlace place = settings.SearchMode == SearchMode.Hidden ? SearchPlace.WithStart : settings.SearchPlace;
+            _searchInApps = place != SearchPlace.WithStart;
+
+            FrameworkElement start = BuildStartCluster(withSearch: !_searchInApps);
+            _startGroup = start;
+            _startSegment = null;
+            _desktopSpacer = null;
+
+            // Which bubbles show, from the left, and their apps.
+            Dictionary<string, List<DockItem>> arranged = ArrangeDock();
+            _builtIds = ShownBubbles(arranged);
+            _bubbles.Clear();
+            _trayButtons.Clear();
+            _trayChevron = null;
+            _trayRow = null;
+            _traySegment = null;
+            foreach (string id in _builtIds)
             {
-                Orientation = Orientation.Horizontal,
-                Spacing = ItemSpacingDip,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
+                if (id == BarLayoutStore.TrayId)
+                {
+                    _trayRow = Row(ItemSpacingDip);
+                }
+                else if (id != BarLayoutStore.StartId)
+                {
+                    _bubbles.Add(MakeBubble(id, place));
+                }
+            }
+
             FrameworkElement desktopStrip = BuildDesktopStrip();
 
             TaskbarMode mode = settings.TaskbarMode;
@@ -103,45 +187,121 @@ public sealed partial class BarWindow
             switch (mode)
             {
                 case TaskbarMode.Joined:
-                    BarHost.Children.Add(MakeSegment(
-                        Row(ItemSpacingDip, start, MakeDivider(), _dockPanel, desktopStrip),
-                        pillRadius,
-                        stretch: false));
+                {
+                    // One pill: the bubbles in order, a divider between each two.
+                    _desktopSpacer = MakeDesktopSpacer();
+                    StackPanel row = Row(ItemSpacingDip, _desktopSpacer);
+                    bool first = true;
+                    foreach (string id in _builtIds)
+                    {
+                        if (!first)
+                        {
+                            row.Children.Add(MakeDivider());
+                        }
+
+                        row.Children.Add(PartOf(id, start));
+                        first = false;
+                    }
+
+                    row.Children.Add(desktopStrip);
+                    BarHost.Children.Add(MakeSegment(row, pillRadius, stretch: false));
                     break;
+                }
 
                 case TaskbarMode.Classic:
+                {
+                    // Full width: Start at the left end, or at the right end when it is not first;
+                    // the app bubbles side by side, placed per the alignment.
+                    bool startLeft = _builtIds.Count == 0 || _builtIds[0] == BarLayoutStore.StartId;
                     var grid = new Grid();
-                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = startLeft ? GridLength.Auto : new GridLength(1, GridUnitType.Star) });
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = startLeft ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
                     grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                    _dockPanel.HorizontalAlignment = settings.DockAlignment switch
+                    StackPanel apps = Row(ItemSpacingDip);
+                    foreach (AppBubble bubble in _bubbles)
+                    {
+                        if (apps.Children.Count > 0)
+                        {
+                            apps.Children.Add(MakeDivider());
+                        }
+
+                        apps.Children.Add(bubble.Row);
+                    }
+
+                    apps.HorizontalAlignment = settings.DockAlignment switch
                     {
                         DockAlignment.Left => HorizontalAlignment.Left,
                         DockAlignment.Right => HorizontalAlignment.Right,
                         _ => HorizontalAlignment.Center,
                     };
 
-                    Grid.SetColumn(start, 0);
-                    Grid.SetColumn(_dockPanel, 1);
-                    Grid.SetColumn(desktopStrip, 2);
-                    grid.Children.Add(start);
-                    grid.Children.Add(_dockPanel);
-                    grid.Children.Add(desktopStrip);
+                    // The tray sits at the right end, before Show Desktop.
+                    StackPanel end = Row(ItemSpacingDip);
+                    if (_trayRow is not null)
+                    {
+                        end.Children.Add(_trayRow);
+                    }
+
+                    end.Children.Add(desktopStrip);
+                    Grid.SetColumn(start, startLeft ? 0 : 1);
+                    Grid.SetColumn(apps, startLeft ? 1 : 0);
+                    Grid.SetColumn(end, 2);
+                    if (_builtIds.Contains(BarLayoutStore.StartId))
+                    {
+                        grid.Children.Add(start);
+                    }
+
+                    grid.Children.Add(apps);
+                    grid.Children.Add(end);
 
                     BarHost.Children.Add(MakeSegment(grid, ClassicRadiusDip, stretch: true));
                     break;
+                }
 
                 default:
+                {
+                    // A pill per bubble. Show Desktop goes in the right-hand pill, with its balancing space.
                     StackPanel segments = Row(SegmentGapDip);
                     segments.HorizontalAlignment = HorizontalAlignment.Left;
-                    segments.Children.Add(MakeSegment(start, pillRadius, stretch: false));
-                    segments.Children.Add(MakeSegment(Row(ItemSpacingDip, _dockPanel, desktopStrip), pillRadius, stretch: false));
+                    _desktopSpacer = MakeDesktopSpacer();
+                    for (int i = 0; i < _builtIds.Count; i++)
+                    {
+                        string id = _builtIds[i];
+                        bool last = i == _builtIds.Count - 1;
+                        UIElement content = PartOf(id, start);
+                        Grid pill = MakeSegment(
+                            last ? Row(ItemSpacingDip, _desktopSpacer, content, desktopStrip) : content,
+                            pillRadius,
+                            stretch: false);
+                        pill.Tag = id;
+                        if (id == BarLayoutStore.StartId)
+                        {
+                            _startSegment = pill;
+                        }
+                        else if (id == BarLayoutStore.TrayId)
+                        {
+                            // The tray bubble drags by its empty space too.
+                            _traySegment = pill;
+                            AttachDrag(pill, DragKind.Bubble);
+                        }
+                        else
+                        {
+                            // An app bubble drags by its empty space.
+                            BubbleById(id)!.Pill = pill;
+                            AttachDrag(pill, DragKind.Bubble);
+                        }
+
+                        segments.Children.Add(pill);
+                    }
+
                     BarHost.Children.Add(segments);
                     break;
+                }
             }
 
-            SyncDock(rebuild: true);
+            FillBubbles(arranged, rebuild: true);
+            FillTrayBubble();
             UpdateDesktopStrip();
         }
         catch (Exception ex)
@@ -170,11 +330,14 @@ public sealed partial class BarWindow
     /// <summary>A segment: its fill (acrylic or a translucent colour) with the content on top.</summary>
     private Grid MakeSegment(UIElement content, double radiusDip, bool stretch)
     {
+        // A see-through background, so a press anywhere on the pill (its empty space too)
+        // reaches the pill itself: the apps pill drags by it.
         var segment = new Grid
         {
             Height = PillHeightDip(),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = stretch ? HorizontalAlignment.Stretch : HorizontalAlignment.Left,
+            Background = new SolidColorBrush(Colors.Transparent),
         };
 
         segment.Children.Add(CreateSegmentFill(radiusDip));
@@ -216,21 +379,55 @@ public sealed partial class BarWindow
             || (Root.ActualTheme == ElementTheme.Default && Application.Current.RequestedTheme == ApplicationTheme.Dark);
     }
 
-    // ---------------------------------------------------------------- Start cluster
+    // ---------------------------------------------------------------- Start group
 
     /// <summary>
-    /// Start button plus search (icon, box or hidden). Start opens and closes Machitan's Start
-    /// menu; search opens it with the search box focused. Only if the Start menu could not be
-    /// created do they hand over to Windows' own (Ctrl+Esc, Win+S).
+    /// The Start button, plus search when it sits here. Start opens and closes Machitan's Start
+    /// menu. Only if the Start menu could not be created does it hand over to Windows' own
+    /// (Ctrl+Esc). Dragging Start moves the whole group.
     /// </summary>
-    private FrameworkElement BuildStartCluster()
+    private FrameworkElement BuildStartCluster(bool withSearch)
     {
         ShellSettings settings = _host.Settings.Current;
         StackPanel row = Row(ItemSpacingDip);
 
-        Button start = MakeBarButton(BuildStartGlyph(settings.IconSize, IsDarkTheme()), "Start");
+        // Machitan's logo, 3:2 (36 x 24 at the default icon size); the button widens to fit it.
+        // Settings > Start > Start button: the user's own pictures in the same place instead.
+        double logoHeight = settings.IconSize;
+        double logoWidth = Math.Round(logoHeight * 1.5);
+        StartButtonPictures? pictures = settings.CustomStartButton
+            ? StartButtonPictures.Load(settings, logoWidth, logoHeight)
+            : null;
+        UIElement face = pictures is not null
+            ? pictures.Content
+            : new Machitan.Controls.MachitanLogo
+            {
+                Width = logoWidth,
+                Height = logoHeight,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+        Button start = MakeBarButton(face, Strings.BarStart);
+        if (start.Width < logoWidth + 12)
+        {
+            start.Width = logoWidth + 12;
+            start.CornerRadius = new CornerRadius(ButtonRadius(start.Height, start.Width));
+        }
+
+        pictures?.Attach(start);
+        _startPictures = pictures;
+
+        // Pressed while Start is open (also when the bar is rebuilt with Start open).
+        pictures?.SetHeld(_host.StartMenu?.IsOpen == true);
         start.Click += (_, _) =>
         {
+            if (_host.Custom.IsOn)
+            {
+                _host.Custom.Select(new CustomTarget(CustomPiece.Start));
+                return;
+            }
+
+            ClearSelection();
             if (_host.StartMenu is { } menu)
             {
                 menu.Toggle();
@@ -240,8 +437,25 @@ public sealed partial class BarWindow
                 Log.Warn("Start: Windows did not accept the Ctrl+Esc key press.");
             }
         };
+        AttachDrag(start, DragKind.StartGroup);
+        _startButton = start;
         row.Children.Add(start);
 
+        if (withSearch && BuildSearch() is FrameworkElement search)
+        {
+            row.Children.Add(search);
+        }
+
+        return row;
+    }
+
+    /// <summary>
+    /// Search, as the settings say: an icon (Windows' search; it can be dragged to another
+    /// place), a box (typing on the bar), or nothing.
+    /// </summary>
+    private FrameworkElement? BuildSearch()
+    {
+        ShellSettings settings = _host.Settings.Current;
         switch (settings.SearchMode)
         {
             case SearchMode.Icon:
@@ -251,17 +465,26 @@ public sealed partial class BarWindow
                     FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
                     FontSize = settings.IconSize * 0.8,
                 };
-                Button search = MakeBarButton(glyph, "Search");
-                search.Click += (_, _) => OpenWindowsSearch();
-                row.Children.Add(search);
-                break;
+                Button search = MakeBarButton(glyph, Strings.BarSearch);
+                search.Click += (_, _) =>
+                {
+                    if (_host.Custom.IsOn)
+                    {
+                        _host.Custom.Select(TargetOf(_searchInApps ? BarLayoutStore.AppsId : BarLayoutStore.StartId));
+                        return;
+                    }
+
+                    OpenWindowsSearch();
+                };
+                AttachDrag(search, DragKind.Search);
+                return search;
 
             case SearchMode.Box:
-                row.Children.Add(BuildSearchBox());
-                break;
-        }
+                return BuildSearchBox();
 
-        return row;
+            default:
+                return null;
+        }
     }
 
     /// <summary>The search icon: Windows' own search flyout, as Win+S opens it.</summary>
@@ -289,45 +512,6 @@ public sealed partial class BarWindow
         }
     }
 
-    /// <summary>A neutral four-tile grid, drawn here (no image files, no brand logo).</summary>
-    private static FrameworkElement BuildStartGlyph(double iconSize, bool dark)
-    {
-        var fill = new SolidColorBrush(dark
-            ? ColorHelper.FromArgb(240, 255, 255, 255)
-            : ColorHelper.FromArgb(230, 0, 0, 0));
-
-        double gap = Math.Max(Math.Round(iconSize / 12), 2);
-        double tile = (iconSize - gap) / 2;
-
-        var grid = new Grid
-        {
-            Width = iconSize,
-            Height = iconSize,
-            ColumnSpacing = gap,
-            RowSpacing = gap,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(tile) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(tile) });
-        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(tile) });
-        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(tile) });
-
-        for (int i = 0; i < 4; i++)
-        {
-            var square = new Border
-            {
-                CornerRadius = new CornerRadius(Math.Max(tile * 0.25, 1)),
-                Background = fill,
-            };
-            Grid.SetColumn(square, i % 2);
-            Grid.SetRow(square, i / 2);
-            grid.Children.Add(square);
-        }
-
-        return grid;
-    }
-
     /// <summary>
     /// A bar button's corner radius: concentric with the pill it sits in (the pill's radius minus
     /// the gap between the pill's edge and the button), so the hover box follows the bar's curve
@@ -343,7 +527,11 @@ public sealed partial class BarWindow
     }
 
     /// <summary>A bare bar button: content at the exact centre, no tile at rest, a background only on hover or focus.</summary>
-    private Button MakeBarButton(UIElement content, string name)
+    /// <summary>
+    /// A bar button. Pressed, <paramref name="pressTarget"/> (its content when not given)
+    /// shrinks a little and springs back when let go, unless animations are off.
+    /// </summary>
+    private Button MakeBarButton(UIElement content, string name, Func<UIElement?>? pressTarget = null)
     {
         ShellSettings settings = _host.Settings.Current;
         double height = Math.Max(PillHeightDip() - 8, settings.IconSize + 14);
@@ -366,10 +554,478 @@ public sealed partial class BarWindow
 
         AutomationProperties.SetName(button, name);
         ToolTipService.SetToolTip(button, name);
+        AttachPress(button, pressTarget ?? (() => button.Content as UIElement));
         return button;
     }
 
+    /// <summary>
+    /// The press squish. The button handles its pointer events itself, so this listens to all
+    /// of them; a press that ends any way (let go, dragged off, taken by a drag) springs back.
+    /// </summary>
+    private void AttachPress(Button button, Func<UIElement?> target)
+    {
+        UIElement? pressed = null;
+
+        void Release()
+        {
+            if (pressed is not null)
+            {
+                Motion.Press(pressed, down: false);
+                pressed = null;
+            }
+        }
+
+        button.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, e) =>
+        {
+            if (!Motion.IsOn(_host.Settings.Current)
+                || !e.GetCurrentPoint(button).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            Release();
+            pressed = target();
+            if (pressed is not null)
+            {
+                Motion.Press(pressed, down: true);
+            }
+        }), true);
+
+        PointerEventHandler letGo = (_, _) => Release();
+        button.AddHandler(UIElement.PointerReleasedEvent, letGo, true);
+        button.AddHandler(UIElement.PointerCaptureLostEvent, letGo, true);
+        button.AddHandler(UIElement.PointerCanceledEvent, letGo, true);
+        button.AddHandler(UIElement.PointerExitedEvent, letGo, true);
+    }
+
     // ---------------------------------------------------------------- Show Desktop strip
+
+    /// <summary>The empty space at a pill's left end that balances the Show Desktop strip at its right end.</summary>
+    private static Border MakeDesktopSpacer()
+    {
+        return new Border
+        {
+            Width = DesktopHitWidthDip,
+            IsHitTestVisible = false,
+        };
+    }
+
+    // ---------------------------------------------------------------- app bubbles
+
+    /// <summary>The dock's apps (pins and running apps), sorted into the bubbles.</summary>
+    private Dictionary<string, List<DockItem>> ArrangeDock()
+    {
+        List<DockItem> items = DockModel.Build(_host.Pins.Pins, _host.Tasks.Groups);
+        return _host.BarLayout.Arrange(items);
+    }
+
+    /// <summary>
+    /// The bubbles to show, from the left: Start always, the apps while they have an app (or
+    /// search sits there), a group while it has an app.
+    /// </summary>
+    private List<string> ShownBubbles(Dictionary<string, List<DockItem>> arranged)
+    {
+        ShellSettings settings = _host.Settings.Current;
+        var shown = new List<string>();
+        foreach (string id in _host.BarLayout.Order)
+        {
+            bool hasApps = arranged.TryGetValue(id, out List<DockItem>? items) && items.Count > 0;
+            bool show = id == BarLayoutStore.StartId ? settings.ShowStartOnBar
+                : id == BarLayoutStore.AppsId ? settings.ShowAppsOnBar && (hasApps || _searchInApps)
+                : id == BarLayoutStore.TrayId ? settings.TrayOnBar && _host.Tray.Icons.Count > 0
+                : hasApps;
+            if (show)
+            {
+                shown.Add(id);
+            }
+        }
+
+        // Custom mode never leaves the bar empty; should the settings say so anyway, Start stays.
+        if (shown.Count == 0)
+        {
+            shown.Add(BarLayoutStore.StartId);
+        }
+
+        return shown;
+    }
+
+    private AppBubble MakeBubble(string id, SearchPlace place)
+    {
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = ItemSpacingDip,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        StackPanel row = Row(ItemSpacingDip);
+        bool apps = id == BarLayoutStore.AppsId;
+        if (apps && place == SearchPlace.BeforeApps && BuildSearch() is FrameworkElement before)
+        {
+            row.Children.Add(before);
+        }
+
+        row.Children.Add(panel);
+        if (apps && place == SearchPlace.AfterApps && BuildSearch() is FrameworkElement after)
+        {
+            row.Children.Add(after);
+        }
+
+        return new AppBubble(id, panel, row);
+    }
+
+    /// <summary>How many bubbles the bar shows now (Start included).</summary>
+    internal int ShownBubbleCount => _builtIds.Count;
+
+    /// <summary>The bubbles the bar shows now, from the left (Start and the tray included).</summary>
+    internal IReadOnlyList<string> ShownBubbleIds => _builtIds;
+
+    /// <summary>Where a shown bubble is on screen (its pill; in Joined and Classic its part of the bar), or null.</summary>
+    internal RECT? BubbleScreenRect(string id)
+    {
+        bool segmented = EffectiveMode(_host.Settings.Current) == TaskbarMode.Segmented;
+        FrameworkElement? element;
+        if (string.Equals(id, BarLayoutStore.StartId, StringComparison.OrdinalIgnoreCase))
+        {
+            element = _builtIds.Contains(BarLayoutStore.StartId) ? (segmented ? _startSegment : _startGroup) : null;
+        }
+        else if (string.Equals(id, BarLayoutStore.TrayId, StringComparison.OrdinalIgnoreCase))
+        {
+            element = segmented ? _traySegment : _trayRow;
+        }
+        else
+        {
+            AppBubble? bubble = BubbleById(id);
+            element = bubble is null ? null : segmented ? bubble.Pill : bubble.Row;
+        }
+
+        if (element is null || !IsOnBar(element))
+        {
+            return null;
+        }
+
+        RECT rect = ScreenRectOf(element);
+        return segmented ? rect : Grow(rect, (int)Math.Round(4 * Scale()));
+    }
+
+    /// <summary>The bubble under the pointer, as a custom-mode pick, or null.</summary>
+    private CustomTarget? BubbleUnderCursor()
+    {
+        if (!User32.GetCursorPos(out POINT cursor))
+        {
+            return null;
+        }
+
+        foreach (string id in _builtIds)
+        {
+            if (BubbleScreenRect(id) is RECT rect
+                && cursor.X >= rect.Left && cursor.X < rect.Right && cursor.Y >= rect.Top && cursor.Y < rect.Bottom)
+            {
+                return TargetOf(id);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>A bubble's ID as a custom-mode pick.</summary>
+    private static CustomTarget TargetOf(string id)
+    {
+        if (string.Equals(id, BarLayoutStore.StartId, StringComparison.OrdinalIgnoreCase))
+        {
+            return new CustomTarget(CustomPiece.Start);
+        }
+
+        if (string.Equals(id, BarLayoutStore.TrayId, StringComparison.OrdinalIgnoreCase))
+        {
+            return new CustomTarget(CustomPiece.Tray);
+        }
+
+        return BarLayoutStore.IsGroup(id) ? new CustomTarget(CustomPiece.Group, id) : new CustomTarget(CustomPiece.Apps);
+    }
+
+    /// <summary>What a shown bubble puts on the bar: Start's group, the tray's row, or an app bubble's row.</summary>
+    private UIElement PartOf(string id, FrameworkElement start)
+    {
+        if (id == BarLayoutStore.StartId)
+        {
+            return start;
+        }
+
+        if (id == BarLayoutStore.TrayId && _trayRow is not null)
+        {
+            return _trayRow;
+        }
+
+        return BubbleById(id)!.Row;
+    }
+
+    // ---------------------------------------------------------------- the tray bubble
+
+    /// <summary>What a tray button shows, kept on it to update in place.</summary>
+    private sealed class TrayTileTag
+    {
+        internal TrayTileTag(TrayIcon icon)
+        {
+            Icon = icon;
+        }
+
+        internal TrayIcon Icon { get; set; }
+
+        internal int Stamp { get; set; } = -1;
+
+        internal string Name { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// The tray bubble: the ^ button for the tray box (while the box holds icons), then the icons
+    /// taken out onto the bar, in the kept order (the same as Dynaland's); buttons reused per icon.
+    /// </summary>
+    private void FillTrayBubble()
+    {
+        if (_trayRow is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var outside = new List<TrayIcon>();
+            int boxed = 0;
+            foreach (TrayIcon icon in _host.BarLayout.ArrangeTray(_host.Tray.Icons))
+            {
+                if (_host.BarLayout.IsTrayIconOut(icon))
+                {
+                    outside.Add(icon);
+                }
+                else
+                {
+                    boxed++;
+                }
+            }
+
+            var alive = new HashSet<string>(StringComparer.Ordinal);
+            foreach (TrayIcon icon in outside)
+            {
+                alive.Add(icon.Key);
+            }
+
+            foreach (string key in new List<string>(_trayButtons.Keys))
+            {
+                if (!alive.Contains(key))
+                {
+                    _trayButtons.Remove(key);
+                }
+            }
+
+            var wanted = new List<UIElement>(outside.Count + 1);
+            if (boxed > 0)
+            {
+                wanted.Add(TrayChevron());
+            }
+
+            foreach (TrayIcon icon in outside)
+            {
+                wanted.Add(TrayButtonFor(icon));
+            }
+
+            bool same = _trayRow.Children.Count == wanted.Count;
+            for (int i = 0; same && i < wanted.Count; i++)
+            {
+                same = ReferenceEquals(_trayRow.Children[i], wanted[i]);
+            }
+
+            if (!same)
+            {
+                _trayRow.Children.Clear();
+                foreach (UIElement element in wanted)
+                {
+                    _trayRow.Children.Add(element);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Bar: the tray bubble could not be filled.", ex);
+        }
+    }
+
+    /// <summary>The ^ button ("Show hidden icons"): opens the tray box above it (v and below for a top bar).</summary>
+    private Button TrayChevron()
+    {
+        bool top = _host.Settings.Current.DockEdge == DockEdge.Top;
+        int glyph = top ? 0xE70D : 0xE70E;
+        if (_trayChevron is null)
+        {
+            Button chevron = MakeBarButton(new Border(), Strings.ShowHiddenIcons);
+            chevron.Width = Math.Max(28, _host.Settings.Current.IconSize + 4);
+            chevron.Click += (_, _) =>
+            {
+                if (_host.Custom.IsOn)
+                {
+                    _host.Custom.Select(new CustomTarget(CustomPiece.Tray));
+                    return;
+                }
+
+                _host.ToggleTrayBox(ScreenRectOf(chevron));
+            };
+            _trayChevron = chevron;
+        }
+
+        if (_trayChevron.Content is not FontIcon { Glyph: string shown } || shown != ((char)glyph).ToString())
+        {
+            _trayChevron.Content = new FontIcon
+            {
+                Glyph = ((char)glyph).ToString(),
+                FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+                FontSize = 12,
+            };
+        }
+
+        return _trayChevron;
+    }
+
+    private Button TrayButtonFor(TrayIcon icon)
+    {
+        if (!_trayButtons.TryGetValue(icon.Key, out Button? button))
+        {
+            button = MakeBarButton(new Border(), Strings.TrayIcon);
+            button.Width = Math.Max(28, _host.Settings.Current.IconSize + 8);
+            button.Tag = new TrayTileTag(icon);
+            string key = icon.Key;
+            button.Click += (_, _) => OnTrayButtonClick(key);
+            button.RightTapped += (_, e) =>
+            {
+                e.Handled = true;
+                if (_host.Custom.IsOn)
+                {
+                    return;
+                }
+
+                if (_trayButtons.TryGetValue(key, out Button? b) && b.Tag is TrayTileTag t)
+                {
+                    _trayLastKey = null;
+                    _host.Tray.Click(t.Icon, TrayClick.Right);
+                }
+            };
+            AttachDrag(button, DragKind.TrayIcon);
+            _trayButtons[key] = button;
+        }
+
+        var tag = (TrayTileTag)button.Tag;
+        tag.Icon = icon;
+        string name = icon.Name.Length > 0 ? icon.Name : Strings.TrayIcon;
+        if (tag.Stamp != icon.PictureStamp || !string.Equals(tag.Name, name, StringComparison.Ordinal))
+        {
+            tag.Stamp = icon.PictureStamp;
+            tag.Name = name;
+            button.Content = TrayPicture(icon, name);
+            ToolTipService.SetToolTip(button, name);
+            AutomationProperties.SetName(button, name.Replace("\n", ", ", StringComparison.Ordinal));
+        }
+
+        return button;
+    }
+
+    /// <summary>The app's own tray picture at Windows' tray size (16), else its name's first letter.</summary>
+    private static FrameworkElement TrayPicture(TrayIcon icon, string name)
+    {
+        if (icon.Picture is IconPixels pixels)
+        {
+            try
+            {
+                return new Image
+                {
+                    Width = 16,
+                    Height = 16,
+                    Stretch = Stretch.Uniform,
+                    Source = Machitan.Start.StartMenuWindow.ToBitmap(pixels),
+                };
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Bar: a tray icon's picture could not be shown.", ex);
+            }
+        }
+
+        return new TextBlock
+        {
+            Text = name.Substring(0, 1).ToUpperInvariant(),
+            FontSize = 13,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+    }
+
+    /// <summary>A click goes to the icon's app as Explorer sends it; a second one in Windows' double-click time is a double click.</summary>
+    private void OnTrayButtonClick(string key)
+    {
+        if (_host.Custom.IsOn)
+        {
+            _host.Custom.Select(new CustomTarget(CustomPiece.Tray));
+            return;
+        }
+
+        if (!_trayButtons.TryGetValue(key, out Button? button) || button.Tag is not TrayTileTag tag)
+        {
+            return;
+        }
+
+        long now = Environment.TickCount64;
+        long doubleMs = Math.Clamp((long)User32.GetDoubleClickTime(), 200L, 900L);
+        if (string.Equals(_trayLastKey, key, StringComparison.Ordinal) && now - _trayLastAt <= doubleMs)
+        {
+            _trayLastKey = null;
+            _host.Tray.Click(tag.Icon, TrayClick.Double);
+            return;
+        }
+
+        _trayLastKey = key;
+        _trayLastAt = now;
+        _host.Tray.Click(tag.Icon, TrayClick.Left);
+    }
+
+    private AppBubble? BubbleById(string id)
+    {
+        foreach (AppBubble bubble in _bubbles)
+        {
+            if (string.Equals(bubble.Id, id, StringComparison.OrdinalIgnoreCase))
+            {
+                return bubble;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// No app on the bar at all (none pinned, none running): Show Desktop goes (there is nothing
+    /// to show the desktop from); back with the first app. The apps bubble's buttons panel is
+    /// hidden while empty (search alone keeps the bubble).
+    /// </summary>
+    private void UpdateDockPresence()
+    {
+        bool any = false;
+        foreach (AppBubble bubble in _bubbles)
+        {
+            bool has = bubble.Panel.Children.Count > 0;
+            SetShown(bubble.Panel, has);
+            any |= has;
+        }
+
+        SetShown(_desktopSpacer, any);
+        SetShown(_desktopButton, any);
+    }
+
+    private static void SetShown(FrameworkElement? element, bool shown)
+    {
+        Visibility wanted = shown ? Visibility.Visible : Visibility.Collapsed;
+        if (element is not null && element.Visibility != wanted)
+        {
+            element.Visibility = wanted;
+        }
+    }
 
     /// <summary>
     /// A 2 DIP line, 38% of the bar height, rounded ends, at the far right end of the bar on the
@@ -414,20 +1070,29 @@ public sealed partial class BarWindow
         button.Resources["ButtonBorderBrushPointerOver"] = transparent;
         button.Resources["ButtonBorderBrushPressed"] = transparent;
 
-        AutomationProperties.SetName(button, "Show desktop");
-        ToolTipService.SetToolTip(button, "Show desktop");
+        AutomationProperties.SetName(button, Strings.ShowDesktop);
+        ToolTipService.SetToolTip(button, Strings.ShowDesktop);
 
         button.PointerEntered += (_, _) =>
         {
             _desktopHovered = true;
             UpdateDesktopStrip();
+            ArmDesktopPeek();
         };
         button.PointerExited += (_, _) =>
         {
             _desktopHovered = false;
             UpdateDesktopStrip();
+            StopDesktopPeek();
         };
-        button.Click += (_, _) => _host.Desktop.Toggle(_host.Tasks.Groups);
+        button.Click += (_, _) =>
+        {
+            StopDesktopPeek();
+            if (!_host.Custom.IsOn)
+            {
+                _host.Desktop.Toggle(_host.Tasks.Groups);
+            }
+        };
 
         _desktopButton = button;
         return button;
@@ -466,16 +1131,76 @@ public sealed partial class BarWindow
         _desktopLine.Background = new SolidColorBrush(color);
     }
 
-    /// <summary>The Windows accent colour. (The wallpaper-based accent replaces this in Batch 7.)</summary>
+    /// <summary>
+    /// Peek at the desktop (Settings > Taskbar, off by default): the pointer resting on Show
+    /// Desktop for half a second turns every window see-through (Windows' own peek, aimed at
+    /// the desktop window), as Windows 7 and 10 did; moving away or clicking ends it. Nothing
+    /// is minimised. Not while the desktop is shown already or in custom mode.
+    /// </summary>
+    private void ArmDesktopPeek()
+    {
+        if (!_host.Settings.Current.PeekAtDesktop || _host.Custom.IsOn || _host.Desktop.IsDesktopShown || _desktopPeeking)
+        {
+            return;
+        }
+
+        if (_desktopPeekTimer is null)
+        {
+            _desktopPeekTimer = DispatcherQueue.CreateTimer();
+            _desktopPeekTimer.Interval = TimeSpan.FromMilliseconds(DesktopPeekDelayMs);
+            _desktopPeekTimer.IsRepeating = false;
+            _desktopPeekTimer.Tick += (_, _) => StartDesktopPeek();
+        }
+
+        _desktopPeekTimer.Stop();
+        _desktopPeekTimer.Start();
+    }
+
+    private void StartDesktopPeek()
+    {
+        if (!_desktopHovered || _closing || _desktopPeeking || _host.Desktop.IsDesktopShown)
+        {
+            return;
+        }
+
+        // The desktop window ("Program Manager"): shown as it is, every app window see-through.
+        nint desktopWindow = User32.FindWindow("Progman", null);
+        if (desktopWindow == 0)
+        {
+            Log.Warn("Peek at the desktop: the desktop window was not found.");
+            return;
+        }
+
+        _desktopPeeking = LivePeek.Start(desktopWindow, _hwnd, desktop: true, "the desktop");
+    }
+
+    /// <summary>Start opened or closed: the Start button's own pressed picture stays while it is open.</summary>
+    private void OnStartMenuOpenChanged(bool open)
+    {
+        if (DispatcherQueue.HasThreadAccess)
+        {
+            _startPictures?.SetHeld(open);
+        }
+        else
+        {
+            DispatcherQueue.TryEnqueue(() => _startPictures?.SetHeld(_host.StartMenu?.IsOpen == true));
+        }
+    }
+
+    /// <summary>Ends a desktop peek (or one about to start).</summary>
+    private void StopDesktopPeek()
+    {
+        _desktopPeekTimer?.Stop();
+        if (_desktopPeeking)
+        {
+            _desktopPeeking = false;
+            LivePeek.End();
+        }
+    }
+
+    /// <summary>Machitan's accent colour: the wallpaper's strongest colour, or Windows' accent (see AccentService).</summary>
     private Windows.UI.Color ReadAccentColor()
     {
-        try
-        {
-            return _uiSettings.GetColorValue(Windows.UI.ViewManagement.UIColorType.Accent);
-        }
-        catch (Exception)
-        {
-            return ColorHelper.FromArgb(255, 76, 194, 255);
-        }
+        return _host.Accent.Current;
     }
 }

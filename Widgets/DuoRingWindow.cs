@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Machitan.Config;
 using Machitan.Core;
+using Machitan.Custom;
 using Machitan.Interop;
 using Machitan.Shell;
 using Machitan.Visuals;
@@ -215,12 +216,16 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         ApplyState(animate: false);
     }
 
+    private protected override CustomPiece Piece => CustomPiece.DuoRing;
+
     private protected override bool IsEnabled(ShellSettings settings) => settings.ShowDuoRing;
 
     /// <summary>The width the ring is going to (it animates there), for the widgets beside it.</summary>
     private protected override double ShapeWidthDip() => Math.Max(_targetWidth, MinRingWidth);
 
     private protected override ScreenCorner CornerOf(ShellSettings settings) => settings.DuoRingCorner;
+
+    private protected override double SizeOf(ShellSettings settings) => settings.DuoRingSize / 100.0;
 
     private protected override void OnSettingsApplied(ShellSettings settings)
     {
@@ -543,35 +548,33 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
                 dotLit = true;
                 litArcs = _net.Bars < 0 ? 3 : _net.Bars;
                 label = _net.Name.Length > 0 ? _net.Name : "Wi-Fi";
-                networkTip = "Wi-Fi: " + label + (_net.Bars < 0
-                    ? " (Windows gives no signal strength)"
-                    : " (signal " + _net.Bars.ToString(CultureInfo.InvariantCulture) + " of 3)");
+                networkTip = Fmt.F(Strings.RingWifi, label);
                 break;
             case NetworkKind.WifiConnecting:
                 wifiIcon = true;
                 dotLit = true;
-                label = "Connecting...";
-                networkTip = "Wi-Fi: connecting";
+                label = Strings.RingConnecting;
+                networkTip = Strings.RingWifiConnecting;
                 break;
             case NetworkKind.WifiOff:
                 plane = true;
-                label = "Plane mode";
-                networkTip = "Wi-Fi is off";
+                label = Strings.RingPlaneMode;
+                networkTip = Strings.RingWifiOff;
                 break;
             case NetworkKind.Wired:
                 wired = true;
                 label = _net.Name.Length > 0 ? _net.Name : "Ethernet";
-                networkTip = "Wired: " + label;
+                networkTip = Fmt.F(Strings.RingWired, label);
                 break;
             case NetworkKind.NoSignal:
                 wifiIcon = true;
-                label = "No signal";
-                networkTip = "Wi-Fi: not connected";
+                label = Strings.RingNoSignal;
+                networkTip = Strings.RingWifiNotConnected;
                 break;
             default:
                 wifiIcon = true;
                 label = "\u2026";
-                networkTip = "Network: checking";
+                networkTip = Strings.RingNetworkChecking;
                 break;
         }
 
@@ -631,18 +634,18 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         }
 
         string batteryTip = _hasBattery
-            ? "Battery " + _batteryPercent.ToString(CultureInfo.InvariantCulture) + "%" + (_charging ? ", charging" : string.Empty)
-            : "No battery";
+            ? Fmt.F(_charging ? Strings.RingBatteryCharging : Strings.RingBattery, _batteryPercent)
+            : Strings.RingNoBattery;
         string volumeTip = !_volumeKnown
-            ? "Volume: no output device"
+            ? Strings.RingVolumeNoDevice
             : _volumeMuted
-                ? "Volume muted"
-                : "Volume " + _volumePercent.ToString(CultureInfo.InvariantCulture) + "%";
+                ? Strings.RingVolumeMuted
+                : Fmt.F(Strings.RingVolume, _volumePercent);
         string tip = batteryTip + "\n" + networkTip + "\n" + volumeTip;
         if (ToolTipService.GetToolTip(_ring) as string != tip)
         {
             ToolTipService.SetToolTip(_ring, tip);
-            AutomationProperties.SetName(_ring, "Status. " + tip.Replace("\n", ". ", StringComparison.Ordinal) + ". Opens Windows' quick settings.");
+            AutomationProperties.SetName(_ring, Fmt.F(Strings.RingName, tip.Replace("\n", ". ", StringComparison.Ordinal)));
         }
     }
 
@@ -740,7 +743,8 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
             return default;
         }
 
-        double scale = Scale();
+        // Design sizes, times the screen scale and the ring's size setting.
+        double scale = Scale() * SizeFactor;
         int pad = (int)Math.Round(PadDip * scale);
         int width = (int)Math.Round(Math.Max(_targetWidth, MinRingWidth) * scale);
         int height = (int)Math.Round(RingHeight * scale);

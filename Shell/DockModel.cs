@@ -122,6 +122,7 @@ internal static class DockModel
         foreach (TaskGroup group in groups)
         {
             if (!used.Contains(group)
+                && group.OwnAppId is null
                 && group.ExecutablePath is not null
                 && string.Equals(group.ExecutablePath, path, StringComparison.OrdinalIgnoreCase))
             {

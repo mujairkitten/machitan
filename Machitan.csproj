@@ -8,13 +8,16 @@
     <RootNamespace>Machitan</RootNamespace>
     <AssemblyName>Machitan</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Machitan.exe's icon (File Explorer, shortcuts); windows get the same file through AppWindow.SetIcon. -->
+    <ApplicationIcon>machitan.ico</ApplicationIcon>
 
     <!-- x64 only. -->
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
 
-    <!-- WinUI 3, unpackaged, self-contained (.NET and Windows App SDK both ship with the app). -->
+    <!-- WinUI 3, unpackaged, self-contained (.NET and Windows App SDK both ship with the app).
+         build-installer.cmd also publishes a Trimmed edition without .NET (self-contained false). -->
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
@@ -30,13 +33,40 @@
 
     <Product>Machitan</Product>
     <Description>Alternative modern shell for Windows 11</Description>
-    <Version>0.1.0</Version>
+    <Version>0.9.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
+    <!-- The parts of the Windows App SDK Machitan uses: WinUI 3 (it brings Foundation, InteractiveExperiences
+         and WebView2 with it) and the runtime declaration. Not the all-in-one Microsoft.WindowsAppSDK package,
+         which also carries AI, ML, Search, Widgets and DWriteCore (about 62 MB that Machitan never uses).
+         Agreed with Sam, 2026-11-20. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.7.0" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.7.0" />
     <!-- WMI: the laptop screen's brightness in quick settings (Win+A). Agreed with Sam, 2026-11-17. -->
     <PackageReference Include="System.Management" Version="10.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Machitan's text: Strings.resx (English) and one Strings.xx.resx per translation (see TRANSLATING.md). -->
+    <EmbeddedResource Update="Translations\Strings.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+      <CustomToolNamespace>Machitan</CustomToolNamespace>
+    </EmbeddedResource>
+    <Compile Update="Translations\Strings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Strings.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Next to Machitan.exe, for AppWindow.SetIcon (the window's taskbar and Alt+Tab icon). -->
+    <None Remove="machitan.ico" />
+    <Content Include="machitan.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

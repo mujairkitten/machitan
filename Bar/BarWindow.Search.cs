@@ -2,10 +2,13 @@ using System;
 using Machitan.Core;
 using Machitan.Interop;
 using Machitan.Shell;
+using Machitan.Visuals;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace Machitan.Bar;
@@ -22,27 +25,54 @@ public sealed partial class BarWindow
     private TextBox? _searchBox;
     private bool _typing;
     private bool _typingNoted;
+    private bool _resultsMenuWatched;
 
-    private TextBox BuildSearchBox()
+    /// <summary>
+    /// The search box, built like Start's: a capsule with a light fill and a bare text field
+    /// inside it (no border or fill of its own), with the same inner margin. A press anywhere
+    /// in the capsule starts typing.
+    /// </summary>
+    private FrameworkElement BuildSearchBox()
     {
         double height = Math.Max(PillHeightDip() - 14, 28);
-        var box = new TextBox
+        var capsule = new Grid
         {
             Width = SearchBoxWidthDip,
             Height = height,
-            PlaceholderText = "Search",
+            VerticalAlignment = VerticalAlignment.Center,
+            CornerRadius = new CornerRadius(Radii.Capsule(height)),
+            Background = new SolidColorBrush(IsDarkTheme()
+                ? ColorHelper.FromArgb(24, 255, 255, 255)
+                : ColorHelper.FromArgb(20, 0, 0, 0)),
+        };
+
+        var box = new TextBox
+        {
+            Margin = new Thickness(6, 0, 6, 0),
+            MinHeight = 0,
+            PlaceholderText = Strings.BarSearchPlaceholder,
             IsSpellCheckEnabled = false,
             IsTextPredictionEnabled = false,
             VerticalAlignment = VerticalAlignment.Center,
-            CornerRadius = new CornerRadius(height / 2),
         };
 
-        AutomationProperties.SetName(box, "Search");
-        box.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, _) => BeginTyping()), handledEventsToo: true);
+        var clear = new SolidColorBrush(Colors.Transparent);
+        foreach (string key in new[]
+                 {
+                     "TextControlBackground", "TextControlBackgroundPointerOver", "TextControlBackgroundFocused",
+                     "TextControlBorderBrush", "TextControlBorderBrushPointerOver", "TextControlBorderBrushFocused",
+                 })
+        {
+            box.Resources[key] = clear;
+        }
+
+        AutomationProperties.SetName(box, Strings.SearchBoxName);
+        capsule.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, _) => BeginTyping()), handledEventsToo: true);
         box.TextChanged += (_, _) => OnSearchTextChanged();
         box.PreviewKeyDown += OnSearchPreviewKeyDown;
+        capsule.Children.Add(box);
         _searchBox = box;
-        return box;
+        return capsule;
     }
 
     /// <summary>A click in the box: the bar takes the keyboard so the typing lands in the box.</summary>
@@ -53,8 +83,21 @@ public sealed partial class BarWindow
             return;
         }
 
+        if (_host.Custom.IsOn)
+        {
+            // Custom mode: a click on the box picks its bubble instead.
+            _host.Custom.Select(TargetOf(_searchInApps ? BarLayoutStore.AppsId : BarLayoutStore.StartId));
+            return;
+        }
+
         try
         {
+            if (!_resultsMenuWatched)
+            {
+                _resultsMenuWatched = true;
+                _host.SearchResults.MenuClosed += OnResultsMenuClosed;
+            }
+
             _host.CloseOtherPopups(_host.SearchResults);
             if (!WindowActivator.BringToFront(_hwnd) && User32.GetForegroundWindow() != _hwnd)
             {
@@ -177,10 +220,40 @@ public sealed partial class BarWindow
     /// <summary>The bar lost the keyboard (a click elsewhere, another window opened): the search ends.</summary>
     private void OnBarActivated(object sender, WindowActivatedEventArgs args)
     {
-        if (args.WindowActivationState == WindowActivationState.Deactivated)
+        if (args.WindowActivationState == WindowActivationState.Deactivated && !_host.SearchResults.MenuOpen)
         {
             EndTyping(restoreFocus: false);
         }
+    }
+
+    /// <summary>
+    /// A result's "..." menu closed. A click on another window ends the search; otherwise the
+    /// typing goes on in the box (the bar takes the keyboard back if the menu had it).
+    /// </summary>
+    private void OnResultsMenuClosed()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_typing || _searchBox is null)
+            {
+                return;
+            }
+
+            nint front = User32.GetForegroundWindow();
+            if (front == _hwnd || (front != 0 && User32.GetAncestor(front, User32.GA_ROOTOWNER) == _hwnd))
+            {
+                return;
+            }
+
+            if (front == 0 || _host.SearchResults.Owns(front))
+            {
+                WindowActivator.BringToFront(_hwnd);
+                _searchBox.Focus(FocusState.Programmatic);
+                return;
+            }
+
+            EndTyping(restoreFocus: false);
+        });
     }
 
     /// <summary>The search box's left edge on screen (physical pixels).</summary>

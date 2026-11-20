@@ -52,7 +52,7 @@ public sealed partial class SwitcherWindow : FlyoutWindow
             IsItemClickEnabled = true,
             Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
         };
-        AutomationProperties.SetName(_list, "Open windows");
+        AutomationProperties.SetName(_list, Strings.SwOpenWindows);
         _list.ItemClick += OnItemClick;
 
         var body = new Grid { Padding = new Thickness(InnerPadDip) };
@@ -125,7 +125,7 @@ public sealed partial class SwitcherWindow : FlyoutWindow
         _handles.Clear();
 
         var byHandle = new Dictionary<nint, (TaskWindow Window, DockItem Item)>();
-        foreach (DockItem item in DockModel.Build(Host.Pins.Pins, Host.Tasks.Groups))
+        foreach (DockItem item in Host.BarOrderedApps())
         {
             if (item.Group is null)
             {
@@ -153,9 +153,9 @@ public sealed partial class SwitcherWindow : FlyoutWindow
 
         _header.Text = _handles.Count switch
         {
-            0 => "No open windows",
-            1 => "1 open window",
-            _ => _handles.Count + " open windows",
+            0 => Strings.SwNone,
+            1 => Strings.SwOne,
+            _ => Fmt.F(Strings.SwMany, _handles.Count),
         };
     }
 
@@ -182,7 +182,7 @@ public sealed partial class SwitcherWindow : FlyoutWindow
         }
 
         string title = window.Title.Length > 0 ? window.Title : item.DisplayName;
-        string detail = item.DisplayName + (window.IsMinimized ? " - minimised" : string.Empty);
+        string detail = window.IsMinimized ? Fmt.F(Strings.SwMinimised, item.DisplayName) : item.DisplayName;
 
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(new TextBlock

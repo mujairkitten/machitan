@@ -49,25 +49,32 @@ public sealed record PrivacyState(IReadOnlyList<PrivacyUse> Camera, IReadOnlyLis
 }
 
 /// <summary>
-/// Follows camera and microphone use the way Windows' own privacy indicator does: Windows
-/// records each app's use under HKCU\Software\Microsoft\Windows\CurrentVersion\
-/// CapabilityAccessManager\ConsentStore\webcam and \microphone (Store apps by package family
-/// name, desktop apps under NonPackaged by exe path), with LastUsedTimeStart and
-/// LastUsedTimeStop; while an app uses the device its stop time is 0. Machitan only reads
-/// these values: it never opens the camera or the microphone. A desktop app counts only
-/// while its exe is running, so a crashed app cannot leave a stale "in use". A background
-/// thread is woken by Windows when the keys change, and checks every 3 seconds as well.
+/// Follows camera and microphone use. Machitan only reads what Windows reports: it never
+/// opens the camera or the microphone. Three sources, joined:
+/// - Microphone: Core Audio's recording sessions (MicActivity), checked every 1.5 seconds.
+/// - Camera: Media Foundation's sensor activity monitor (CameraActivity), which Windows
+///   calls whenever a camera's users change.
+/// - Windows' older records under HKCU\Software\Microsoft\Windows\CurrentVersion\
+///   CapabilityAccessManager\ConsentStore\webcam and \microphone (LastUsedTimeStop 0 while
+///   in use). Newer Windows builds stopped writing these (it keeps them in a database instead),
+///   which is why the dots never lit with them alone; they still count where Windows writes
+///   them. An app from the records counts only while it runs, so a crashed app cannot leave a
+///   stale "in use".
+/// A background thread wakes on Windows' notices and every 1.5 seconds.
 /// <see cref="Changed"/> is raised on the UI thread, only when the state changed.
 /// </summary>
 internal sealed class PrivacyMonitor : IDisposable
 {
     private const string StoreKey = @"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\";
     private static readonly string[] Devices = { "webcam", "microphone" };
+    private static readonly TimeSpan CheckEvery = TimeSpan.FromMilliseconds(1500);
 
     private readonly DispatcherQueue _queue;
     private ManualResetEvent? _stopSignal;
     private bool _running;
     private bool _readFailedNoted;
+    private bool _micFailedNoted;
+    private CameraActivity? _camera;
 
     internal PrivacyMonitor(DispatcherQueue queue)
     {
@@ -116,8 +123,15 @@ internal sealed class PrivacyMonitor : IDisposable
     {
         var keys = new List<nint>();
         var signals = new List<AutoResetEvent>();
+        var cameraSignal = new AutoResetEvent(false);
+        int com = Ole32.CoInitializeEx(0, Ole32.COINIT_MULTITHREADED);
         try
         {
+            _camera = CameraActivity.TryStart(() => SetQuietly(cameraSignal), out string cameraProblem);
+            Log.Info(_camera is not null
+                ? "Privacy: camera use comes from Windows' camera monitor; microphone use from Windows' audio sessions."
+                : "Privacy: camera use comes from Windows' records only: " + cameraProblem);
+
             foreach (string device in Devices)
             {
                 if (Advapi32.RegOpenKeyEx(Advapi32.HKEY_CURRENT_USER, StoreKey + device, 0, Advapi32.KEY_NOTIFY, out nint key) == 0)
@@ -137,11 +151,13 @@ internal sealed class PrivacyMonitor : IDisposable
 
             if (keys.Count == 0)
             {
-                Log.Warn("Privacy: Windows' camera and microphone records cannot be watched; checking every 3 seconds instead.");
+                Log.Info("Privacy: Windows' older camera and microphone records cannot be watched; they are read every 1.5 seconds.");
             }
 
+            // stop, then the record keys' signals, then the camera's.
             var handles = new List<WaitHandle> { stop };
             handles.AddRange(signals);
+            handles.Add(cameraSignal);
             WaitHandle[] waitOn = handles.ToArray();
             string last = "\0";
             while (true)
@@ -163,13 +179,13 @@ internal sealed class PrivacyMonitor : IDisposable
                     });
                 }
 
-                int which = WaitHandle.WaitAny(waitOn, TimeSpan.FromSeconds(3));
+                int which = WaitHandle.WaitAny(waitOn, CheckEvery);
                 if (which == 0)
                 {
                     return;
                 }
 
-                if (which > 0 && which < waitOn.Length)
+                if (which > 0 && which <= keys.Count)
                 {
                     // A notice fires once; ask for the next one. Give Windows a moment to finish writing.
                     Arm(keys[which - 1], signals[which - 1]);
@@ -186,6 +202,16 @@ internal sealed class PrivacyMonitor : IDisposable
         }
         finally
         {
+            try
+            {
+                _camera?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Privacy: the camera monitor did not stop cleanly.", ex);
+            }
+
+            _camera = null;
             foreach (nint key in keys)
             {
                 Advapi32.RegCloseKey(key);
@@ -195,6 +221,25 @@ internal sealed class PrivacyMonitor : IDisposable
             {
                 signal.Dispose();
             }
+
+            cameraSignal.Dispose();
+            if (com >= 0)
+            {
+                Ole32.CoUninitialize();
+            }
+        }
+    }
+
+    /// <summary>Windows' camera thread: wake the privacy thread (which may be ending).</summary>
+    private static void SetQuietly(AutoResetEvent signal)
+    {
+        try
+        {
+            signal.Set();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The thread already ended.
         }
     }
 
@@ -210,9 +255,40 @@ internal sealed class PrivacyMonitor : IDisposable
 
     private PrivacyState Read()
     {
+        var camera = new List<PrivacyUse>();
+        var microphone = new List<PrivacyUse>();
+
+        if (_camera is CameraActivity watch)
+        {
+            AddProcesses(camera, watch.Streaming);
+        }
+
         try
         {
-            return new PrivacyState(ReadDevice("webcam"), ReadDevice("microphone"));
+            List<uint>? recording = MicActivity.RecordingProcesses();
+            if (recording is not null)
+            {
+                AddProcesses(microphone, recording);
+            }
+            else if (!_micFailedNoted)
+            {
+                _micFailedNoted = true;
+                Log.Warn("Privacy: Windows' audio sessions could not be read; microphone use comes from Windows' records only.");
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_micFailedNoted)
+            {
+                _micFailedNoted = true;
+                Log.Warn("Privacy: Windows' audio sessions could not be read; microphone use comes from Windows' records only.", ex);
+            }
+        }
+
+        try
+        {
+            AddAll(camera, ReadDevice("webcam"));
+            AddAll(microphone, ReadDevice("microphone"));
         }
         catch (Exception ex)
         {
@@ -221,9 +297,59 @@ internal sealed class PrivacyMonitor : IDisposable
                 _readFailedNoted = true;
                 Log.Warn("Privacy: Windows' camera and microphone records could not be read.", ex);
             }
-
-            return PrivacyState.None;
         }
+
+        return camera.Count == 0 && microphone.Count == 0 ? PrivacyState.None : new PrivacyState(camera, microphone);
+    }
+
+    /// <summary>Each process as Windows names apps in its records: package family, or exe path with # for \.</summary>
+    private static void AddProcesses(List<PrivacyUse> uses, IEnumerable<uint> processIds)
+    {
+        foreach (uint processId in processIds)
+        {
+            if (processId == (uint)Environment.ProcessId)
+            {
+                continue;
+            }
+
+            ProcessIdentity identity = WindowInfo.GetProcessIdentity(processId);
+            if (identity.PackageFullName is string fullName && FamilyOf(fullName) is string family)
+            {
+                Add(uses, new PrivacyUse(family, true));
+            }
+            else if (identity.Path is string path && path.Length > 0)
+            {
+                Add(uses, new PrivacyUse(path.Replace('\\', '#'), false));
+            }
+        }
+    }
+
+    private static void AddAll(List<PrivacyUse> uses, List<PrivacyUse> more)
+    {
+        foreach (PrivacyUse use in more)
+        {
+            Add(uses, use);
+        }
+    }
+
+    private static void Add(List<PrivacyUse> uses, PrivacyUse use)
+    {
+        foreach (PrivacyUse known in uses)
+        {
+            if (known.Packaged == use.Packaged && string.Equals(known.Key, use.Key, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
+        uses.Add(use);
+    }
+
+    /// <summary>"Name_Version_Arch_Resource_Publisher" -> "Name_Publisher" (package names hold no underscore).</summary>
+    private static string? FamilyOf(string fullName)
+    {
+        string[] parts = fullName.Split('_');
+        return parts.Length >= 2 ? parts[0] + "_" + parts[^1] : null;
     }
 
     private static List<PrivacyUse> ReadDevice(string device)
@@ -257,13 +383,40 @@ internal sealed class PrivacyMonitor : IDisposable
                     }
                 }
             }
-            else if (IsInUse(root, name))
+            else if (IsInUse(root, name) && PackageRuns(name))
             {
                 inUse.Add(new PrivacyUse(name, true));
             }
         }
 
         return inUse;
+    }
+
+    /// <summary>True when a process of this package family runs (rarely asked: only for a record that says "in use").</summary>
+    private static bool PackageRuns(string family)
+    {
+        foreach (Process process in Process.GetProcesses())
+        {
+            try
+            {
+                ProcessIdentity identity = WindowInfo.GetProcessIdentity((uint)process.Id);
+                if (identity.PackageFullName is string fullName
+                    && string.Equals(FamilyOf(fullName), family, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            catch (Exception)
+            {
+                // A process that ended while being looked at.
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Started and not stopped: Windows' own "in use" rule.</summary>

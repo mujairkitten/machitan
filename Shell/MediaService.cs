@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Machitan.Core;
+using Machitan.Interop;
 using Microsoft.UI.Dispatching;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
@@ -23,11 +24,12 @@ internal sealed record MediaSnapshot(
     TimeSpan Duration,
     DateTimeOffset PositionAt,
     IRandomAccessStreamReference? Art,
-    string TrackKey)
+    string TrackKey,
+    bool CanSeek)
 {
     internal static readonly MediaSnapshot Nothing = new(
         false, string.Empty, string.Empty, string.Empty, false, false, false, false, false,
-        TimeSpan.Zero, TimeSpan.Zero, DateTimeOffset.MinValue, null, string.Empty);
+        TimeSpan.Zero, TimeSpan.Zero, DateTimeOffset.MinValue, null, string.Empty, false);
 
     /// <summary>The position now: the app's last report, moved on by the time since while playing.</summary>
     internal TimeSpan PositionNow
@@ -57,9 +59,12 @@ internal sealed record MediaSnapshot(
 /// <summary>
 /// Follows Windows' media controls (System Media Transport Controls): the app Windows treats
 /// as the current media session, its title, artist, cover art, playing state and position,
-/// and passes play/pause, next and previous on to it. Windows raises its events on other
-/// threads; <see cref="Changed"/> is raised on the UI thread. Nothing is invented: with no
-/// session, or a session without a title, there is nothing to show.
+/// and passes play/pause, next, previous and seeking on to it. Windows raises its events on
+/// other threads; <see cref="Changed"/> is raised on the UI thread. Nothing is invented: with
+/// no session, or a session without a title, there is nothing to show.
+/// A player with a Winamp-style window (WACUP, Winamp, AIMP) also answers Winamp's messages:
+/// its position and track length are read from there (fresh, also right after a jump), and
+/// seeking goes there when the player does not take it through Windows' controls.
 /// </summary>
 internal sealed class MediaService : IDisposable
 {
@@ -73,6 +78,12 @@ internal sealed class MediaService : IDisposable
     private bool _reading;
     private bool _readAgain;
     private string _lastApp = string.Empty;
+
+    /// <summary>The current player's Winamp-style window, or 0 (found with each read).</summary>
+    private nint _winamp;
+
+    /// <summary>The current player takes seeking through Windows' controls.</summary>
+    private bool _appSeeks;
 
     /// <param name="appName">Turns Windows' app ID for the session into a name to show.</param>
     internal MediaService(DispatcherQueue queue, Func<string, string> appName)
@@ -139,6 +150,46 @@ internal sealed class MediaService : IDisposable
     internal Task<bool> NextAsync() => Send("next", s => s.TrySkipNextAsync().AsTask());
 
     internal Task<bool> PreviousAsync() => Send("previous", s => s.TrySkipPreviousAsync().AsTask());
+
+    /// <summary>
+    /// Jumps to a place in the track (from its start), within the track: through Windows'
+    /// controls when the player takes it there, else through its Winamp-style window.
+    /// </summary>
+    internal async Task<bool> SeekAsync(TimeSpan fromStart)
+    {
+        if (_appSeeks)
+        {
+            bool done = await Send("seek", s =>
+            {
+                GlobalSystemMediaTransportControlsSessionTimelineProperties timeline = s.GetTimelineProperties();
+                TimeSpan length = timeline.EndTime - timeline.StartTime;
+                TimeSpan within = fromStart < TimeSpan.Zero ? TimeSpan.Zero : fromStart > length ? length : fromStart;
+                return s.TryChangePlaybackPositionAsync((timeline.StartTime + within).Ticks).AsTask();
+            });
+            if (done)
+            {
+                return true;
+            }
+        }
+
+        nint winamp = _winamp;
+        if (winamp == 0)
+        {
+            return false;
+        }
+
+        TimeSpan duration = Current.Duration;
+        TimeSpan to = fromStart < TimeSpan.Zero ? TimeSpan.Zero : duration > TimeSpan.Zero && fromStart > duration ? duration : fromStart;
+        if (WinampInterop.TryJump(winamp, to))
+        {
+            // Read the new position at once (Winamp's messages answer right away).
+            QueueRead();
+            return true;
+        }
+
+        Note("refused:seek-winamp", "Dynaland: the player did not take the jump through its Winamp-style window.", null);
+        return false;
+    }
 
     private async Task<bool> Send(string what, Func<GlobalSystemMediaTransportControlsSession, Task<bool>> action)
     {
@@ -300,6 +351,8 @@ internal sealed class MediaService : IDisposable
     {
         if (session is null)
         {
+            _winamp = 0;
+            _appSeeks = false;
             return MediaSnapshot.Nothing;
         }
 
@@ -346,8 +399,30 @@ internal sealed class MediaService : IDisposable
                 positionAt = timeline.LastUpdatedTime;
             }
 
+            // A Winamp-style player: its own position and length, read fresh.
+            string appId = session.SourceAppUserModelId ?? string.Empty;
+            nint winamp = WinampInterop.FindFor(appId);
+            if (winamp != 0 && WinampInterop.TryGetTimeline(winamp, out TimeSpan playerPosition, out TimeSpan playerLength))
+            {
+                duration = playerLength;
+                position = playerPosition;
+                positionAt = DateTimeOffset.Now;
+            }
+            else
+            {
+                winamp = 0;
+            }
+
+            bool appSeeks = controls?.IsPlaybackPositionEnabled ?? false;
+            _winamp = winamp;
+            _appSeeks = appSeeks;
+            if (winamp != 0 && !appSeeks)
+            {
+                Note("winamp:" + appId, "Dynaland: " + appId + " takes jumps through its Winamp-style window; seeking goes there.", null);
+            }
+
             bool hasTimeline = duration > TimeSpan.FromSeconds(1);
-            string app = _appName(session.SourceAppUserModelId ?? string.Empty);
+            string app = _appName(appId);
             string album = (properties?.AlbumTitle ?? string.Empty).Trim();
 
             return new MediaSnapshot(
@@ -364,7 +439,8 @@ internal sealed class MediaService : IDisposable
                 hasTimeline ? duration : TimeSpan.Zero,
                 positionAt,
                 properties?.Thumbnail,
-                app + "\n" + title + "\n" + artist + "\n" + album);
+                app + "\n" + title + "\n" + artist + "\n" + album,
+                hasTimeline && (appSeeks || winamp != 0));
         }
         catch (Exception ex)
         {

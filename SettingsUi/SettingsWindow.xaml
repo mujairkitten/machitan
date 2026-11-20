@@ -3,23 +3,48 @@
     x:Class="Machitan.SettingsUi.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Machitan.Controls"
     Title="Machitan Settings">
 
     <Window.SystemBackdrop>
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <!-- Sections are built in code (SettingsWindow.xaml.cs) from a few row helpers. -->
+    <!--  A sidebar of categories; each page is built in code (SettingsWindow.xaml.cs) from a few row helpers.  -->
     <Grid x:Name="Root">
-        <ScrollViewer
-            x:Name="Scroller"
-            HorizontalScrollBarVisibility="Disabled"
-            VerticalScrollBarVisibility="Auto">
-            <StackPanel
-                x:Name="Sections"
-                MaxWidth="760"
-                Padding="28,24,28,32"
-                Spacing="6" />
-        </ScrollViewer>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Machitan's own title bar: the logo and the window's name (the window's buttons stay Windows').  -->
+        <Grid x:Name="AppTitleBar" Height="32" Background="Transparent">
+            <StackPanel Margin="14,0,0,0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <controls:MachitanLogo Width="24" Height="16" />
+                <TextBlock x:Name="AppTitleText" VerticalAlignment="Center" FontSize="12" Text="Machitan Settings" />
+            </StackPanel>
+        </Grid>
+
+        <NavigationView
+            x:Name="Nav"
+            Grid.Row="1"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="False"
+            IsSettingsVisible="False"
+            OpenPaneLength="220"
+            PaneDisplayMode="Left"
+            PaneTitle="Machitan"
+            SelectionChanged="OnNavSelectionChanged">
+            <ScrollViewer
+                x:Name="Scroller"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+                <StackPanel
+                    x:Name="Sections"
+                    MaxWidth="760"
+                    Padding="28,24,28,32"
+                    Spacing="6" />
+            </ScrollViewer>
+        </NavigationView>
     </Grid>
 </Window>

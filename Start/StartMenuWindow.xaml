@@ -43,13 +43,17 @@
                         TextChanged="OnSearchTextChanged" />
                 </Grid>
 
+                <!--  Pinned apps; while searching files, the file's preview takes its place.  -->
                 <Grid x:Name="PinnedBox" Grid.Row="1">
-                    <Grid Padding="12,10,12,12" RowSpacing="6">
+                    <Grid
+                        x:Name="PinnedContent"
+                        Padding="12,10,12,12"
+                        RowSpacing="6">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock FontWeight="SemiBold" Text="Pinned" />
+                        <TextBlock x:Name="PinnedHeader" FontWeight="SemiBold" Text="Pinned" />
                         <ScrollViewer
                             Grid.Row="1"
                             HorizontalScrollBarVisibility="Disabled"
@@ -69,6 +73,7 @@
                             TextWrapping="Wrap"
                             Visibility="Collapsed" />
                     </Grid>
+                    <Grid x:Name="PreviewHost" Visibility="Collapsed" />
                 </Grid>
             </Grid>
 
@@ -113,22 +118,39 @@
                 x:Name="UserStrip"
                 Grid.Row="1"
                 Grid.ColumnSpan="2">
-                <Grid Padding="10,0,6,0" ColumnSpacing="8">
+                <Grid Padding="4,0,6,0" ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
+                    <!--  Opens Windows' Settings at Accounts > Your info.  -->
+                    <Button
+                        x:Name="UserButton"
+                        Padding="6,4,10,4"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Account settings"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnUserClicked"
+                        CornerRadius="8"
+                        ToolTipService.ToolTip="Account settings">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <PersonPicture
+                                x:Name="Avatar"
+                                Width="28"
+                                Height="28" />
+                            <TextBlock x:Name="UserName" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <!--  Folder buttons chosen in Settings > Start, as in Windows' Start > Folders.  -->
                     <StackPanel
+                        x:Name="FolderPanel"
+                        Grid.Column="1"
+                        HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Orientation="Horizontal"
-                        Spacing="10">
-                        <PersonPicture
-                            x:Name="Avatar"
-                            Width="28"
-                            Height="28" />
-                        <TextBlock x:Name="UserName" VerticalAlignment="Center" />
-                    </StackPanel>
+                        Spacing="2" />
                     <StackPanel
                         x:Name="PowerPanel"
                         Grid.Column="1"

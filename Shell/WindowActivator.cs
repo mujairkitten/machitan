@@ -6,9 +6,10 @@ namespace Machitan.Shell;
 /// <summary>
 /// Brings a window to the front and gives it the keyboard.
 /// Windows only lets a program take the front when it has just received input itself. After a
-/// click on the bar or a hotkey that is true; after the keyboard hook saw the Win key it is
-/// not (the key went to the app in front). So this tries the plain way first, then borrows the
-/// front app's input state for a moment, and only then uses a quick Alt tap.
+/// click on the bar or a hotkey that is usually true; after the keyboard hook saw the Win key
+/// it is not (the key went to the app in front). So this tries the plain way first, then
+/// after an empty mouse input (no move, no button), then borrows the front app's input state
+/// for a moment. No key is ever sent: an Alt tap made apps show their Alt key tips.
 /// </summary>
 internal static class WindowActivator
 {
@@ -26,6 +27,11 @@ internal static class WindowActivator
         }
 
         if (User32.SetForegroundWindow(hwnd) && User32.GetForegroundWindow() == hwnd)
+        {
+            return true;
+        }
+
+        if (KeyChord.SendEmptyMouseInput() && User32.SetForegroundWindow(hwnd) && User32.GetForegroundWindow() == hwnd)
         {
             return true;
         }
@@ -51,14 +57,15 @@ internal static class WindowActivator
             return true;
         }
 
-        KeyChord.SendAltTap();
-        User32.SetForegroundWindow(hwnd);
-        bool done = User32.GetForegroundWindow() == hwnd;
-        if (!done)
+        // An app running as administrator in front: only a program with its rights may hand the
+        // front over. The admin-keys helper (when on) does that for Machitan.
+        if (AdminKeys.Current is { } keys && keys.AllowForeground()
+            && User32.SetForegroundWindow(hwnd) && User32.GetForegroundWindow() == hwnd)
         {
-            Log.Warn("Windows did not let a window come to the front (" + WindowInfo.GetTitle(hwnd) + ").");
+            return true;
         }
 
-        return done;
+        Log.Warn("Windows did not let a window come to the front (" + WindowInfo.GetTitle(hwnd) + ").");
+        return false;
     }
 }

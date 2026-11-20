@@ -30,6 +30,8 @@ internal sealed class TaskService
     private readonly List<string> _order = new();
     private readonly Dictionary<string, string> _displayNames = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<nint, ProcessIdentity> _framePaths = new();
+    private readonly Dictionary<nint, (WindowAppInfo Info, long ReadAt)> _windowAppIds = new();
+    private readonly HashSet<string> _ownIdsNoted = new(StringComparer.OrdinalIgnoreCase);
 
     private IReadOnlyList<TaskGroup> _groups = Array.Empty<TaskGroup>();
     private string _signature = string.Empty;
@@ -51,8 +53,14 @@ internal sealed class TaskService
         _debounce.Tick += (_, _) => Refresh();
     }
 
+    /// <summary>A window's app ID is read again after this long (apps may set it a moment after the window opens).</summary>
+    private const long AppIdRereadMs = 3000;
+
     /// <summary>Raised on the UI thread when the list changed.</summary>
     internal event Action? Changed;
+
+    /// <summary>The app IDs Start's shortcuts to a program carry (from the app list), or null when unknown.</summary>
+    internal Func<string, IReadOnlySet<string>?>? ShortcutAppIds { get; set; }
 
     /// <summary>Apps in first-seen order.</summary>
     internal IReadOnlyList<TaskGroup> Groups => _groups;
@@ -292,6 +300,95 @@ internal sealed class TaskService
         }
     }
 
+    /// <summary>
+    /// End task: ends the app's processes at once, without asking the app (as Task Manager's
+    /// End task). The processes are those owning the app's windows; for a store app, the
+    /// process behind the window's content (its frame belongs to ApplicationFrameHost, which
+    /// hosts every store app); for any packaged app, every process of its package. Never
+    /// Explorer, ApplicationFrameHost or Machitan itself. Returns how many processes ended.
+    /// </summary>
+    internal int EndTask(TaskGroup group)
+    {
+        var targets = new HashSet<uint>();
+        foreach (TaskWindow window in group.Windows)
+        {
+            if (WindowInfo.GetClassName(window.Handle) == WindowFilter.AppFrameClass)
+            {
+                nint core = User32.FindWindowEx(window.Handle, 0, WindowFilter.CoreWindowClass, null);
+                if (core != 0)
+                {
+                    User32.GetWindowThreadProcessId(core, out uint coreProcess);
+                    targets.Add(coreProcess);
+                }
+            }
+            else
+            {
+                targets.Add(window.ProcessId);
+            }
+        }
+
+        if (group.PackageFullName is string package)
+        {
+            foreach (Process process in Process.GetProcesses())
+            {
+                using (process)
+                {
+                    uint id = (uint)process.Id;
+                    if (string.Equals(WindowInfo.GetProcessIdentity(id).PackageFullName, package, StringComparison.OrdinalIgnoreCase))
+                    {
+                        targets.Add(id);
+                    }
+                }
+            }
+        }
+
+        int ended = 0;
+        var refused = new List<string>();
+        foreach (uint id in targets)
+        {
+            string name = ProcessName(id);
+            if (id <= 4 || id == (uint)Environment.ProcessId
+                || name.Equals("explorer", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("ApplicationFrameHost", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            nint handle = Kernel32.OpenProcess(Kernel32.PROCESS_TERMINATE, false, id);
+            bool done = handle != 0 && Kernel32.TerminateProcess(handle, 1);
+            if (handle != 0)
+            {
+                Kernel32.CloseHandle(handle);
+            }
+
+            if (done)
+            {
+                ended++;
+            }
+            else
+            {
+                refused.Add(name + " (" + id.ToString(CultureInfo.InvariantCulture) + ")");
+            }
+        }
+
+        Log.Info("End task: " + group.DisplayName + ": ended " + ended.ToString(CultureInfo.InvariantCulture) + " process(es)"
+            + (refused.Count > 0 ? "; Windows refused " + string.Join(", ", refused) + " (an app running as administrator cannot be ended from here)." : "."));
+        return ended;
+    }
+
+    private static string ProcessName(uint id)
+    {
+        try
+        {
+            using Process process = Process.GetProcessById((int)id);
+            return process.ProcessName;
+        }
+        catch (Exception)
+        {
+            return "process";
+        }
+    }
+
     /// <summary>Rebuilds the list now. Raises <see cref="Changed"/> only if something differs.</summary>
     internal void Refresh()
     {
@@ -306,6 +403,9 @@ internal sealed class TaskService
             var identityByKey = new Dictionary<string, ProcessIdentity>(StringComparer.OrdinalIgnoreCase);
             var keysInOrderSeen = new List<string>();
             var liveFrames = new HashSet<nint>();
+            var liveWindows = new HashSet<nint>();
+            var ownAppIdByKey = new Dictionary<string, WindowAppInfo>(StringComparer.OrdinalIgnoreCase);
+            long now = Environment.TickCount64;
 
             foreach (nint hwnd in handles)
             {
@@ -329,6 +429,15 @@ internal sealed class TaskService
                 {
                     identity = GetIdentity(processId, identityByProcess);
                     key = identity.Path ?? "pid:" + processId.ToString(CultureInfo.InvariantCulture);
+
+                    // Windows with an app ID of their own get their own button, as on Windows' taskbar.
+                    liveWindows.Add(hwnd);
+                    WindowAppInfo own = WindowAppIdOf(hwnd, now);
+                    if (identity.Path is string program && IsOwnIdentity(program, own.AppId))
+                    {
+                        key = program + "|" + own.AppId;
+                        ownAppIdByKey.TryAdd(key, own);
+                    }
                 }
 
                 if (!windowsByKey.TryGetValue(key, out List<TaskWindow>? windows))
@@ -343,6 +452,22 @@ internal sealed class TaskService
             }
 
             ForgetClosedFrames(liveFrames);
+            if (_windowAppIds.Count > liveWindows.Count)
+            {
+                var gone = new List<nint>();
+                foreach (nint window in _windowAppIds.Keys)
+                {
+                    if (!liveWindows.Contains(window))
+                    {
+                        gone.Add(window);
+                    }
+                }
+
+                foreach (nint window in gone)
+                {
+                    _windowAppIds.Remove(window);
+                }
+            }
 
             // Keep apps where they are; new apps go to the end.
             _order.RemoveAll(key => !windowsByKey.ContainsKey(key));
@@ -374,7 +499,13 @@ internal sealed class TaskService
                 }
 
                 string displayName = path is not null ? GetDisplayName(path) : windows[0].Title;
-                groups.Add(new TaskGroup(key, displayName, path, identity.PackageFullName, windows, focused));
+                ownAppIdByKey.TryGetValue(key, out WindowAppInfo? own);
+                if (own?.DisplayName is string ownName)
+                {
+                    displayName = ownName;
+                }
+
+                groups.Add(new TaskGroup(key, displayName, path, identity.PackageFullName, windows, focused, own?.AppId, own?.IconResource));
                 signature.Append(key).Append(focused ? '*' : '-').Append(displayName).Append('\u001e');
             }
 
@@ -392,6 +523,52 @@ internal sealed class TaskService
         {
             Log.Error("The task list could not be refreshed.", ex);
         }
+    }
+
+    /// <summary>The window's own app ID, name and icon (read again every few seconds).</summary>
+    private WindowAppInfo WindowAppIdOf(nint hwnd, long now)
+    {
+        if (_windowAppIds.TryGetValue(hwnd, out (WindowAppInfo Info, long ReadAt) known) && now - known.ReadAt < AppIdRereadMs)
+        {
+            return known.Info;
+        }
+
+        WindowAppInfo info;
+        try
+        {
+            info = WindowAppId.Read(hwnd);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Taskbar: a window's app ID could not be read.", ex);
+            info = new WindowAppInfo(null, null, null);
+        }
+
+        _windowAppIds[hwnd] = (info, now);
+        return info;
+    }
+
+    /// <summary>
+    /// True when a window's app ID is not the program's usual one, so Windows' taskbar shows it
+    /// as its own button. The usual one is what Start's shortcuts to the program carry; when
+    /// they carry none, an ID with a ';' in it is an extra one (Firefox's private windows add
+    /// ";PrivateBrowsingAUMID" to the usual ID).
+    /// </summary>
+    private bool IsOwnIdentity(string program, string? appId)
+    {
+        if (appId is null)
+        {
+            return false;
+        }
+
+        IReadOnlySet<string>? usual = ShortcutAppIds?.Invoke(program);
+        bool own = usual is { Count: > 0 } ? !usual.Contains(appId) : appId.Contains(';');
+        if (own && _ownIdsNoted.Add(program + "|" + appId))
+        {
+            Log.Info("Taskbar: windows of " + System.IO.Path.GetFileName(program) + " with their own app ID (" + appId + ") get their own button, as on Windows' taskbar.");
+        }
+
+        return own;
     }
 
     private static ProcessIdentity GetIdentity(uint processId, Dictionary<uint, ProcessIdentity> cache)

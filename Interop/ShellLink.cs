@@ -79,8 +79,81 @@ internal interface IPersistFile
     void GetCurFile([MarshalAs(UnmanagedType.LPWStr)] out string fileName);
 }
 
-/// <summary>What a shortcut points at and where its icon is.</summary>
-internal sealed record ShortcutInfo(string? TargetPath, string? IconPath, int IconIndex);
+/// <summary>objidl.h IPersistStream (with IPersist's GetClassID first): a shortcut read from bytes.</summary>
+[ComImport]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+[Guid("00000109-0000-0000-C000-000000000046")]
+internal interface IPersistStream
+{
+    [PreserveSig]
+    int GetClassID(out Guid classId);
+
+    [PreserveSig]
+    int IsDirty();
+
+    /// <summary>Reads from an IStream (a raw pointer), leaving it just after the object's data.</summary>
+    [PreserveSig]
+    int Load(nint stream);
+}
+
+/// <summary>
+/// What a shortcut points at, where its icon is, and the app ID it was given
+/// (System.AppUserModel.ID, set by apps that name themselves, e.g. Electron apps).
+/// </summary>
+internal sealed record ShortcutInfo(string? TargetPath, string? IconPath, int IconIndex, string? AppUserModelId = null);
+
+/// <summary>Reading text and yes/no values from a COM property store.</summary>
+internal static class PropertyReader
+{
+    private const ushort VtBool = 11;
+
+    /// <summary>PKEY_AppUserModel_ID.</summary>
+    internal static PROPERTYKEY AppUserModelId => new() { fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), pid = 5 };
+
+    /// <summary>PKEY_AppUserModel_IsDestListSeparator (a jump list separator line).</summary>
+    internal static PROPERTYKEY IsSeparator => new() { fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), pid = 6 };
+
+    /// <summary>PKEY_Title.</summary>
+    internal static PROPERTYKEY Title => new() { fmtid = new Guid("F29F85E0-4FF9-1068-AB91-08002B27B3D9"), pid = 2 };
+
+    internal static string? Text(object item, PROPERTYKEY key)
+    {
+        if (item is not IPropertyStore store || store.GetValue(ref key, out PROPVARIANT value) < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            string? text = value.vt == CoreAudio.VtLpwstr && value.pointerValue != 0
+                ? Marshal.PtrToStringUni(value.pointerValue)
+                : null;
+            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        }
+        finally
+        {
+            Ole32.PropVariantClear(ref value);
+        }
+    }
+
+    internal static bool Flag(object item, PROPERTYKEY key)
+    {
+        if (item is not IPropertyStore store || store.GetValue(ref key, out PROPVARIANT value) < 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            // VARIANT_BOOL: the first two bytes of the value, -1 for true.
+            return value.vt == VtBool && (short)(value.pointerValue & 0xFFFF) != 0;
+        }
+        finally
+        {
+            Ole32.PropVariantClear(ref value);
+        }
+    }
+}
 
 /// <summary>Reads .lnk files. Safe on worker threads (the shortcut object supports both apartments).</summary>
 internal static class ShortcutReader
@@ -104,7 +177,17 @@ internal static class ShortcutReader
             var icon = new StringBuilder(Capacity);
             shellLink.GetIconLocation(icon, icon.Capacity, out int iconIndex);
 
-            return new ShortcutInfo(Clean(target.ToString()), Clean(icon.ToString()), iconIndex);
+            string? appId = null;
+            try
+            {
+                appId = PropertyReader.Text(link, PropertyReader.AppUserModelId);
+            }
+            catch (Exception)
+            {
+                // A shortcut without a property store has no app ID.
+            }
+
+            return new ShortcutInfo(Clean(target.ToString()), Clean(icon.ToString()), iconIndex, appId);
         }
         catch (Exception)
         {
@@ -119,7 +202,7 @@ internal static class ShortcutReader
         }
     }
 
-    private static string? Clean(string value)
+    internal static string? Clean(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {

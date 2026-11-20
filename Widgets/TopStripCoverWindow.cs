@@ -28,7 +28,6 @@ public sealed partial class TopStripCoverWindow : Window
     private readonly Grid _root;
     private readonly SolidColorBrush _brush = new(Colors.Transparent);
     private readonly WindowCutter _cutter;
-    private readonly Windows.UI.ViewManagement.UISettings _ui = new();
     private WindowSubclass? _subclass;
     private RECT _placed;
     private bool _shown;
@@ -130,15 +129,11 @@ public sealed partial class TopStripCoverWindow : Window
         User32.ShowWindow(_hwnd, User32.SW_HIDE);
     }
 
+    /// <summary>Machitan's accent colour, set by the shell before <see cref="ShowOver"/>.</summary>
+    internal Color AccentColour { get; set; } = Microsoft.UI.ColorHelper.FromArgb(255, 76, 194, 255);
+
     private Color Accent()
     {
-        try
-        {
-            return _ui.GetColorValue(Windows.UI.ViewManagement.UIColorType.Accent);
-        }
-        catch (Exception)
-        {
-            return ColorHelper.FromArgb(255, 76, 194, 255);
-        }
+        return AccentColour;
     }
 }

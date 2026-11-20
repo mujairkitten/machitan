@@ -13,6 +13,9 @@ namespace Machitan.Shell;
 ///
 /// Hiding the window alone would leave Explorer's strip of the screen reserved, so the
 /// taskbar is first switched to auto-hide (which frees the space) and then hidden.
+/// Machitan has a hidden "Shell_TrayWnd" window of its own (the tray receiver, see
+/// TrayIconService), so Explorer's is found with <see cref="FindExplorerTray"/>, never by
+/// class name alone.
 /// The state it had before is kept in a small file, so that any process can restore it:
 /// the shell on a clean exit, or the guardian after a crash.
 /// Nothing here throws.
@@ -22,12 +25,49 @@ internal static class ExplorerTaskbar
     private const string PrimaryClass = "Shell_TrayWnd";
     private const string SecondaryClass = "Shell_SecondaryTrayWnd";
 
+    /// <summary>
+    /// Explorer's main taskbar window: a "Shell_TrayWnd" window of another process, the one
+    /// holding the tray area (TrayNotifyWnd) when there is a choice; 0 when there is none.
+    /// </summary>
+    internal static nint FindExplorerTray()
+    {
+        uint self = (uint)Environment.ProcessId;
+        nint fallback = 0;
+        nint window = 0;
+        for (int guard = 0; guard < 16; guard++)
+        {
+            window = User32.FindWindowEx(0, window, PrimaryClass, null);
+            if (window == 0)
+            {
+                break;
+            }
+
+            User32.GetWindowThreadProcessId(window, out uint owner);
+            if (owner == self)
+            {
+                continue;
+            }
+
+            if (User32.FindWindowEx(window, 0, "TrayNotifyWnd", null) != 0)
+            {
+                return window;
+            }
+
+            if (fallback == 0)
+            {
+                fallback = window;
+            }
+        }
+
+        return fallback;
+    }
+
     /// <summary>Switches the taskbar to auto-hide and hides it.</summary>
     internal static void Hide()
     {
         try
         {
-            nint tray = User32.FindWindow(PrimaryClass, null);
+            nint tray = FindExplorerTray();
             if (tray == 0)
             {
                 Log.Warn("Explorer's taskbar was not found; nothing to hide.");
@@ -74,7 +114,7 @@ internal static class ExplorerTaskbar
     {
         try
         {
-            nint tray = User32.FindWindow(PrimaryClass, null);
+            nint tray = FindExplorerTray();
 
             if (tray != 0 && TryReadOriginalState(out uint original))
             {
@@ -85,6 +125,13 @@ internal static class ExplorerTaskbar
 
             foreach (nint window in FindTaskbarWindows())
             {
+                if (window == tray)
+                {
+                    // r24 kept the taskbar shown with an empty window region; remove any such
+                    // region left behind (Explorer's taskbar has none of its own).
+                    User32.SetWindowRgn(window, 0, true);
+                }
+
                 User32.ShowWindow(window, User32.SW_SHOWNA);
             }
         }
@@ -113,7 +160,7 @@ internal static class ExplorerTaskbar
     {
         var windows = new List<nint>(4);
 
-        nint primary = User32.FindWindow(PrimaryClass, null);
+        nint primary = FindExplorerTray();
         if (primary != 0)
         {
             windows.Add(primary);

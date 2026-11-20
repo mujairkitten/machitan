@@ -2,6 +2,7 @@ using System;
 using System.Numerics;
 using Machitan.Config;
 using Machitan.Core;
+using Machitan.Custom;
 using Machitan.Interop;
 using Machitan.Shell;
 using Machitan.Visuals;
@@ -18,14 +19,15 @@ namespace Machitan.Bar;
 /// <summary>
 /// The bar window: borderless, always on top, never takes focus, docked to a screen edge.
 ///
-/// The window is see-through (proven by the --seethrough test): a backdrop that draws
+/// The window is see-through (proven by Batch 2's see-through test): a backdrop that draws
 /// nothing, Windows alpha (DWM blur-behind with a region off the window), and a window
 /// region cut to the segments, 2 px wider than each. So the gaps between segments show the
 /// desktop and pass clicks through, and segment edges stay smooth.
 ///
 /// This file: window plumbing (setup, placement, region, timers, auto-hide, messages).
-/// BarWindow.Layout.cs: segments, Start cluster, Show Desktop.
+/// BarWindow.Layout.cs: segments, Start group, apps group, Show Desktop.
 /// BarWindow.Dock.cs: the app dock buttons.
+/// BarWindow.Drag.cs: dragging groups, search and apps on the bar.
 ///
 /// Sizes: the bar strip is BarSize DIP thick; the visible pill is BarSize - 14 DIP,
 /// centred in the strip; the bar keeps 16 DIP away from the side edges of the screen.
@@ -54,7 +56,6 @@ public sealed partial class BarWindow : Window
     private readonly nint _hwnd;
     private readonly DispatcherQueueTimer _healTimer;
     private readonly DispatcherQueueTimer _fastTimer;
-    private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
 
     private WindowSubclass? _subclass;
     private AppBarHost? _appBar;
@@ -131,11 +132,18 @@ public sealed partial class BarWindow : Window
         Activated += OnBarActivated;
         _host.Tasks.Changed += OnTasksChanged;
         _host.Settings.Changed += OnSettingsChanged;
+        _host.Accent.Changed += OnAccentChanged;
         _host.Pins.Changed += OnPinsChanged;
+        _host.BarLayout.Changed += OnBarLayoutChanged;
+        _host.Custom.Changed += OnCustomChanged;
+        _host.Tray.Changed += OnTrayChanged;
+        Root.Tapped += OnRootTapped;
         _host.Icons.Changed += OnIconsChanged;
         _host.Desktop.Changed += OnDesktopChanged;
+        Machitan.Start.StartMenuWindow.OpenChanged += OnStartMenuOpenChanged;
 
         _host.Tasks.Refresh();
+        PrepareDragging();
         _barLook = BarLook(_host.Settings.Current);
         BuildLayout();
         ApplyPlacement(forceReservation: false);
@@ -159,15 +167,26 @@ public sealed partial class BarWindow : Window
             return;
         }
 
+        CancelDrag();
+        StopDesktopPeek();
+
+        // A peek from the previews too: no window may stay see-through after Machitan.
+        LivePeek.End();
         _closing = true;
         _healTimer.Stop();
         _fastTimer.Stop();
+        _dragTimer?.Stop();
 
         _host.Tasks.Changed -= OnTasksChanged;
         _host.Settings.Changed -= OnSettingsChanged;
+        _host.Accent.Changed -= OnAccentChanged;
         _host.Pins.Changed -= OnPinsChanged;
+        _host.BarLayout.Changed -= OnBarLayoutChanged;
+        _host.Custom.Changed -= OnCustomChanged;
+        _host.Tray.Changed -= OnTrayChanged;
         _host.Icons.Changed -= OnIconsChanged;
         _host.Desktop.Changed -= OnDesktopChanged;
+        Machitan.Start.StartMenuWindow.OpenChanged -= OnStartMenuOpenChanged;
         _host.Tasks.DetachShellHook();
 
         _appBar?.Release();
@@ -263,7 +282,51 @@ public sealed partial class BarWindow : Window
         }
 
         _host.Desktop.OnTasksChanged(_host.Tasks.Groups);
+        if (IsDragging)
+        {
+            // The bar does not change under a drag; the dock catches up when it ends.
+            _dockSyncPending = true;
+            return;
+        }
+
         SyncDock(rebuild: false);
+        ApplyPlacement(forceReservation: false);
+    }
+
+    /// <summary>Tray icons came, went or changed: the tray bubble follows (and comes or goes with its first or last icon).</summary>
+    private void OnTrayChanged()
+    {
+        if (_closing || !_host.Settings.Current.TrayOnBar)
+        {
+            return;
+        }
+
+        if (IsDragging)
+        {
+            _dockSyncPending = true;
+            return;
+        }
+
+        SyncDock(rebuild: false);
+        FillTrayBubble();
+        ApplyPlacement(forceReservation: false);
+    }
+
+    /// <summary>Bubbles moved, made or ended, or an app moved between them.</summary>
+    private void OnBarLayoutChanged()
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        if (IsDragging)
+        {
+            _dockSyncPending = true;
+            return;
+        }
+
+        SyncDock(rebuild: true);
         ApplyPlacement(forceReservation: false);
     }
 
@@ -271,6 +334,12 @@ public sealed partial class BarWindow : Window
     {
         if (_closing)
         {
+            return;
+        }
+
+        if (IsDragging)
+        {
+            _dockSyncPending = true;
             return;
         }
 
@@ -285,6 +354,12 @@ public sealed partial class BarWindow : Window
             return;
         }
 
+        if (IsDragging)
+        {
+            _dockSyncPending = true;
+            return;
+        }
+
         SyncDock(rebuild: false);
     }
 
@@ -295,6 +370,13 @@ public sealed partial class BarWindow : Window
             return;
         }
 
+        UpdateDesktopStrip();
+    }
+
+    /// <summary>The accent colour changed (a new wallpaper, or Settings): the focused app's line and Show Desktop.</summary>
+    private void OnAccentChanged()
+    {
+        SyncDock(rebuild: false);
         UpdateDesktopStrip();
     }
 
@@ -338,7 +420,16 @@ public sealed partial class BarWindow : Window
             settings.Opacity,
             settings.EnableAcrylic,
             settings.SearchMode,
-            settings.AutoHideBar);
+            settings.SearchPlace,
+            settings.DockLabels,
+            settings.ShowStartOnBar,
+            settings.ShowAppsOnBar,
+            settings.TrayOnBar,
+            settings.AutoHideBar,
+            settings.CustomStartButton,
+            settings.StartButtonPicture,
+            settings.StartButtonPictureHover,
+            settings.StartButtonPicturePressed);
     }
 
     // ---------------------------------------------------------------- placement
@@ -349,7 +440,9 @@ public sealed partial class BarWindow : Window
     /// </summary>
     private void ApplyPlacement(bool forceReservation)
     {
-        if (_closing || _placing)
+        // During a drag the bar stays put (the drag works from where things were); it is
+        // placed again when the drag ends.
+        if (_closing || _placing || IsDragging)
         {
             return;
         }
@@ -496,14 +589,21 @@ public sealed partial class BarWindow : Window
         try
         {
             double scale = Root.XamlRoot.RasterizationScale;
-            var rects = new (int Left, int Top, int Right, int Bottom, int Ellipse)[_shapes.Count];
+            var rects = new System.Collections.Generic.List<(int Left, int Top, int Right, int Bottom, int Ellipse)>(_shapes.Count);
             var signature = new System.Text.StringBuilder();
 
             for (int i = 0; i < _shapes.Count; i++)
             {
                 (FrameworkElement element, double radiusDip) = _shapes[i];
+                if (element.Visibility != Visibility.Visible)
+                {
+                    // A pill that is hidden (the apps pill with no apps) is not part of the window.
+                    continue;
+                }
+
                 if (element.ActualWidth <= 0 || element.ActualHeight <= 0)
                 {
+                    // Not laid out yet; the next layout pass cuts.
                     return;
                 }
 
@@ -516,13 +616,13 @@ public sealed partial class BarWindow : Window
                 int bottom = (int)Math.Ceiling(bounds.Bottom * scale) + RegionSlackPx + 1;
                 int ellipse = (int)Math.Round(((radiusDip * scale) + RegionSlackPx) * 2);
 
-                rects[i] = (left, top, right, bottom, ellipse);
+                rects.Add((left, top, right, bottom, ellipse));
                 signature.Append(left).Append(',').Append(top).Append(',').Append(right).Append(',')
                     .Append(bottom).Append(',').Append(ellipse).Append(';');
             }
 
             string newSignature = signature.ToString();
-            if (newSignature == _regionSignature)
+            if (rects.Count == 0 || newSignature == _regionSignature)
             {
                 return;
             }
@@ -585,7 +685,14 @@ public sealed partial class BarWindow : Window
                 _host.Tasks.Refresh();
             }
 
-            if (_slide != SlideState.Shown || _fullscreenApp)
+            if (!IsDragging && _dragLayer is { IsShown: true } layer)
+            {
+                // Never left over a strip of the screen after a drag.
+                Log.Warn("Bar drag: the drag layer was still shown with no drag running; hiding it.");
+                layer.HideLayer();
+            }
+
+            if (_slide != SlideState.Shown || _fullscreenApp || IsDragging)
             {
                 return;
             }
@@ -692,7 +799,7 @@ public sealed partial class BarWindow : Window
 
             bool overBar = _barRect.Contains(cursor, HoverSlackPx);
             bool startOpen = _host.StartMenu?.IsOpen ?? false;
-            if (overBar || atEdge || _menuOpen || startOpen || _host.PreviewShown || _typing)
+            if (overBar || atEdge || _menuOpen || startOpen || _host.PreviewShown || _typing || IsDragging || _host.Custom.IsOn)
             {
                 if (now > _lastInsideTick)
                 {
@@ -786,6 +893,14 @@ public sealed partial class BarWindow : Window
 
     private void AnimateSlide(float to, Action completed)
     {
+        // Animations turned off (here or in Windows): the bar simply appears or goes.
+        if (!Motion.IsOn(_host.Settings.Current))
+        {
+            SetSlide(to);
+            completed();
+            return;
+        }
+
         try
         {
             Visual visual = ElementCompositionPreview.GetElementVisual(Root);
@@ -1119,10 +1234,28 @@ public sealed partial class BarWindow : Window
         UpdateDesktopStrip();
     }
 
+    /// <summary>The bar's own right-click menu: filled when it opens.</summary>
     private void OnMenuOpening(object? sender, object e)
+    {
+        if (sender is Microsoft.UI.Xaml.Controls.MenuFlyout menu)
+        {
+            FillBarMenu(menu);
+        }
+
+        NoteMenuOpening();
+    }
+
+    /// <summary>Any bar menu (the bar's own or an app's) is opening.</summary>
+    private void NoteMenuOpening()
     {
         _menuOpen = true;
         Log.Info("Bar menu opened.");
+
+        // As on Windows' taskbar: a right-click on the bar closes Start.
+        if (_host.StartMenu is { IsOpen: true } start)
+        {
+            start.HideMenu();
+        }
 
         // The bar never takes focus by itself. Take it for the menu, so that a click
         // anywhere else closes the menu again.
@@ -1138,6 +1271,62 @@ public sealed partial class BarWindow : Window
     private void OnSettingsClicked(object sender, RoutedEventArgs e)
     {
         _host.OpenSettings();
+    }
+
+    /// <summary>
+    /// The bar's own menu: Customize, Settings, Exit; in custom mode the black menu for the
+    /// bubble under the pointer (Settings / Remove) and Done.
+    /// </summary>
+    private void FillBarMenu(Microsoft.UI.Xaml.Controls.MenuFlyout menu)
+    {
+        if (_host.Custom.IsOn)
+        {
+            CustomMenus.Fill(menu, _host.Custom, BubbleUnderCursor());
+            return;
+        }
+
+        CustomMenus.MakePlain(menu);
+        menu.Items.Clear();
+        var customize = new Microsoft.UI.Xaml.Controls.MenuFlyoutItem { Text = Strings.BarCustomize };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(customize, Strings.BarCustomizeName);
+        customize.Click += (_, _) => _host.Custom.Enter();
+        var settings = new Microsoft.UI.Xaml.Controls.MenuFlyoutItem { Text = Strings.BarSettings };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(settings, Strings.FolderMachitan);
+        settings.Click += OnSettingsClicked;
+        var exit = new Microsoft.UI.Xaml.Controls.MenuFlyoutItem { Text = Strings.BarExit };
+        exit.Click += OnExitClicked;
+        menu.Items.Add(customize);
+        menu.Items.Add(settings);
+        menu.Items.Add(new Microsoft.UI.Xaml.Controls.MenuFlyoutSeparator());
+        menu.Items.Add(exit);
+    }
+
+    /// <summary>In custom mode, a tap on a bubble's empty space picks the bubble.</summary>
+    private void OnRootTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (_host.Custom.IsOn && !IsDragging)
+        {
+            _host.Custom.Select(BubbleUnderCursor());
+        }
+    }
+
+    private void OnCustomChanged()
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        if (_host.Custom.IsOn)
+        {
+            // Ctrl+click picks belong to normal use; custom mode picks whole bubbles.
+            ClearSelection();
+            _host.HidePreview();
+            if (IsAutoHidden)
+            {
+                QueuePlacement(forceReservation: false);
+            }
+        }
     }
 
     private void OnExitClicked(object sender, RoutedEventArgs e)

@@ -8,7 +8,8 @@ namespace Machitan.Shell;
 /// <summary>
 /// Reserves a strip of the screen for the bar through the Windows AppBar system
 /// (SHAppBarMessage), so maximised windows stop above it. Used only when auto-hide is off;
-/// an auto-hiding bar reserves nothing.
+/// an auto-hiding bar reserves nothing. While Machitan's tray receiver runs, the messages reach
+/// its "Shell_TrayWnd" window first and AppBarRelay passes them on to Explorer.
 /// </summary>
 internal sealed class AppBarHost
 {

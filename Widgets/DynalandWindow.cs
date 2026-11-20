@@ -7,8 +7,10 @@ using System.Numerics;
 using System.Threading.Tasks;
 using Machitan.Config;
 using Machitan.Core;
+using Machitan.Custom;
 using Machitan.Interop;
 using Machitan.Shell;
+using Machitan.Start;
 using Machitan.Visuals;
 using Microsoft.UI;
 using Microsoft.UI.Composition;
@@ -51,8 +53,20 @@ public sealed partial class DynalandWindow : Window
 {
 
     private const double Pad = 4;
-    private const double StageWidth = 400;
-    private const double StageHeight = 152;
+    /// <summary>The open pages' standard width (DIP); the user's width setting replaces it.</summary>
+    private const double StandardStageWidth = 400;
+    /// <summary>The open views' height: the player, and the general page without tray icons.</summary>
+    private const double OpenHeight = 152;
+
+    // The tray on the general page: a title, then up to two rows of icon tiles.
+    private const double TrayTitleHeight = 24;
+    private const double TrayRowHeight = 36;
+    private const int MaxTrayRows = 2;
+    private const double TrayTile = 32;
+    private const double TraySpacing = 4;
+
+    /// <summary>The stage: room for the tallest view (the general page with two rows of tray icons).</summary>
+    private const double StageHeight = OpenHeight + TrayTitleHeight + (MaxTrayRows * TrayRowHeight);
     private const double CollapsedHeight = 32;
     private const double CollapsedRadius = 12;
     private const double MediaRadius = 22;
@@ -62,6 +76,7 @@ public sealed partial class DynalandWindow : Window
     private const double IdleWidth = 110;
     private const double MinBusyWidth = 96;
     private const double MaxCollapsedWidth = 270;
+    private const double MiniTextMaxWidth = 160;
     private const double CollapsedSidePad = 14;
 
     /// <summary>The pill's top runs this far past the screen edge, so its top corners never show round.</summary>
@@ -93,6 +108,27 @@ public sealed partial class DynalandWindow : Window
     private readonly ShellHost _host;
     private readonly nint _hwnd;
     private readonly Grid _root;
+
+    /// <summary>The window's content: Dynaland at its standard size, scaled as a whole (size setting).</summary>
+    private readonly Canvas _canvas;
+    private readonly ScaleTransform _zoom = new();
+    private double _size = 1;
+
+    /// <summary>The open pages' width (DIP, the width setting): the stage's width.</summary>
+    private double _stageWidth = StandardStageWidth;
+
+    /// <summary>How far the closed pill may grow (music): follows the width setting.</summary>
+    private double _maxCollapsedWidth = MaxCollapsedWidth;
+
+    /// <summary>The closed pill's width with nothing playing: follows the width setting.</summary>
+    private double _idleWidth = IdleWidth;
+
+    private Border? _customShield;
+    private MenuFlyout? _customMenu;
+
+    /// <summary>The window at standard size (DIP): the stage, the ears either side, the island's gap, the pad.</summary>
+    private double DesignWidth => _stageWidth + (2 * (Pad + EarRadius));
+    private const double DesignHeight = StageHeight + IslandGap + (2 * Pad);
     private readonly Grid _stage;
     private readonly Grid _pillLayer;
     private readonly Border _collapsedHit;
@@ -131,6 +167,16 @@ public sealed partial class DynalandWindow : Window
     private readonly FontIcon _playPauseIcon;
     private readonly Button _next;
     private readonly Grid _timeline;
+
+    /// <summary>The timeline as a seek bar: a press or drag moves it, the app jumps there on release.</summary>
+    private readonly Grid _seekArea;
+    private readonly Ellipse _seekThumb;
+    private readonly TranslateTransform _seekThumbMove = new();
+    private bool _seeking;
+    private bool _seekHover;
+    private double _seekFraction;
+    private TimeSpan _seekTarget;
+    private long _seekHoldUntil;
     private readonly TextBlock _elapsed;
     private readonly TextBlock _total;
     private readonly ColumnDefinition _doneColumn;
@@ -187,6 +233,41 @@ public sealed partial class DynalandWindow : Window
     private readonly DispatcherQueueTimer _volumePoll;
     private readonly MediaService _media;
     private readonly PrivacyMonitor _privacy;
+    /// <summary>The tray icons: Machitan's one receiver, kept by the shell (Dynaland or the bar shows them).</summary>
+    private TrayIconService _tray => _host.Tray;
+
+    // Dragging a tray tile to another place (Dynaland's general page).
+    private const double TrayDragStartDip = 6;
+    private Grid _trayArea = new();
+    private Canvas _trayOverlay = new();
+    private Border _trayMarker = new();
+    private string? _trayPressKey;
+    private uint _trayPressPointer;
+    private Windows.Foundation.Point _trayPressAt;
+    private string? _trayDragKey;
+    private int _trayDropIndex = -1;
+    private bool _traySuppressClick;
+    private List<TrayIcon> _trayOrdered = new();
+    private readonly StackPanel _traySection;
+    private readonly StackPanel _trayRows;
+
+    /// <summary>One tile per tray icon, kept while the icon lives (a new picture changes only its tile).</summary>
+    private readonly Dictionary<string, TrayTileView> _trayTiles = new(StringComparer.Ordinal);
+    private List<string> _trayShownKeys = new();
+    private int _trayMore;
+
+    /// <summary>Windows' double-click time: how long Dynaland waits after a left click on a tile for a second one.</summary>
+    private readonly long _doubleClickMs = Math.Clamp((long)User32.GetDoubleClickTime(), 200L, 900L);
+    private readonly DispatcherQueueTimer _trayCloseTimer;
+    private string? _lastTrayKey;
+    private long _lastTrayClickAt;
+
+    /// <summary>After a right-click on a tray tile: Dynaland stays open while the app's menu is up.</summary>
+    private bool _menuHolding;
+    private long _menuHoldUntil;
+
+    /// <summary>The general page's height now: taller by the tray's rows while there are tray icons.</summary>
+    private double _generalHeight = OpenHeight;
     private readonly VolumeService _volume = new();
     private readonly Dictionary<string, string> _names = new(StringComparer.OrdinalIgnoreCase);
 
@@ -216,7 +297,7 @@ public sealed partial class DynalandWindow : Window
     private bool _pointerInside;
     private PillShape _pill = PillShape.Collapsed;
     private PillShape _peek = PillShape.Collapsed;
-    private double _collapsedWidth = IdleWidth;
+    private double _collapsedWidth;
     private string _peekedTrack = string.Empty;
     private string _privacySignature = string.Empty;
     private List<(string Name, bool Camera)> _uses = new();
@@ -235,6 +316,10 @@ public sealed partial class DynalandWindow : Window
     {
         _host = host;
         Title = "Machitan Dynaland";
+        _stageWidth = WidthSetting();
+        _maxCollapsedWidth = Math.Round(MaxCollapsedWidth * WidthRatio);
+        _idleWidth = Math.Round(IdleWidth * WidthRatio);
+        _collapsedWidth = _idleWidth;
 
         _root = new Grid
         {
@@ -243,8 +328,16 @@ public sealed partial class DynalandWindow : Window
 
             // A notch is black whatever the theme.
             RequestedTheme = ElementTheme.Dark,
+
+            // Laid out at standard size, scaled as a whole by the size setting; the canvas
+            // lets the scaled content fill the window without layout clipping.
+            Width = DesignWidth,
+            Height = DesignHeight,
+            RenderTransform = _zoom,
         };
-        Content = _root;
+        _canvas = new Canvas { Background = new SolidColorBrush(Colors.Transparent) };
+        _canvas.Children.Add(_root);
+        Content = _canvas;
 
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         SeeThrough.Prepare(this, _hwnd, alwaysOnTop: true);
@@ -254,7 +347,7 @@ public sealed partial class DynalandWindow : Window
 
         _stage = new Grid
         {
-            Width = StageWidth,
+            Width = _stageWidth,
             Height = StageHeight,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
@@ -265,8 +358,8 @@ public sealed partial class DynalandWindow : Window
         _stage.Children.Add(_pillLayer);
 
         // Invisible outlines the window is cut to; they reach past the top so the cut is square there.
-        _collapsedHit = MakeOutline(IdleWidth, CollapsedHeight);
-        _expandedHit = MakeOutline(StageWidth, StageHeight);
+        _collapsedHit = MakeOutline(_idleWidth, CollapsedHeight);
+        _expandedHit = MakeOutline(_stageWidth, OpenHeight);
         _expandedHit.Visibility = Visibility.Collapsed;
         _stage.Children.Add(_collapsedHit);
         _stage.Children.Add(_expandedHit);
@@ -274,7 +367,7 @@ public sealed partial class DynalandWindow : Window
         // In the window's root (wider than the stage), at the screen's top edge.
         _earHit = new Border
         {
-            Width = IdleWidth + (2 * EarRadius),
+            Width = _idleWidth + (2 * EarRadius),
             Height = EarRadius,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
@@ -296,7 +389,7 @@ public sealed partial class DynalandWindow : Window
             Visibility = Visibility.Collapsed,
         };
         // "Title - Artist", scrolling when it does not fit.
-        _miniText = new Marquee(12, FontWeights.SemiBold, _whiteBrush, maxWidth: 160);
+        _miniText = new Marquee(12, FontWeights.SemiBold, _whiteBrush, maxWidth: Math.Round(MiniTextMaxWidth * WidthRatio));
         _miniState = Glyph(0xEC4F, 12, _accentBrush);
         _miniRow = Row();
         _miniRow.Children.Add(_miniArt);
@@ -321,7 +414,7 @@ public sealed partial class DynalandWindow : Window
 
         _collapsedContent = new Grid
         {
-            Width = IdleWidth,
+            Width = _idleWidth,
             Height = CollapsedHeight,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
@@ -337,7 +430,7 @@ public sealed partial class DynalandWindow : Window
 
         // Left, not centred: a capped width with the default stretch would centre it.
         _appName.HorizontalAlignment = HorizontalAlignment.Left;
-        _toGeneral = MakeControl(0xE76C, "Show camera, microphone and notifications", () => ShowPage(general: true), out FontIcon toGeneralIcon);
+        _toGeneral = MakeControl(0xE76C, Strings.DynToGeneral, () => ShowPage(general: true), out FontIcon toGeneralIcon);
         SmallArrow(_toGeneral, toGeneralIcon);
         var topRight = new StackPanel
         {
@@ -375,11 +468,11 @@ public sealed partial class DynalandWindow : Window
         words.Children.Add(_title.Element);
         words.Children.Add(_artist.Element);
 
-        _previous = MakeControl(0xE892, "Previous track", () => _media!.PreviousAsync(), out _);
-        _playPause = MakeControl(0xE768, "Play or pause", () => _media!.TogglePlayPauseAsync(), out _playPauseIcon);
+        _previous = MakeControl(0xE892, Strings.DynPrevious, () => _media!.PreviousAsync(), out _);
+        _playPause = MakeControl(0xE768, Strings.DynPlayPause, () => _media!.TogglePlayPauseAsync(), out _playPauseIcon);
         _playPauseIcon.Foreground = _accentBrush;
         _playPauseIcon.FontSize = 20;
-        _next = MakeControl(0xE893, "Next track", () => _media!.NextAsync(), out _);
+        _next = MakeControl(0xE893, Strings.DynNext, () => _media!.NextAsync(), out _);
         var controls = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -405,20 +498,82 @@ public sealed partial class DynalandWindow : Window
         _doneColumn = new ColumnDefinition { Width = new GridLength(0.0001, GridUnitType.Star) };
         _leftColumn = new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) };
         Grid bar = MakeBar(_doneColumn, _leftColumn, _accentBrush);
+
+        // The bar is thin; the area around it (the row's full height) takes the pointer.
+        _seekThumb = new Ellipse
+        {
+            Width = 12,
+            Height = 12,
+            Fill = _whiteBrush,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            RenderTransform = _seekThumbMove,
+            Visibility = Visibility.Collapsed,
+            IsHitTestVisible = false,
+        };
+        _seekArea = new Grid { Background = new SolidColorBrush(Colors.Transparent) };
+        _seekArea.Children.Add(bar);
+        _seekArea.Children.Add(_seekThumb);
+        AutomationProperties.SetName(_seekArea, Strings.DynPosition);
+        _seekArea.PointerEntered += (_, _) =>
+        {
+            _seekHover = true;
+            UpdateSeekThumb();
+        };
+        _seekArea.PointerExited += (_, _) =>
+        {
+            _seekHover = false;
+            UpdateSeekThumb();
+        };
+        _seekArea.PointerPressed += (_, e) =>
+        {
+            // _media is set further down this constructor; the press comes later.
+            if (_media?.Current.CanSeek != true)
+            {
+                return;
+            }
+
+            _seeking = _seekArea.CapturePointer(e.Pointer);
+            PreviewSeek(e.GetCurrentPoint(_seekArea).Position.X);
+            e.Handled = true;
+        };
+        _seekArea.PointerMoved += (_, e) =>
+        {
+            if (_seeking)
+            {
+                PreviewSeek(e.GetCurrentPoint(_seekArea).Position.X);
+            }
+        };
+        _seekArea.PointerReleased += (_, e) =>
+        {
+            if (_seeking)
+            {
+                _seekArea.ReleasePointerCapture(e.Pointer);
+                FinishSeek();
+            }
+        };
+        _seekArea.PointerCaptureLost += (_, _) =>
+        {
+            if (_seeking)
+            {
+                FinishSeek();
+            }
+        };
+
         _timeline = new Grid { ColumnSpacing = 10, Height = 20 };
         _timeline.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _timeline.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         _timeline.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(bar, 1);
+        Grid.SetColumn(_seekArea, 1);
         Grid.SetColumn(_total, 2);
         _timeline.Children.Add(_elapsed);
-        _timeline.Children.Add(bar);
+        _timeline.Children.Add(_seekArea);
         _timeline.Children.Add(_total);
 
         _mediaContent = new Grid
         {
-            Width = StageWidth,
-            Height = StageHeight,
+            Width = _stageWidth,
+            Height = OpenHeight,
             Padding = new Thickness(18, 6, 12, 14),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
@@ -439,7 +594,7 @@ public sealed partial class DynalandWindow : Window
         StackPanel privacyDots = MakeDots(8);
         privacyDots.HorizontalAlignment = HorizontalAlignment.Center;
         TextBlock privacyTitle = Text(11, FontWeights.Normal, _dimBrush);
-        privacyTitle.Text = "In use now";
+        privacyTitle.Text = Strings.DynInUseNow;
         privacyTitle.HorizontalAlignment = HorizontalAlignment.Center;
         _privacyText = Text(13, FontWeights.SemiBold, _whiteBrush);
         _privacyText.HorizontalAlignment = HorizontalAlignment.Center;
@@ -466,8 +621,8 @@ public sealed partial class DynalandWindow : Window
 
         // ---- general page, open
         TextBlock usesTitle = Text(13, FontWeights.SemiBold, _whiteBrush);
-        usesTitle.Text = "In use now";
-        _toMedia = MakeControl(0xE76B, "Back to the music", () => ShowPage(general: false), out FontIcon toMediaIcon);
+        usesTitle.Text = Strings.DynInUseNow;
+        _toMedia = MakeControl(0xE76B, Strings.DynBackToMusic, () => ShowPage(general: false), out FontIcon toMediaIcon);
         SmallArrow(_toMedia, toMediaIcon);
         _toMedia.HorizontalAlignment = HorizontalAlignment.Right;
         var generalTop = new Grid { Height = 28 };
@@ -476,31 +631,54 @@ public sealed partial class DynalandWindow : Window
 
         _useRows = new StackPanel { Spacing = 4, Margin = new Thickness(0, 2, 0, 0) };
         _noUses = Text(12, FontWeights.Normal, _dimBrush);
-        _noUses.Text = "Nothing is using the camera or the microphone.";
+        _noUses.Text = Strings.DynNothingInUse;
         _noUses.Margin = new Thickness(0, 2, 0, 0);
 
         TextBlock notificationsTitle = Text(13, FontWeights.SemiBold, _whiteBrush);
-        notificationsTitle.Text = "Notifications";
+        notificationsTitle.Text = Strings.DynNotifications;
         var notifications = new Button
         {
-            Content = "Open Windows' notification centre",
+            Content = Strings.DynOpenNotifications,
             Height = 32,
             Margin = new Thickness(0, 6, 6, 0),
             Padding = new Thickness(12, 0, 12, 0),
-            CornerRadius = new CornerRadius(8),
+            CornerRadius = new CornerRadius(Radii.Small),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Left,
         };
-        AutomationProperties.SetName(notifications, "Open Windows' notification centre");
+        AutomationProperties.SetName(notifications, Strings.DynOpenNotifications);
         notifications.Click += (_, _) => OpenNotifications();
+        // Windows' tray icons (see TrayIconService); only while there are some.
+        TextBlock trayTitle = Text(13, FontWeights.SemiBold, _whiteBrush);
+        trayTitle.Text = Strings.DynTray;
+        trayTitle.Height = TrayTitleHeight;
+        trayTitle.Padding = new Thickness(0, 4, 0, 0);
+        _trayRows = new StackPanel { Spacing = TrayRowHeight - TrayTile };
+        _trayMarker = new Border
+        {
+            Width = 3,
+            Height = TrayTile - 8,
+            CornerRadius = new CornerRadius(1.5),
+            Background = _accentBrush,
+            Visibility = Visibility.Collapsed,
+        };
+        _trayOverlay = new Canvas { IsHitTestVisible = false };
+        _trayOverlay.Children.Add(_trayMarker);
+        _trayArea = new Grid();
+        _trayArea.Children.Add(_trayRows);
+        _trayArea.Children.Add(_trayOverlay);
+        _traySection = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 4, 0, 0) };
+        _traySection.Children.Add(trayTitle);
+        _traySection.Children.Add(_trayArea);
+
         var notificationsPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
         notificationsPanel.Children.Add(notificationsTitle);
         notificationsPanel.Children.Add(notifications);
 
         _generalContent = new Grid
         {
-            Width = StageWidth,
-            Height = StageHeight,
+            Width = _stageWidth,
+            Height = OpenHeight,
             Padding = new Thickness(18, 6, 12, 14),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
@@ -508,13 +686,16 @@ public sealed partial class DynalandWindow : Window
         };
         _generalContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _generalContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        _generalContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _generalContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid.SetRow(_useRows, 1);
         Grid.SetRow(_noUses, 1);
-        Grid.SetRow(notificationsPanel, 2);
+        Grid.SetRow(_traySection, 2);
+        Grid.SetRow(notificationsPanel, 3);
         _generalContent.Children.Add(generalTop);
         _generalContent.Children.Add(_useRows);
         _generalContent.Children.Add(_noUses);
+        _generalContent.Children.Add(_traySection);
         _generalContent.Children.Add(notificationsPanel);
         _stage.Children.Add(_generalContent);
 
@@ -526,14 +707,14 @@ public sealed partial class DynalandWindow : Window
         _compositor = _collapsedVisual.Compositor;
         _geometry = _compositor.CreateRoundedRectangleGeometry();
         _geometry.CornerRadius = new Vector2((float)CollapsedRadius);
-        _geometry.Size = new Vector2((float)IdleWidth, (float)(CollapsedHeight + TopExtension));
-        _geometry.Offset = new Vector2((float)((StageWidth - IdleWidth) / 2), (float)-TopExtension);
+        _geometry.Size = new Vector2((float)_idleWidth, (float)(CollapsedHeight + TopExtension));
+        _geometry.Offset = new Vector2((float)((_stageWidth - _idleWidth) / 2), (float)-TopExtension);
         _shape = _compositor.CreateSpriteShape(_geometry);
         _shape.FillBrush = _compositor.CreateColorBrush(Colors.Black);
         _shape.StrokeBrush = _compositor.CreateColorBrush(ColorHelper.FromArgb(0x24, 0xFF, 0xFF, 0xFF));
         _shape.StrokeThickness = 1;
         _shapeVisual = _compositor.CreateShapeVisual();
-        _shapeVisual.Size = new Vector2((float)StageWidth, (float)StageHeight);
+        _shapeVisual.Size = new Vector2((float)_stageWidth, (float)StageHeight);
         _shapeVisual.Shapes.Add(_shape);
         _pillHost = _compositor.CreateContainerVisual();
         _pillHost.Children.InsertAtTop(_shapeVisual);
@@ -552,7 +733,8 @@ public sealed partial class DynalandWindow : Window
         _privacyVisual.Opacity = 0;
         _generalVisual.Opacity = 0;
 
-        _cutter = new WindowCutter(_hwnd, _root);
+        _cutter = new WindowCutter(_hwnd, _canvas);
+        ApplySize();
         // The cut's corners are the notch's (the smaller ones): never rounder than the pill drawn.
         _cutter.Add(_collapsedHit, CollapsedRadius);
         _cutter.Add(_expandedHit, MediaRadius);
@@ -602,6 +784,15 @@ public sealed partial class DynalandWindow : Window
         _volumeTimer = MakeTimer(TimeSpan.FromMilliseconds(VolumeShowMs + 20), repeating: false, Refresh);
         _volumePoll = MakeTimer(TimeSpan.FromMilliseconds(250), repeating: true, PollVolume);
 
+        // The tray icons arrive from their apps (TrayIconService), live; started with Dynaland.
+        _tray.Changed += FillTray;
+        _host.BarLayout.Changed += FillTray;
+        _trayCloseTimer = MakeTimer(TimeSpan.FromMilliseconds(_doubleClickMs), repeating: false, () =>
+        {
+            _lastTrayKey = null;
+            EndHover();
+        });
+
         _media = new MediaService(DispatcherQueue, AppNameFor);
         _media.Changed += ApplyMedia;
         _privacy = new PrivacyMonitor(DispatcherQueue);
@@ -609,12 +800,15 @@ public sealed partial class DynalandWindow : Window
 
         _host.Settings.Changed += OnSettingsChanged;
         _host.FullScreenChanged += OnFullScreenChanged;
+        _host.Custom.Changed += OnCustomChanged;
         Closed += (_, _) =>
         {
+            _host.Custom.Changed -= OnCustomChanged;
             _closed = true;
             foreach (DispatcherQueueTimer timer in new[]
                      {
                          _heal, _tick, _hoverTimer, _leaveTimer, _cursorTimer, _regionTimer, _peekTimer, _volumeTimer, _volumePoll,
+                         _trayCloseTimer,
                      })
             {
                 timer.Stop();
@@ -626,6 +820,8 @@ public sealed partial class DynalandWindow : Window
             _media.Dispose();
             _privacy.Changed -= OnPrivacyChanged;
             _privacy.Dispose();
+            _tray.Changed -= FillTray;
+            _host.BarLayout.Changed -= FillTray;
             _subclass?.Dispose();
             _subclass = null;
         };
@@ -654,6 +850,59 @@ public sealed partial class DynalandWindow : Window
     /// <summary>True while on screen.</summary>
     internal bool IsShown => _shown;
 
+    /// <summary>Where the pill is on screen now (physical pixels), for custom mode's badge; null when hidden.</summary>
+    internal RECT? BadgeRect => _shown && !_closed ? PillScreenRect(_pill) : null;
+
+    /// <summary>The title of what plays now, or null.</summary>
+    internal string? NowPlayingTitle => _media.Current.HasMedia ? _media.Current.Title : null;
+
+    /// <summary>Custom mode on: a see-through cover takes Dynaland's clicks (pick) and right-clicks (black menu).</summary>
+    private void OnCustomChanged()
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        bool on = _host.Custom.IsOn;
+        if (on && _customShield is null)
+        {
+            if (_hovering)
+            {
+                EndHover();
+            }
+
+            var shield = new Border { Background = new SolidColorBrush(Colors.Transparent) };
+            shield.Tapped += (_, e) =>
+            {
+                e.Handled = true;
+                _host.Custom.Select(new CustomTarget(CustomPiece.Dynaland));
+            };
+            shield.RightTapped += (_, e) =>
+            {
+                e.Handled = true;
+                try
+                {
+                    _customMenu ??= new MenuFlyout { ShouldConstrainToRootBounds = false };
+                    CustomMenus.Fill(_customMenu, _host.Custom, new CustomTarget(CustomPiece.Dynaland));
+                    User32.SetForegroundWindow(_hwnd);
+                    _customMenu.ShowAt(shield, new FlyoutShowOptions { Position = e.GetPosition(shield) });
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Dynaland: the custom mode menu could not be shown.", ex);
+                }
+            };
+            _customShield = shield;
+            _root.Children.Add(shield);
+        }
+        else if (!on && _customShield is not null)
+        {
+            _root.Children.Remove(_customShield);
+            _customShield = null;
+        }
+    }
+
     /// <summary>
     /// The span (physical pixels) the small pill can take while Dynaland sits in the bar's own
     /// band (on the bar's edge, the bar aligned to a side); null otherwise or while hidden.
@@ -661,7 +910,7 @@ public sealed partial class DynalandWindow : Window
     internal (int Left, int Right)? ZoneInBarBand { get; private set; }
 
     /// <summary>Height the top strip keeps for Dynaland alone: the collapsed pill (and the island's gap) plus a margin, DIP.</summary>
-    internal double StripNeedDip => _gap + CollapsedHeight + 8;
+    internal double StripNeedDip => ((_gap + CollapsedHeight) * _size) + 8;
 
     /// <summary>True when Dynaland is meant to be on screen (on); stays true while a full-screen app hides it.</summary>
     internal bool WantsSpace => _started && !_closed && _host.Settings.Current.EnableDynaland;
@@ -686,6 +935,7 @@ public sealed partial class DynalandWindow : Window
         _started = true;
         UpdateVisibility();
         _heal.Start();
+        FillTray();
     }
 
     /// <summary>Hides Dynaland for good (shutdown). Close it afterwards.</summary>
@@ -719,9 +969,12 @@ public sealed partial class DynalandWindow : Window
 
             uint dpi = User32.GetDpiForWindow(near);
             double scale = (dpi == 0 ? 96 : dpi) / 96.0;
-            int width = (int)Math.Round((StageWidth + (2 * (Pad + EarRadius))) * scale);
-            int height = (int)Math.Round((StageHeight + IslandGap + (2 * Pad)) * scale);
-            int pad = (int)Math.Round(Pad * scale);
+
+            // Dynaland's own sizes scale with its size setting; the margins to the bar do not.
+            double sized = scale * _size;
+            int width = (int)Math.Round(DesignWidth * sized);
+            int height = (int)Math.Round(DesignHeight * sized);
+            int pad = (int)Math.Round(Pad * sized);
 
             // Dynaland's edge: the chosen one, or (Auto) the one without the bar. A bar on the same
             // edge that leaves the centre free (aligned left or right) is no obstacle: Dynaland
@@ -745,7 +998,7 @@ public sealed partial class DynalandWindow : Window
             }
 
             int centre = x + (width / 2);
-            int zoneHalf = (int)Math.Round(((MaxCollapsedWidth / 2) + EarRadius) * scale);
+            int zoneHalf = (int)Math.Round(((_maxCollapsedWidth / 2) + EarRadius) * sized);
             ZoneInBarBand = barHere && !pastBar ? (centre - zoneHalf, centre + zoneHalf) : null;
 
             int y;
@@ -965,7 +1218,8 @@ public sealed partial class DynalandWindow : Window
     {
         return shape switch
         {
-            PillShape.Media or PillShape.General => (StageWidth, StageHeight, _openRadius),
+            PillShape.Media => (_stageWidth, OpenHeight, _openRadius),
+            PillShape.General => (_stageWidth, _generalHeight, _openRadius),
             PillShape.Privacy => (PrivacyWidth, PrivacyHeight, _privacyRadius),
             _ => (collapsedWidth, CollapsedHeight, _collapsedRadius),
         };
@@ -1101,7 +1355,9 @@ public sealed partial class DynalandWindow : Window
     {
         UpdateVisibility();
         _host.LayoutCorners();
-        if (_shown)
+
+        // Not over an app's menu opened from a tray tile.
+        if (_shown && !MenuHeld())
         {
             User32.SetWindowPos(_hwnd, User32.HWND_TOPMOST, 0, 0, 0, 0,
                 User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_NOACTIVATE);
@@ -1115,11 +1371,81 @@ public sealed partial class DynalandWindow : Window
             return;
         }
 
+        ApplySize();
+        ApplyWidth();
         ApplyLook(EffectiveStyle(), !_host.DynalandOnTop());
         UpdateVisibility();
+        FillTray();
         UpdateDots();
         _placed = default;
         _host.LayoutCorners();
+        Refresh();
+    }
+
+    /// <summary>The size setting: Dynaland scaled as a whole (window, pill, pages, cut-out).</summary>
+    private void ApplySize()
+    {
+        double size = _host.Settings.Current.DynalandSize / 100.0;
+        if (size == _size)
+        {
+            return;
+        }
+
+        _size = size;
+        _zoom.ScaleX = size;
+        _zoom.ScaleY = size;
+        _cutter.RadiusScale = size;
+        _cutter.Invalidate();
+        _placed = default;
+    }
+
+    private double WidthSetting()
+    {
+        return Math.Clamp(_host.Settings.Current.DynalandWidth, ShellSettings.MinDynalandWidth, ShellSettings.MaxDynalandWidth);
+    }
+
+    /// <summary>The width setting against the standard 400 DIP (0.9 to 1.4).</summary>
+    private double WidthRatio => WidthSetting() / StandardStageWidth;
+
+    /// <summary>
+    /// The width setting: the open pages, the stage, the window and the pill's centre follow,
+    /// and so does the closed pill (its width with nothing playing, and how far it may grow
+    /// with music), live; the open pages show it on the next hover.
+    /// </summary>
+    private void ApplyWidth()
+    {
+        double width = WidthSetting();
+        if (width == _stageWidth)
+        {
+            return;
+        }
+
+        _stageWidth = width;
+        _maxCollapsedWidth = Math.Round(MaxCollapsedWidth * WidthRatio);
+        _idleWidth = Math.Round(IdleWidth * WidthRatio);
+        _miniText.SetMaxWidth(Math.Round(MiniTextMaxWidth * WidthRatio));
+        _root.Width = DesignWidth;
+        _stage.Width = width;
+        _expandedHit.Width = width;
+        _mediaContent.Width = width;
+        _generalContent.Width = width;
+        _shapeVisual.Size = new Vector2((float)width, (float)StageHeight);
+
+        // The tray rows hold as many tiles as fit the new width.
+        _trayShownKeys = new List<string>();
+        FillTray();
+
+        // The pill keeps its shape, centred on the new stage.
+        (double w, double h, double r) = Dimensions(_pill, _collapsedWidth);
+        AnimatePill(w, h, r);
+        SettleRegion();
+        _cutter.Invalidate();
+        _placed = default;
+        Log.Info("Dynaland: width " + width.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+            + " DIP; closed " + _idleWidth.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+            + " DIP, with music up to " + _maxCollapsedWidth.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " DIP.");
+
+        // The closed pill takes its new width at once (Refresh animates it).
         Refresh();
     }
 
@@ -1158,6 +1484,8 @@ public sealed partial class DynalandWindow : Window
         _stage.Margin = atBottom ? new Thickness(0, 0, 0, _gap) : new Thickness(0, _gap, 0, 0);
         _collapsedContent.VerticalAlignment = toEdge;
         _privacyContent.VerticalAlignment = toEdge;
+        _mediaContent.VerticalAlignment = toEdge;
+        _generalContent.VerticalAlignment = toEdge;
 
         // The island's corners are all round, so the open views keep their rows clear of them;
         // the notch's square side is at the screen's edge, so less room is needed there.
@@ -1213,7 +1541,7 @@ public sealed partial class DynalandWindow : Window
     private Vector2 PillOffset(double width, double height)
     {
         float y = _atBottom ? (float)(StageHeight - height) : (float)-_topExtension;
-        return new Vector2((float)((StageWidth - width) / 2), y);
+        return new Vector2((float)((_stageWidth - width) / 2), y);
     }
 
     private void OnFullScreenChanged()
@@ -1306,8 +1634,8 @@ public sealed partial class DynalandWindow : Window
             _ => _idleRow,
         };
         row.Measure(new Windows.Foundation.Size(double.PositiveInfinity, CollapsedHeight));
-        double minimum = form == CollapsedForm.Idle ? IdleWidth : MinBusyWidth;
-        double width = Math.Clamp(Math.Ceiling(row.DesiredSize.Width) + (2 * CollapsedSidePad), minimum, MaxCollapsedWidth);
+        double minimum = form == CollapsedForm.Idle ? _idleWidth : MinBusyWidth;
+        double width = Math.Clamp(Math.Ceiling(row.DesiredSize.Width) + (2 * CollapsedSidePad), minimum, _maxCollapsedWidth);
         double oldWidth = _collapsedWidth;
         bool widthChanged = Math.Abs(width - oldWidth) >= 0.5;
         _collapsedWidth = width;
@@ -1454,6 +1782,13 @@ public sealed partial class DynalandWindow : Window
             return;
         }
 
+        if (_hovering && (_seeking || _trayDragKey is not null || MenuHeld()))
+        {
+            // A drag on the seek bar, or an app's menu from a tray tile, keeps Dynaland open.
+            _leaveTimer.Stop();
+            return;
+        }
+
         if (!User32.GetCursorPos(out POINT point))
         {
             return;
@@ -1482,10 +1817,10 @@ public sealed partial class DynalandWindow : Window
     /// <summary>Where the pill of the given shape is on screen (physical pixels), from the screen's edge.</summary>
     private RECT PillScreenRect(PillShape shape)
     {
-        double scale = _root.XamlRoot?.RasterizationScale ?? 1;
+        double scale = (_root.XamlRoot?.RasterizationScale ?? 1) * _size;
         (double w, double h, _) = Dimensions(shape, _collapsedWidth);
         int stageLeft = _placed.Left + (int)Math.Round((Pad + EarRadius) * scale);
-        int centre = stageLeft + (int)Math.Round(StageWidth * scale / 2);
+        int centre = stageLeft + (int)Math.Round(_stageWidth * scale / 2);
         int half = (int)Math.Round(w * scale / 2);
         bool island = _style == DynalandStyle.Island;
         if (_atBottom)
@@ -1536,8 +1871,9 @@ public sealed partial class DynalandWindow : Window
     /// <summary>The pointer rests on the pill (or it was clicked): open, on the player first while music plays.</summary>
     private void StartHover()
     {
-        if (!_shown || _closed)
+        if (!_shown || _closed || _host.Custom.IsOn)
         {
+            // In custom mode a click picks Dynaland; it does not open.
             return;
         }
 
@@ -1552,6 +1888,7 @@ public sealed partial class DynalandWindow : Window
     /// <summary>The pointer left: close, and start on the player again next time.</summary>
     private void EndHover()
     {
+        _menuHolding = false;
         _hovering = false;
         _onGeneralPage = false;
         Refresh();
@@ -1593,12 +1930,12 @@ public sealed partial class DynalandWindow : Window
 
         if (camera.Count > 0)
         {
-            _useRows.Children.Add(UseRow(CameraGreen, "Camera", camera));
+            _useRows.Children.Add(UseRow(CameraGreen, Strings.DynCamera, camera));
         }
 
         if (microphone.Count > 0)
         {
-            _useRows.Children.Add(UseRow(MicOrange, "Microphone", microphone));
+            _useRows.Children.Add(UseRow(MicOrange, Strings.DynMicrophone, microphone));
         }
 
         Show(_useRows, _uses.Count > 0);
@@ -1624,6 +1961,469 @@ public sealed partial class DynalandWindow : Window
         row.Children.Add(dot);
         row.Children.Add(text);
         return row;
+    }
+
+    // ---------------------------------------------------------------- tray
+
+    /// <summary>
+    /// The tray icons as tiles, up to ten in a row and two rows (a last tile says how many more),
+    /// and the general page grown to fit them; nothing (and no growth) without icons. When only
+    /// pictures or tooltips changed, the tiles are updated where they are (a click in progress
+    /// is never lost to a rebuild).
+    /// </summary>
+    private void FillTray()
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        // On the bar instead (Settings: tray on the bar): none here. Else in the kept order.
+        IReadOnlyList<TrayIcon> icons = _host.Settings.Current.TrayOnBar
+            ? Array.Empty<TrayIcon>()
+            : _host.BarLayout.ArrangeTray(_tray.Icons);
+        if (_trayDragKey is not null)
+        {
+            // Not while a tile is being dragged: the drop fills again.
+            return;
+        }
+
+        double room = _stageWidth - _generalContent.Padding.Left - _generalContent.Padding.Right;
+        int perRow = Math.Max(1, (int)Math.Floor((room + TraySpacing) / (TrayTile + TraySpacing)));
+        int most = perRow * MaxTrayRows;
+        int shown = icons.Count > most ? most - 1 : icons.Count;
+        int more = icons.Count - shown;
+
+        var shownKeys = new List<string>(shown);
+        _trayOrdered = new List<TrayIcon>(shown);
+        for (int i = 0; i < shown; i++)
+        {
+            shownKeys.Add(icons[i].Key);
+            _trayOrdered.Add(icons[i]);
+        }
+
+        // Tiles of icons that are gone go too.
+        var alive = new HashSet<string>(StringComparer.Ordinal);
+        foreach (TrayIcon icon in icons)
+        {
+            alive.Add(icon.Key);
+        }
+
+        foreach (string key in new List<string>(_trayTiles.Keys))
+        {
+            if (!alive.Contains(key))
+            {
+                _trayTiles.Remove(key);
+            }
+        }
+
+        if (more == _trayMore && SameKeys(shownKeys, _trayShownKeys))
+        {
+            for (int i = 0; i < shown; i++)
+            {
+                TrayTileFor(icons[i]);
+            }
+
+            return;
+        }
+
+        foreach (UIElement oldRow in _trayRows.Children)
+        {
+            if (oldRow is Panel panel)
+            {
+                panel.Children.Clear();
+            }
+        }
+
+        _trayRows.Children.Clear();
+        StackPanel? row = null;
+        for (int i = 0; i < shown; i++)
+        {
+            if (i % perRow == 0)
+            {
+                row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = TraySpacing };
+                _trayRows.Children.Add(row);
+            }
+
+            row!.Children.Add(TrayTileFor(icons[i]));
+        }
+
+        if (more > 0 && row is not null)
+        {
+            TextBlock moreText = Text(12, FontWeights.SemiBold, _dimBrush);
+            moreText.Text = "+" + more.ToString(CultureInfo.InvariantCulture);
+            moreText.Width = TrayTile;
+            moreText.TextAlignment = TextAlignment.Center;
+            moreText.VerticalAlignment = VerticalAlignment.Center;
+            ToolTipService.SetToolTip(moreText, Fmt.F(Strings.DynMoreTray, more));
+            row.Children.Add(moreText);
+        }
+
+        _trayShownKeys = shownKeys;
+        _trayMore = more;
+
+        int rows = _trayRows.Children.Count;
+        Show(_traySection, rows > 0);
+        SetGeneralHeight(OpenHeight + (rows > 0 ? TrayTitleHeight + (rows * TrayRowHeight) : 0));
+    }
+
+    private static bool SameKeys(List<string> a, List<string> b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (!string.Equals(a[i], b[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The tile of one tray icon, made the first time and brought up to date after that: the
+    /// app's own picture (or its first letter), its tooltip. Click, double-click, or right-click for its menu.
+    /// </summary>
+    private Button TrayTileFor(TrayIcon icon)
+    {
+        if (!_trayTiles.TryGetValue(icon.Key, out TrayTileView? view))
+        {
+            var tile = new Button
+            {
+                Width = TrayTile,
+                Height = TrayTile,
+                MinWidth = 0,
+                MinHeight = 0,
+                Padding = new Thickness(0),
+                CornerRadius = new CornerRadius(Radii.Small),
+                BorderThickness = new Thickness(0),
+                Background = new SolidColorBrush(Colors.Transparent),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center,
+            };
+            string key = icon.Key;
+            tile.Click += (_, _) =>
+            {
+                if (_traySuppressClick)
+                {
+                    // The end of a drag, not a click.
+                    _traySuppressClick = false;
+                    return;
+                }
+
+                ClickTray(key, right: false);
+            };
+            AttachTrayDrag(tile, key);
+            tile.RightTapped += (_, e) =>
+            {
+                e.Handled = true;
+                ClickTray(key, right: true);
+            };
+            view = new TrayTileView(tile);
+            _trayTiles[key] = view;
+        }
+
+        string name = icon.Name.Length > 0 ? icon.Name : Strings.TrayIcon;
+        bool nameChanged = !string.Equals(name, view.Name, StringComparison.Ordinal);
+        if (view.Stamp != icon.PictureStamp || view.Button.Content is null || (icon.Picture is null && nameChanged))
+        {
+            view.Stamp = icon.PictureStamp;
+            view.Button.Content = TrayPictureFor(icon, name);
+        }
+
+        if (nameChanged)
+        {
+            view.Name = name;
+            ToolTipService.SetToolTip(view.Button, name);
+            AutomationProperties.SetName(view.Button, name.Replace("\n", ", ", StringComparison.Ordinal));
+        }
+
+        view.Icon = icon;
+        return view.Button;
+    }
+
+    // ---------------------------------------------------------------- dragging tray tiles
+
+    /// <summary>
+    /// A tray tile can be dragged to another place: it follows the pointer, an accent line marks
+    /// the place, and on release the order is kept (the same order the bar's tray bubble uses).
+    /// Below the drag distance it stays an ordinary click.
+    /// </summary>
+    private void AttachTrayDrag(Button tile, string key)
+    {
+        tile.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, e) =>
+        {
+            if (_host.Custom.IsOn || !e.GetCurrentPoint(tile).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            _trayPressKey = key;
+            _trayPressPointer = e.Pointer.PointerId;
+            _trayPressAt = e.GetCurrentPoint(_trayArea).Position;
+        }), true);
+
+        tile.AddHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, e) =>
+        {
+            if (_trayPressKey != key || e.Pointer.PointerId != _trayPressPointer)
+            {
+                return;
+            }
+
+            Windows.Foundation.Point at = e.GetCurrentPoint(_trayArea).Position;
+            if (_trayDragKey is null)
+            {
+                if (Math.Abs(at.X - _trayPressAt.X) < TrayDragStartDip && Math.Abs(at.Y - _trayPressAt.Y) < TrayDragStartDip)
+                {
+                    return;
+                }
+
+                _trayDragKey = key;
+                _traySuppressClick = true;
+                tile.Opacity = 0.7;
+                tile.RenderTransform = new TranslateTransform();
+                if (VisualTreeHelper.GetParent(tile) is UIElement row)
+                {
+                    Canvas.SetZIndex(row, 1);
+                }
+            }
+
+            if (tile.RenderTransform is TranslateTransform move)
+            {
+                move.X = at.X - _trayPressAt.X;
+                move.Y = at.Y - _trayPressAt.Y;
+            }
+
+            ShowTrayDrop(at);
+        }), true);
+
+        tile.AddHandler(UIElement.PointerReleasedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, e) => EndTrayDrag(tile, key, apply: true)), true);
+        tile.AddHandler(UIElement.PointerCaptureLostEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, e) => EndTrayDrag(tile, key, apply: true)), true);
+    }
+
+    /// <summary>The place a drop at <paramref name="at"/> (in the tray area) would take: before or after the nearest tile.</summary>
+    private void ShowTrayDrop(Windows.Foundation.Point at)
+    {
+        _trayDropIndex = -1;
+        double best = double.MaxValue;
+        Windows.Foundation.Rect bestRect = default;
+        bool after = false;
+        for (int i = 0; i < _trayOrdered.Count; i++)
+        {
+            if (!_trayTiles.TryGetValue(_trayOrdered[i].Key, out TrayTileView? view) || view.Button.XamlRoot is null)
+            {
+                continue;
+            }
+
+            Windows.Foundation.Point origin = view.Button.TransformToVisual(_trayArea).TransformPoint(new Windows.Foundation.Point(0, 0));
+            if (view.Button.RenderTransform is TranslateTransform shift)
+            {
+                // The dragged tile's own place, not where it floats.
+                origin = new Windows.Foundation.Point(origin.X - shift.X, origin.Y - shift.Y);
+            }
+
+            var rect = new Windows.Foundation.Rect(origin.X, origin.Y, TrayTile, TrayTile);
+            double dx = at.X - (rect.X + (rect.Width / 2));
+            double dy = at.Y - (rect.Y + (rect.Height / 2));
+            double distance = (dx * dx) + (dy * dy);
+            if (distance < best)
+            {
+                best = distance;
+                bestRect = rect;
+                after = dx > 0;
+                _trayDropIndex = after ? i + 1 : i;
+            }
+        }
+
+        if (_trayDropIndex < 0)
+        {
+            _trayMarker.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        double x = after ? bestRect.Right + (TraySpacing / 2) : bestRect.Left - (TraySpacing / 2);
+        Canvas.SetLeft(_trayMarker, x - (_trayMarker.Width / 2));
+        Canvas.SetTop(_trayMarker, bestRect.Top + 4);
+        _trayMarker.Visibility = Visibility.Visible;
+    }
+
+    private void EndTrayDrag(Button tile, string key, bool apply)
+    {
+        if (_trayPressKey != key)
+        {
+            return;
+        }
+
+        _trayPressKey = null;
+        if (_trayDragKey is null)
+        {
+            return;
+        }
+
+        _trayDragKey = null;
+        _trayMarker.Visibility = Visibility.Collapsed;
+        tile.Opacity = 1;
+        tile.RenderTransform = null;
+        if (VisualTreeHelper.GetParent(tile) is UIElement row)
+        {
+            Canvas.SetZIndex(row, 0);
+        }
+
+        // A click that comes with this release is the drag's end; one that does not come is no
+        // reason to swallow the next real click.
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => _traySuppressClick = false);
+
+        if (apply && _trayDropIndex >= 0)
+        {
+            int from = _trayOrdered.FindIndex(icon => string.Equals(icon.Key, key, StringComparison.Ordinal));
+            if (from >= 0)
+            {
+                TrayIcon icon = _trayOrdered[from];
+                int index = _trayDropIndex > from ? _trayDropIndex - 1 : _trayDropIndex;
+                if (index != from)
+                {
+                    _host.BarLayout.PlaceTrayIcon(icon, index, _trayOrdered);
+                    Log.Info("Dynaland: tray icon moved to place " + (index + 1) + ".");
+                }
+            }
+        }
+
+        _trayDropIndex = -1;
+        FillTray();
+    }
+
+    /// <summary>The app's picture at Windows' own tray size (16), else the name's first letter.</summary>
+    private FrameworkElement TrayPictureFor(TrayIcon icon, string name)
+    {
+        if (icon.Picture is IconPixels pixels)
+        {
+            try
+            {
+                return new Image
+                {
+                    Width = 16,
+                    Height = 16,
+                    Stretch = Stretch.Uniform,
+                    Source = StartMenuWindow.ToBitmap(pixels),
+                };
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Dynaland: a tray icon's picture could not be shown.", ex);
+            }
+        }
+
+        TextBlock letter = Text(13, FontWeights.SemiBold, _whiteBrush);
+        letter.Text = name.Substring(0, 1).ToUpperInvariant();
+        letter.HorizontalAlignment = HorizontalAlignment.Center;
+        return letter;
+    }
+
+    /// <summary>
+    /// A tray tile was clicked. Right: the app gets the click (its menu opens at the pointer) and
+    /// Dynaland stays open while that menu is up. Left: the app gets the click at once and
+    /// Dynaland waits Windows' double-click time, so a second click becomes a double click (apps
+    /// that open on a double click, as on Windows' own tray); then it closes.
+    /// </summary>
+    private void ClickTray(string key, bool right)
+    {
+        if (!_trayTiles.TryGetValue(key, out TrayTileView? view) || view.Icon is not TrayIcon icon)
+        {
+            return;
+        }
+
+        _leaveTimer.Stop();
+        if (right)
+        {
+            _trayCloseTimer.Stop();
+            _lastTrayKey = null;
+            _menuHolding = true;
+            _menuHoldUntil = Environment.TickCount64 + MenuAppearMs;
+            _tray.Click(icon, TrayClick.Right);
+            return;
+        }
+
+        long now = Environment.TickCount64;
+        if (string.Equals(_lastTrayKey, key, StringComparison.Ordinal) && now - _lastTrayClickAt <= _doubleClickMs)
+        {
+            _lastTrayKey = null;
+            _trayCloseTimer.Stop();
+            _tray.Click(icon, TrayClick.Double);
+            EndHover();
+            return;
+        }
+
+        _lastTrayKey = key;
+        _lastTrayClickAt = now;
+        _tray.Click(icon, TrayClick.Left);
+        _trayCloseTimer.Stop();
+        _trayCloseTimer.Start();
+    }
+
+    /// <summary>How long Dynaland waits for an app's menu to appear after a right-click.</summary>
+    private const int MenuAppearMs = 1500;
+
+    /// <summary>
+    /// True while Dynaland holds open for an app's menu: a moment after the right-click, then as
+    /// long as a menu (Windows' standard menu window) is on screen. Clears itself after.
+    /// </summary>
+    private bool MenuHeld()
+    {
+        if (!_menuHolding)
+        {
+            return false;
+        }
+
+        if (Environment.TickCount64 < _menuHoldUntil || AnyMenuOpen())
+        {
+            return true;
+        }
+
+        _menuHolding = false;
+        return false;
+    }
+
+    private static bool AnyMenuOpen()
+    {
+        nint window = 0;
+        for (int guard = 0; guard < 32; guard++)
+        {
+            window = User32.FindWindowEx(0, window, "#32768", null);
+            if (window == 0)
+            {
+                return false;
+            }
+
+            if (User32.IsWindowVisible(window))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The general page's height; while it is open, the pill follows.</summary>
+    private void SetGeneralHeight(double height)
+    {
+        if (Math.Abs(height - _generalHeight) < 0.5)
+        {
+            return;
+        }
+
+        _generalHeight = height;
+        _generalContent.Height = height;
+        if (_pill == PillShape.General)
+        {
+            HoldRegion(_collapsedWidth);
+            (double w, double h, double r) = Dimensions(PillShape.General, _collapsedWidth);
+            AnimatePill(w, h, r);
+        }
     }
 
     private void OpenNotifications()
@@ -1652,6 +2452,11 @@ public sealed partial class DynalandWindow : Window
             Show(_miniArt, _artFound);
             _title.Text = media.Title;
             _artist.Text = media.Artist;
+
+            // The scrolling titles stop while the music is paused.
+            _miniText.Paused = !media.IsPlaying;
+            _title.Paused = !media.IsPlaying;
+            _artist.Paused = !media.IsPlaying;
             Show(_artist.Element, media.Artist.Length > 0);
             Set(_appName, media.AppName);
             _previous.IsEnabled = media.CanPrevious;
@@ -1692,17 +2497,57 @@ public sealed partial class DynalandWindow : Window
         MediaSnapshot media = _media.Current;
         bool show = media.HasMedia && media.HasTimeline;
         Show(_timeline, show);
-        if (!show)
+        if (!show || _seeking)
+        {
+            // While dragging, the bar shows the place under the pointer.
+            return;
+        }
+
+        // Just after a seek, the chosen place until the app reports its new position.
+        TimeSpan position = Environment.TickCount64 < _seekHoldUntil ? _seekTarget : media.PositionNow;
+        double done = media.Duration.TotalSeconds <= 0 ? 0 : Math.Clamp(position.TotalSeconds / media.Duration.TotalSeconds, 0, 1);
+        ShowTimeline(done, position, media.Duration);
+        UpdateSeekThumb();
+    }
+
+    private void ShowTimeline(double done, TimeSpan position, TimeSpan duration)
+    {
+        Set(_elapsed, Format(position));
+        Set(_total, Format(duration));
+        _doneColumn.Width = new GridLength(Math.Max(done, 0.0001), GridUnitType.Star);
+        _leftColumn.Width = new GridLength(Math.Max(1 - done, 0.0001), GridUnitType.Star);
+        _seekThumbMove.X = (done * _seekArea.ActualWidth) - (_seekThumb.Width / 2);
+    }
+
+    /// <summary>The thumb shows while the pointer is over the bar or dragging, when the app allows seeking.</summary>
+    private void UpdateSeekThumb()
+    {
+        bool shown = (_seekHover || _seeking) && _media.Current.CanSeek;
+        Show(_seekThumb, shown);
+    }
+
+    private void PreviewSeek(double x)
+    {
+        double width = _seekArea.ActualWidth;
+        if (width <= 0)
         {
             return;
         }
 
-        TimeSpan position = media.PositionNow;
-        Set(_elapsed, Format(position));
-        Set(_total, Format(media.Duration));
-        double done = media.Duration.TotalSeconds <= 0 ? 0 : Math.Clamp(position.TotalSeconds / media.Duration.TotalSeconds, 0, 1);
-        _doneColumn.Width = new GridLength(Math.Max(done, 0.0001), GridUnitType.Star);
-        _leftColumn.Width = new GridLength(Math.Max(1 - done, 0.0001), GridUnitType.Star);
+        _seekFraction = Math.Clamp(x / width, 0, 1);
+        TimeSpan duration = _media.Current.Duration;
+        ShowTimeline(_seekFraction, TimeSpan.FromSeconds(duration.TotalSeconds * _seekFraction), duration);
+        UpdateSeekThumb();
+    }
+
+    /// <summary>The press or drag ended: the playing app jumps to the chosen place.</summary>
+    private void FinishSeek()
+    {
+        _seeking = false;
+        _seekTarget = TimeSpan.FromSeconds(_media.Current.Duration.TotalSeconds * _seekFraction);
+        _seekHoldUntil = Environment.TickCount64 + 1500;
+        _ = _media.SeekAsync(_seekTarget);
+        UpdateSeekThumb();
     }
 
     private async Task LoadArtAsync(MediaSnapshot media)
@@ -1820,7 +2665,7 @@ public sealed partial class DynalandWindow : Window
             : _volumePercent > 33 ? 0xE994
             : 0xE993;
         _volumeIcon.Glyph = ((char)glyph).ToString();
-        Set(_volumeText, _volumeMuted ? "Muted" : _volumePercent.ToString(CultureInfo.CurrentCulture));
+        Set(_volumeText, _volumeMuted ? Strings.DynMuted : _volumePercent.ToString(CultureInfo.CurrentCulture));
         double done = _volumeMuted ? 0 : _volumePercent / 100.0;
         _volumeDone.Width = new GridLength(Math.Max(done, 0.0001), GridUnitType.Star);
         _volumeLeft.Width = new GridLength(Math.Max(1 - done, 0.0001), GridUnitType.Star);
@@ -1886,12 +2731,12 @@ public sealed partial class DynalandWindow : Window
         var parts = new List<string>();
         if (camera.Count > 0)
         {
-            parts.Add("Camera: " + string.Join(", ", camera));
+            parts.Add(Fmt.F(Strings.DynCameraUses, string.Join(", ", camera)));
         }
 
         if (microphone.Count > 0)
         {
-            parts.Add("Microphone: " + string.Join(", ", microphone));
+            parts.Add(Fmt.F(Strings.DynMicrophoneUses, string.Join(", ", microphone)));
         }
 
         return string.Join(" \u00B7 ", parts);
@@ -1966,7 +2811,7 @@ public sealed partial class DynalandWindow : Window
     {
         if (appId.Length == 0)
         {
-            return "an app";
+            return Strings.DynAnApp;
         }
 
         try
@@ -2021,15 +2866,32 @@ public sealed partial class DynalandWindow : Window
         string text = "Dynaland.";
         if (media.HasMedia)
         {
-            text += " " + (media.IsPlaying ? "Playing " : "Paused: ") + media.Title
-                + (media.Artist.Length > 0 ? " by " + media.Artist : string.Empty) + ", in " + media.AppName + ".";
+            string title = media.Artist.Length > 0 ? Fmt.F(Strings.DynTitleBy, media.Title, media.Artist) : media.Title;
+            text += " " + Fmt.F(media.IsPlaying ? Strings.DynPlaying : Strings.DynPaused, title, media.AppName);
         }
 
         if (_uses.Count > 0)
         {
-            text += " In use now: " + DescribeUses(_uses) + ".";
+            text += " " + Fmt.F(Strings.DynInUseNowName, DescribeUses(_uses));
         }
 
-        AutomationProperties.SetName(_root, text + " Point at it to open Dynaland.");
+        AutomationProperties.SetName(_root, text + " " + Strings.DynPointToOpen);
+    }
+
+    /// <summary>One tray tile and what it shows now.</summary>
+    private sealed class TrayTileView
+    {
+        internal TrayTileView(Button button)
+        {
+            Button = button;
+        }
+
+        internal Button Button { get; }
+
+        internal TrayIcon? Icon { get; set; }
+
+        internal int Stamp { get; set; } = -1;
+
+        internal string Name { get; set; } = string.Empty;
     }
 }

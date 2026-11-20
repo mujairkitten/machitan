@@ -20,8 +20,9 @@ public sealed record PinnedApp(string Path, string Name, string? AppId = null, s
 }
 
 /// <summary>
-/// Pinned apps, kept in %AppData%\Machitan\pins.json. One list serves the bar's dock and the
-/// Start menu's Pinned box.
+/// A list of pinned apps in a file under %AppData%\Machitan: pins.json for the bar ("Pin to
+/// taskbar"), start-pins.json for Start's Pinned box ("Pin to Start"). The two were one list
+/// before; the Start list starts as a copy of the bar's the first time it is read.
 /// Safety rule: if the file exists but cannot be read, this store refuses to write for the
 /// rest of the run. An unreadable file is never replaced by an empty list.
 /// </summary>
@@ -38,7 +39,20 @@ internal sealed class PinStore
     };
 
     private readonly List<PinnedApp> _pins = new();
+    private readonly string _file;
+    private readonly string _label;
+    private readonly string? _seedFile;
     private bool _readFailed;
+
+    /// <param name="file">The list's own file.</param>
+    /// <param name="label">How the log names it ("Pins", "Start pins").</param>
+    /// <param name="seedFile">Read once when <paramref name="file"/> does not exist yet, then saved as it.</param>
+    internal PinStore(string file, string label, string? seedFile = null)
+    {
+        _file = file;
+        _label = label;
+        _seedFile = seedFile;
+    }
 
     /// <summary>Raised when the list changed.</summary>
     internal event Action? Changed;
@@ -54,43 +68,66 @@ internal sealed class PinStore
         _pins.Clear();
         _readFailed = false;
 
+        if (!File.Exists(_file) && _seedFile is not null && File.Exists(_seedFile))
+        {
+            // First run with a separate list: start from the old shared one, then keep our own.
+            try
+            {
+                ReadFrom(_seedFile);
+                Log.Info(_label + ": " + _pins.Count.ToString(CultureInfo.InvariantCulture) + " pinned app(s) copied from "
+                    + System.IO.Path.GetFileName(_seedFile) + " (one list until now).");
+                Save();
+            }
+            catch (Exception ex)
+            {
+                _pins.Clear();
+                Log.Warn(_label + ": " + System.IO.Path.GetFileName(_seedFile) + " could not be copied; starting with no pinned apps.", ex);
+            }
+
+            return;
+        }
+
         try
         {
-            if (!File.Exists(AppPaths.PinsFile))
+            if (!File.Exists(_file))
             {
-                Log.Info("Pins: no file yet; starting with no pinned apps.");
+                Log.Info(_label + ": no file yet; starting with no pinned apps.");
                 return;
             }
 
-            string text = File.ReadAllText(AppPaths.PinsFile);
-            if (JsonNode.Parse(text, NodeOptions, DocumentOptions) is not JsonObject document
-                || document["Pins"] is not JsonArray entries)
-            {
-                throw new JsonException("The pins file does not have the expected shape.");
-            }
-
-            foreach (JsonNode? entry in entries)
-            {
-                if (entry is not JsonObject item || ReadText(item, "Path") is not string path)
-                {
-                    throw new JsonException("A pin entry has no path.");
-                }
-
-                string name = ReadText(item, "Name") ?? System.IO.Path.GetFileNameWithoutExtension(path);
-                if (!IsPinned(path))
-                {
-                    _pins.Add(new PinnedApp(path, name, ReadText(item, "AppId"), ReadText(item, "Launch")));
-                }
-            }
-
-            Log.Info("Pins: " + _pins.Count.ToString(CultureInfo.InvariantCulture) + " pinned app(s) loaded.");
+            ReadFrom(_file);
+            Log.Info(_label + ": " + _pins.Count.ToString(CultureInfo.InvariantCulture) + " pinned app(s) loaded.");
         }
         catch (Exception ex)
         {
             _pins.Clear();
             _readFailed = true;
-            Log.Error("Pins: the file could not be read. It is left untouched and pin changes will not be saved this run.", ex);
+            Log.Error(_label + ": the file could not be read. It is left untouched and pin changes will not be saved this run.", ex);
             KeepCopyOfUnreadableFile();
+        }
+    }
+
+    private void ReadFrom(string file)
+    {
+        string text = File.ReadAllText(file);
+        if (JsonNode.Parse(text, NodeOptions, DocumentOptions) is not JsonObject document
+            || document["Pins"] is not JsonArray entries)
+        {
+            throw new JsonException("The pins file does not have the expected shape.");
+        }
+
+        foreach (JsonNode? entry in entries)
+        {
+            if (entry is not JsonObject item || ReadText(item, "Path") is not string path)
+            {
+                throw new JsonException("A pin entry has no path.");
+            }
+
+            string name = ReadText(item, "Name") ?? System.IO.Path.GetFileNameWithoutExtension(path);
+            if (!IsPinned(path))
+            {
+                _pins.Add(new PinnedApp(path, name, ReadText(item, "AppId"), ReadText(item, "Launch")));
+            }
         }
     }
 
@@ -105,8 +142,17 @@ internal sealed class PinStore
         return Pin(new PinnedApp(path, name));
     }
 
-    /// <summary>Adds a pin. Returns false when it was already pinned.</summary>
+    /// <summary>Adds a pin at the end. Returns false when it was already pinned.</summary>
     internal bool Pin(PinnedApp pin)
+    {
+        return PinAt(pin, _pins.Count);
+    }
+
+    /// <summary>
+    /// Adds a pin at <paramref name="index"/> (0 = first; clamped to the list). Returns false
+    /// when it was already pinned.
+    /// </summary>
+    internal bool PinAt(PinnedApp pin, int index)
     {
         if (string.IsNullOrWhiteSpace(pin.Path) || IsPinned(pin.Path))
         {
@@ -114,7 +160,33 @@ internal sealed class PinStore
         }
 
         string name = string.IsNullOrWhiteSpace(pin.Name) ? System.IO.Path.GetFileNameWithoutExtension(pin.Path) : pin.Name;
-        _pins.Add(pin with { Name = name });
+        _pins.Insert(Math.Clamp(index, 0, _pins.Count), pin with { Name = name });
+        Save();
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// Moves a pin to <paramref name="index"/>, counted in the list without it (0 = first;
+    /// clamped). Returns false when it is not pinned or already there.
+    /// </summary>
+    internal bool Move(string path, int index)
+    {
+        int from = IndexOf(path);
+        if (from < 0)
+        {
+            return false;
+        }
+
+        PinnedApp pin = _pins[from];
+        _pins.RemoveAt(from);
+        int to = Math.Clamp(index, 0, _pins.Count);
+        _pins.Insert(to, pin);
+        if (to == from)
+        {
+            return false;
+        }
+
         Save();
         Changed?.Invoke();
         return true;
@@ -159,7 +231,7 @@ internal sealed class PinStore
     {
         if (_readFailed)
         {
-            Log.Warn("Pins: not saved, because the file on disk could not be read at start and must not be overwritten.");
+            Log.Warn(_label + ": not saved, because the file on disk could not be read at start and must not be overwritten.");
             return;
         }
 
@@ -188,26 +260,28 @@ internal sealed class PinStore
             }
 
             var document = new JsonObject { ["Pins"] = entries };
-            AtomicFile.WriteAllText(AppPaths.PinsFile, document.ToJsonString(WriteOptions));
+            AtomicFile.WriteAllText(_file, document.ToJsonString(WriteOptions));
         }
         catch (Exception ex)
         {
-            Log.Error("Pins: the file could not be saved.", ex);
+            Log.Error(_label + ": the file could not be saved.", ex);
         }
     }
 
-    private static void KeepCopyOfUnreadableFile()
+    private void KeepCopyOfUnreadableFile()
     {
         try
         {
             string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-            string copy = System.IO.Path.Combine(AppPaths.DataFolder, "pins.unreadable-" + stamp + ".json");
-            File.Copy(AppPaths.PinsFile, copy, overwrite: true);
-            Log.Info("Pins: a copy of the unreadable file was kept as " + System.IO.Path.GetFileName(copy) + ".");
+            string copy = System.IO.Path.Combine(
+                AppPaths.DataFolder,
+                System.IO.Path.GetFileNameWithoutExtension(_file) + ".unreadable-" + stamp + ".json");
+            File.Copy(_file, copy, overwrite: true);
+            Log.Info(_label + ": a copy of the unreadable file was kept as " + System.IO.Path.GetFileName(copy) + ".");
         }
         catch (Exception ex)
         {
-            Log.Warn("Pins: could not keep a copy of the unreadable file.", ex);
+            Log.Warn(_label + ": could not keep a copy of the unreadable file.", ex);
         }
     }
 }

@@ -158,17 +158,17 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
         // Only the very first check is shown; later ones refresh the rows quietly.
         if (_checkingScreens && !_screensCheckedOnce && displays.Count == 0)
         {
-            _rows.Children.Add(MakeNote("Checking which screens can change brightness..."));
+            _rows.Children.Add(MakeNote(Strings.QsChecking));
         }
         else if (!_volume.IsAvailable && displays.Count == 0)
         {
-            _rows.Children.Add(MakeNote("Windows offers no volume or brightness control on this PC right now."));
+            _rows.Children.Add(MakeNote(Strings.QsNothing));
         }
     }
 
     private FrameworkElement MakeVolumeRow()
     {
-        string label = _volume.DeviceName.Length > 0 ? "Volume - " + _volume.DeviceName : "Volume";
+        string label = _volume.DeviceName.Length > 0 ? Fmt.F(Strings.QsVolumeOf, _volume.DeviceName) : Strings.QsVolume;
 
         _volumeIcon = MakeGlyph(VolumeGlyph, 16);
         var mute = new Button
@@ -179,7 +179,7 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
             Padding = new Thickness(0),
             CornerRadius = new CornerRadius(SmallRadius),
         };
-        AutomationProperties.SetName(mute, "Mute");
+        AutomationProperties.SetName(mute, Strings.QsMute);
         mute.Click += (_, _) =>
         {
             _touchedAt = Environment.TickCount64;
@@ -188,7 +188,7 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
             ShowMute();
         };
 
-        Slider slider = MakeSlider("Volume");
+        Slider slider = MakeSlider(Strings.QsVolume);
         TextBlock value = MakeValueText();
         slider.ValueChanged += (_, e) =>
         {
@@ -210,8 +210,8 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
     private FrameworkElement MakeBrightnessRow(BrightnessDisplay display, bool several)
     {
         string label = !several
-            ? "Brightness"
-            : display.Kind == BrightnessKind.BuiltIn ? "Brightness - built-in screen" : "Brightness - display " + display.Number;
+            ? Strings.QsBrightness
+            : display.Kind == BrightnessKind.BuiltIn ? Strings.QsBrightnessBuiltIn : Fmt.F(Strings.QsBrightnessDisplay, display.Number);
         var icon = new Border
         {
             Width = 40,

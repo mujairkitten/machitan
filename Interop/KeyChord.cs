@@ -14,10 +14,24 @@ internal static unsafe class KeyChord
     /// <summary>Stamped on every key Machitan sends ("MACH").</summary>
     internal const nuint Mark = 0x4D414348;
 
+    /// <summary>When Machitan last asked for Windows' Start itself (Ctrl+Esc), as Environment.TickCount64.</summary>
+    internal static long CtrlEscSentAt { get; private set; } = long.MinValue / 2;
+
     /// <summary>Ctrl+Esc: the system Start menu.</summary>
     internal static bool SendCtrlEsc()
     {
+        CtrlEscSentAt = Environment.TickCount64;
         return Send(User32.VK_CONTROL, User32.VK_ESCAPE);
+    }
+
+    /// <summary>Esc alone (closes Windows' Start when it opened past Machitan).</summary>
+    internal static bool SendEscape()
+    {
+        INPUT* inputs = stackalloc INPUT[2];
+        inputs[0] = Key(User32.VK_ESCAPE, down: true);
+        inputs[1] = Key(User32.VK_ESCAPE, down: false);
+        uint sent = User32.SendInput(2, inputs, sizeof(INPUT));
+        return sent == 2;
     }
 
     /// <summary>Win plus a letter, e.g. 'S' for the system search.</summary>
@@ -43,17 +57,21 @@ internal static unsafe class KeyChord
     }
 
     /// <summary>
-    /// A quick Alt press and release. Windows lets a program bring its own window to the
-    /// front right after it sent a key press; used only when the gentler ways failed.
+    /// An empty mouse input (no move, no button). Windows lets a program bring a window to the
+    /// front right after it sent input, and an empty mouse input does that without side
+    /// effects. (The Alt tap used before made apps show their Alt key tips, e.g. Notepad's.)
     /// </summary>
-    internal static bool SendAltTap()
+    internal static bool SendEmptyMouseInput()
     {
-        INPUT* inputs = stackalloc INPUT[2];
-        inputs[0] = Key(User32.VK_MENU, down: true);
-        inputs[1] = Key(User32.VK_MENU, down: false);
+        INPUT* inputs = stackalloc INPUT[1];
+        inputs[0] = new INPUT
+        {
+            type = User32.INPUT_MOUSE,
+            u = new INPUTUNION { mi = new MOUSEINPUT { dwExtraInfo = Mark } },
+        };
 
-        uint sent = User32.SendInput(2, inputs, sizeof(INPUT));
-        return sent == 2;
+        uint sent = User32.SendInput(1, inputs, sizeof(INPUT));
+        return sent == 1;
     }
 
     /// <summary>Presses the modifier, presses and releases the key, releases the modifier.</summary>

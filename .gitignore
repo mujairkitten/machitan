@@ -1,4 +1,4 @@
-# Build output
+# Build output (publish/ also holds build-installer.cmd's results: the Release build and Setup)
 bin/
 obj/
 publish/
@@ -14,10 +14,14 @@ BundleArtifacts/
 *.VC.db
 *.VC.opendb
 launchSettings.local.json
+# Visual Studio's own run and debug profile (F5); each PC keeps its own.
+Properties/launchSettings.json
+*.pubxml.user
 
 # Rider / VS Code
 .idea/
 .vscode/
+*.DotSettings.user
 
 # NuGet
 *.nupkg
@@ -30,6 +34,17 @@ TestResults/
 *.log
 *.binlog
 *.dmp
+*.etl
+
+# Code-signing keys: never commit them
+*.pfx
+*.p12
+*.snk
+
+# Leftovers from editors and merges
+*.bak
+*.tmp
+*.orig
 
 # OS files
 Thumbs.db

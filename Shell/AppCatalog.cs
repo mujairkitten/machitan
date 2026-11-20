@@ -45,6 +45,9 @@ public sealed class AppEntry
 
     public string? AppUserModelId { get; init; }
 
+    /// <summary>A shortcut's own app ID (System.AppUserModel.ID), when the app set one.</summary>
+    public string? ShortcutAppId { get; init; }
+
     /// <summary>Icon pixels (shortcuts). Null when Windows had none.</summary>
     internal IconPixels? Icon { get; init; }
 
@@ -82,23 +85,65 @@ internal sealed class AppCatalog
 
     private DateTime _builtAt = DateTime.MinValue;
     private bool _building;
+    private bool _stale;
 
     /// <summary>Raised on the UI thread when a new list is ready.</summary>
     internal event Action? Changed;
 
     internal IReadOnlyList<AppEntry> Apps { get; private set; } = Array.Empty<AppEntry>();
 
+    private IReadOnlyList<AppEntry>? _indexedApps;
+    private Dictionary<string, HashSet<string>> _appIdsByTarget = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The app IDs that Start's shortcuts to this program carry (System.AppUserModel.ID), or
+    /// null when none of them names one (or the list is not built yet). Call on the UI thread.
+    /// </summary>
+    internal IReadOnlySet<string>? ShortcutAppIdsFor(string programPath)
+    {
+        IReadOnlyList<AppEntry> apps = Apps;
+        if (!ReferenceEquals(apps, _indexedApps))
+        {
+            var index = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (AppEntry app in apps)
+            {
+                if (app.TargetPath is string target && app.ShortcutAppId is string id)
+                {
+                    if (!index.TryGetValue(target, out HashSet<string>? ids))
+                    {
+                        ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        index[target] = ids;
+                    }
+
+                    ids.Add(id);
+                }
+            }
+
+            _appIdsByTarget = index;
+            _indexedApps = apps;
+        }
+
+        return _appIdsByTarget.TryGetValue(programPath, out HashSet<string>? found) ? found : null;
+    }
+
     internal bool IsReady => _builtAt != DateTime.MinValue;
 
     /// <summary>Starts a rebuild when the list is older than a minute. Call on the UI thread.</summary>
     internal void RefreshIfStale(int iconPixels, bool darkTheme)
     {
-        if (_building || DateTime.UtcNow - _builtAt < MaxAge)
+        if (_building || (!_stale && DateTime.UtcNow - _builtAt < MaxAge))
         {
             return;
         }
 
+        _stale = false;
         _ = RefreshAsync(iconPixels, darkTheme);
+    }
+
+    /// <summary>The list is out of date (an app was just uninstalled): the next RefreshIfStale rebuilds it.</summary>
+    internal void MarkStale()
+    {
+        _stale = true;
     }
 
     private async Task RefreshAsync(int iconPixels, bool darkTheme)
@@ -172,6 +217,7 @@ internal sealed class AppCatalog
                 {
                     ShortcutPath = file,
                     TargetPath = info?.TargetPath,
+                    ShortcutAppId = info?.AppUserModelId,
                     Icon = ReadShortcutIcon(info, iconPixels),
                 });
                 shortcuts++;

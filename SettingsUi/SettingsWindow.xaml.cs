@@ -6,6 +6,7 @@ using Machitan.Config;
 using Machitan.Core;
 using Machitan.Interop;
 using Machitan.Shell;
+using Machitan.Visuals;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
@@ -14,6 +15,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using VirtualKey = Windows.System.VirtualKey;
@@ -21,15 +23,15 @@ using VirtualKey = Windows.System.VirtualKey;
 namespace Machitan.SettingsUi;
 
 /// <summary>
-/// Machitan's Settings window. Every change applies at once (sliders after a short pause) and
-/// is saved to settings.json. Options for parts that are not built yet are shown, saved, and
-/// clearly labelled as such, so nothing pretends to work.
+/// Machitan's Settings window: a sidebar of categories (as Seelen UI does), one page each.
+/// Every change applies at once (sliders after a short pause) and is saved to settings.json.
+/// Options for parts that are not built yet sit under About > Planned, off and labelled.
 /// Every control carries an accessible name.
 /// </summary>
 public sealed partial class SettingsWindow : Window
 {
-    private const double CardRadius = 10;
-    private const int WidthDip = 760;
+    private const double CardRadius = Radii.Medium;
+    private const int WidthDip = 980;
     private const int HeightDip = 820;
 
     private readonly ShellHost _host;
@@ -45,12 +47,19 @@ public sealed partial class SettingsWindow : Window
         _host = host;
         InitializeComponent();
 
+        // Machitan's title bar (logo and name); Windows keeps the window's buttons.
+        Title = Strings.SetWindowTitle;
+        AppTitleText.Text = Strings.SetWindowTitle;
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+        AppIcon.Apply(AppWindow);
+
         _sliderTimer = DispatcherQueue.CreateTimer();
         _sliderTimer.Interval = TimeSpan.FromMilliseconds(250);
         _sliderTimer.IsRepeating = false;
         _sliderTimer.Tick += (_, _) => FlushSlider();
 
-        BuildSections();
+        BuildNavigation();
         ApplyTheme();
         ResizeToDip();
 
@@ -71,36 +80,239 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
-    // ---------------------------------------------------------------- sections
+    // ---------------------------------------------------------------- pages
 
-    private void BuildSections()
+    private const string PageGeneral = "general";
+    private const string PageTaskbar = "taskbar";
+    private const string PageStart = "start";
+    private const string PageWidgets = "widgets";
+    private const string PageDynaland = "dynaland";
+    private const string PageEdge = "edge";
+    private const string PageShortcuts = "shortcuts";
+    private const string PagePrivacy = "privacy";
+    private const string PageAbout = "about";
+
+    /// <summary>The sidebar, in order: key, name, Segoe Fluent Icons glyph.</summary>
+    private static readonly (string Key, string Name, string Glyph)[] Pages =
     {
-        _builtDark = IsDark();
-        AddTitle("Settings");
+        (PageGeneral, Strings.SetPageGeneral, "\uE713"),
+        (PageTaskbar, Strings.SetPageTaskbar, "\uE71D"),
+        (PageStart, Strings.SetPageStart, "\uE80F"),
+        (PageWidgets, Strings.SetPageWidgets, "\uE823"),
+        (PageDynaland, Strings.SetPageDynaland, "\uE8D6"),
+        (PageEdge, Strings.SetPageEdge, "\uE7F4"),
+        (PageShortcuts, Strings.SetPageShortcuts, "\uE765"),
+        (PagePrivacy, Strings.SetPagePrivacy, "\uE72E"),
+        (PageAbout, Strings.SetPageAbout, "\uE946"),
+    };
 
-        AddSection("Bar");
+    private string _page = PageGeneral;
+    private bool _selecting;
+
+    /// <summary>The sidebar items; the first page shows.</summary>
+    private void BuildNavigation()
+    {
+        foreach ((string key, string name, string glyph) in Pages)
+        {
+            Nav.MenuItems.Add(new NavigationViewItem
+            {
+                Content = name,
+                Tag = key,
+                Icon = new FontIcon { Glyph = glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") },
+            });
+        }
+
+        _selecting = true;
+        try
+        {
+            Nav.SelectedItem = Nav.MenuItems[0];
+        }
+        finally
+        {
+            _selecting = false;
+        }
+
+        ShowPage(PageGeneral);
+    }
+
+    private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        if (_selecting || args.SelectedItem is not NavigationViewItem { Tag: string key } || key == _page)
+        {
+            return;
+        }
+
+        // A slider still settling belongs to the page being left.
+        FlushSlider();
+        ShowPage(key);
+        Scroller.ChangeView(null, 0, null, true);
+    }
+
+    /// <summary>Builds one page: its title, then its sections.</summary>
+    private void ShowPage(string key)
+    {
+        _page = key;
+        _builtDark = IsDark();
+        Sections.Children.Clear();
+        _refreshers.Clear();
+        _statusText = null;
+
+        foreach ((string pageKey, string name, _) in Pages)
+        {
+            if (pageKey == key)
+            {
+                AddTitle(name);
+            }
+        }
+
+        switch (key)
+        {
+            case PageTaskbar:
+                BuildTaskbarPage();
+                break;
+            case PageStart:
+                BuildStartPage();
+                break;
+            case PageWidgets:
+                BuildWidgetsPage();
+                break;
+            case PageDynaland:
+                BuildDynalandPage();
+                break;
+            case PageEdge:
+                BuildEdgePage();
+                break;
+            case PageShortcuts:
+                BuildShortcutsPage();
+                break;
+            case PagePrivacy:
+                BuildPrivacyPage();
+                break;
+            case PageAbout:
+                BuildAboutPage();
+                break;
+            default:
+                BuildGeneralPage();
+                break;
+        }
+    }
+
+    private void BuildGeneralPage()
+    {
+        var languages = new List<string> { Strings.SetLanguageWindows };
+        foreach ((string Code, string Name) language in Languages.Available)
+        {
+            languages.Add(language.Name);
+        }
+
         AddCard(
             ComboRow(
-                "Taskbar mode",
-                "Segmented: separate pills. Joined: one pill. Classic: full width. Compact is not built yet and shows as Segmented.",
-                new[] { "Segmented", "Joined", "Classic", "Compact" },
+                Strings.SetLanguage,
+                Strings.SetLanguageNote,
+                languages.ToArray(),
+                s => Languages.IndexOf(s.Language),
+                (s, i) => s.Language = Languages.CodeAt(i)),
+            ComboRow(
+                Strings.SetTheme,
+                string.Empty,
+                new[] { Strings.SetDark, Strings.SetLight, Strings.SetSystem },
+                s => (int)s.Theme,
+                (s, i) => s.Theme = (ThemeMode)i),
+            ComboRow(
+                Strings.SetAccentColour,
+                string.Empty,
+                new[] { Strings.SetAccentFromWallpaper, Strings.SetAccentFromWindows },
+                s => (int)s.AccentSource,
+                (s, i) => s.AccentSource = (AccentSource)i),
+            ToggleRow(
+                Strings.SetAcrylic,
+                string.Empty,
+                s => s.EnableAcrylic,
+                (s, on) => s.EnableAcrylic = on),
+            SliderRow(
+                Strings.SetOpacity,
+                string.Empty,
+                ShellSettings.MinOpacity * 100,
+                ShellSettings.MaxOpacity * 100,
+                5,
+                s => s.Opacity * 100,
+                (s, v) => s.Opacity = Math.Round(v) / 100.0,
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"),
+            ToggleRow(
+                Strings.SetTurnOffAnimations,
+                Strings.SetTurnOffAnimationsNote,
+                s => s.TurnOffAnimations,
+                (s, on) => s.TurnOffAnimations = on));
+
+        AddSection(Strings.SetStartup);
+        AddCard(RunAtStartupRow());
+    }
+
+    private void BuildTaskbarPage()
+    {
+        AddSection(Strings.SetCustomize);
+        AddCard(
+            ButtonRow(
+                Strings.SetCustomize,
+                string.Empty,
+                () =>
+                {
+                    _host.Custom.Enter();
+                    _host.Custom.OpenPicker(Machitan.Custom.PickerPage.StartCluster);
+                }),
+            ToggleRow(
+                Strings.SetAppNames,
+                string.Empty,
+                s => s.DockLabels,
+                (s, v) => s.DockLabels = v),
+            ToggleRow(
+                Strings.SetTrayOnBar,
+                string.Empty,
+                s => s.TrayOnBar,
+                (s, v) => s.TrayOnBar = v));
+
+        AddSection(Strings.SetLayout);
+        AddCard(
+            ComboRow(
+                Strings.SetMode,
+                Strings.SetModeNote,
+                new[] { Strings.SetModeSegmented, Strings.SetModeJoined, Strings.SetModeClassic, Strings.SetModeCompact },
                 s => (int)s.TaskbarMode,
                 (s, i) => s.TaskbarMode = (TaskbarMode)i),
             ComboRow(
-                "Position",
-                "Which screen edge the bar sits on.",
-                new[] { "Bottom", "Top" },
+                Strings.SetPosition,
+                string.Empty,
+                new[] { Strings.SetBottom, Strings.SetTop },
                 s => (int)s.DockEdge,
                 (s, i) => s.DockEdge = (DockEdge)i),
             ComboRow(
-                "Alignment",
-                "Where the bar sits along the edge. In Classic mode it places the app dock inside the full-width bar.",
-                new[] { "Left", "Center", "Right" },
+                Strings.SetAlignment,
+                string.Empty,
+                new[] { Strings.SetLeft, Strings.SetCenter, Strings.SetRight },
                 s => (int)s.DockAlignment,
                 (s, i) => s.DockAlignment = (DockAlignment)i),
+            ToggleRow(
+                Strings.SetAutoHide,
+                string.Empty,
+                s => s.AutoHideBar,
+                (s, on) => s.AutoHideBar = on),
+            ToggleRow(
+                Strings.SetPeekDesktop,
+                Strings.SetPeekDesktopNote,
+                s => s.PeekAtDesktop,
+                (s, on) => s.PeekAtDesktop = on),
+            ComboRow(
+                Strings.SetPreviewsAs,
+                string.Empty,
+                new[] { Strings.SetThumbnails, Strings.SetList },
+                s => (int)s.PreviewStyle,
+                (s, i) => s.PreviewStyle = (PreviewStyle)i));
+
+        AddSection(Strings.SetSize);
+        AddCard(
             SliderRow(
-                "Bar size",
-                "Height of the bar strip, in DIP.",
+                Strings.SetBarHeight,
+                string.Empty,
                 ShellSettings.MinBarSize,
                 ShellSettings.MaxBarSize,
                 2,
@@ -108,173 +320,727 @@ public sealed partial class SettingsWindow : Window
                 (s, v) => s.BarSize = (int)Math.Round(v),
                 v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture)),
             SliderRow(
-                "Icon size",
-                "Size of the app icons, in DIP.",
+                Strings.SetIconSize,
+                string.Empty,
                 ShellSettings.MinIconSize,
                 ShellSettings.MaxIconSize,
                 2,
                 s => s.IconSize,
                 (s, v) => s.IconSize = (int)Math.Round(v),
-                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture)),
-            ToggleRow(
-                "Auto-hide",
-                "The bar slides away when the pointer leaves it and returns at the screen edge. Off: the bar keeps its strip of the screen.",
-                s => s.AutoHideBar,
-                (s, on) => s.AutoHideBar = on),
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture)));
+
+        AddSection(Strings.SetSearch);
+        AddCard(
             ComboRow(
-                "Search",
-                "Icon or a search box next to Start, or no search button. The icon opens Windows' own search (Win+S). In the box you type right on the bar, and the results show next to it (apps, or files: for files).",
-                new[] { "Icon", "Box", "Hidden" },
+                Strings.SetSearch,
+                Strings.SetSearchNote,
+                new[] { Strings.SetSearchIcon, Strings.SetSearchBox, Strings.SetHidden },
                 s => (int)s.SearchMode,
-                (s, i) => s.SearchMode = (SearchMode)i));
-
-        AddSection("Look");
-        AddCard(
+                (s, i) => s.SearchMode = (SearchMode)i),
             ComboRow(
-                "Theme",
-                "Dark, light, or follow Windows.",
-                new[] { "Dark", "Light", "System" },
-                s => (int)s.Theme,
-                (s, i) => s.Theme = (ThemeMode)i),
-            ToggleRow(
-                "Acrylic",
-                "Blur what is behind the bar and the Start menu. If it shows as a solid dark colour, Windows is not providing the blur on this PC.",
-                s => s.EnableAcrylic,
-                (s, on) => s.EnableAcrylic = on),
-            SliderRow(
-                "Opacity",
-                "How strongly the bar and Start menu are tinted: 100% is solid.",
-                ShellSettings.MinOpacity * 100,
-                ShellSettings.MaxOpacity * 100,
-                5,
-                s => s.Opacity * 100,
-                (s, v) => s.Opacity = Math.Round(v) / 100.0,
-                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"));
+                Strings.SetPlace,
+                string.Empty,
+                new[] { Strings.SetWithStart, Strings.SetBeforeApps, Strings.SetAfterApps },
+                s => (int)s.SearchPlace,
+                (s, i) => s.SearchPlace = (SearchPlace)i));
 
-        AddSection("Calendar (Win+N)");
+        AddSection(Strings.SetCalendar);
         AddCard(
             ToggleRow(
-                "Show seconds",
-                "The calendar's clock shows seconds too.",
+                Strings.SetSeconds,
+                string.Empty,
                 s => s.CalendarShowSeconds,
                 (s, on) => s.CalendarShowSeconds = on));
+    }
 
-        AddSection("Corner widgets");
-        AddNote("Both stay on top and step aside while a full-screen app is in front. Widgets in the same corner stand side by side; on the bar's edge they sit beside the bar, in line with it.");
+    private void BuildStartPage()
+    {
+        var (sleep, _, hibernate) = PowerActions.Capabilities();
+
+        AddSection(Strings.SetPowerMenu);
+        AddCard(
+            OfferedToggleRow(Strings.PowerSleep, sleep, Strings.SetCannotSleep, s => s.PowerSleep, (s, on) => s.PowerSleep = on),
+            OfferedToggleRow(Strings.PowerHibernate, hibernate, Strings.SetHibernationOff, s => s.PowerHibernate, (s, on) => s.PowerHibernate = on),
+            ToggleRow(Strings.PowerShutDown, string.Empty, s => s.PowerShutDown, (s, on) => s.PowerShutDown = on),
+            ToggleRow(Strings.PowerRestart, string.Empty, s => s.PowerRestart, (s, on) => s.PowerRestart = on),
+            ToggleRow(Strings.PowerUpdateShutDown, Strings.SetShowsWhileUpdate, s => s.PowerUpdateShutDown, (s, on) => s.PowerUpdateShutDown = on),
+            ToggleRow(Strings.PowerUpdateRestart, Strings.SetShowsWhileUpdate, s => s.PowerUpdateRestart, (s, on) => s.PowerUpdateRestart = on),
+            AlwaysOnRow(Strings.BarExit, Strings.SetAlwaysInPowerMenu));
+
+        AddSection(Strings.SetNextToPower);
+        AddFolderCard();
+
+        AddSection(Strings.SetStartButton);
         AddCard(
             ToggleRow(
-                "Info line",
-                "One line with date, time and weather in a screen corner. A click opens Windows' own notification centre.",
+                Strings.SetOwnPictures,
+                Strings.SetOwnPicturesNote,
+                s => s.CustomStartButton,
+                (s, on) => s.CustomStartButton = on),
+            PictureRow(
+                Strings.SetPictureNormal,
+                Strings.SetPictureNoneLogo,
+                turnsOn: true,
+                s => s.StartButtonPicture,
+                (s, path) => s.StartButtonPicture = path),
+            PictureRow(
+                Strings.SetPictureHovered,
+                Strings.SetPictureNoneNormal,
+                turnsOn: false,
+                s => s.StartButtonPictureHover,
+                (s, path) => s.StartButtonPictureHover = path),
+            PictureRow(
+                Strings.SetPicturePressed,
+                Strings.SetPictureNoneHovered,
+                turnsOn: false,
+                s => s.StartButtonPicturePressed,
+                (s, path) => s.StartButtonPicturePressed = path));
+    }
+
+    /// <summary>
+    /// One of the Start button's pictures: a small preview, what is chosen (or what shows
+    /// instead), Choose picture and Remove. <paramref name="turnsOn"/>: choosing one also turns
+    /// "My own pictures" on (the normal picture: without it nothing changes on the bar).
+    /// </summary>
+    private Grid PictureRow(string label, string noneText, bool turnsOn, Func<ShellSettings, string> read, Action<ShellSettings, string> write)
+    {
+        var preview = new Image { Width = 36, Height = 24, Stretch = Stretch.Uniform };
+        AutomationProperties.SetAccessibilityView(preview, AccessibilityView.Raw);
+
+        var status = new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
+
+        var choose = new Button { Content = Strings.SetChoosePicture, CornerRadius = new CornerRadius(Radii.Small) };
+        AutomationProperties.SetName(choose, Fmt.F(Strings.SetChoosePictureName, label));
+
+        var remove = new Button { Content = Strings.CmRemove, CornerRadius = new CornerRadius(Radii.Small) };
+        AutomationProperties.SetName(remove, Fmt.F(Strings.SetRemovePictureName, label));
+
+        string? shownPath = null;
+        void ShowNoPreview()
+        {
+            preview.Source = null;
+            preview.Visibility = Visibility.Collapsed;
+        }
+
+        void Refresh()
+        {
+            string path = read(_host.Settings.Current);
+            remove.IsEnabled = path.Length > 0;
+            if (path == shownPath)
+            {
+                return;
+            }
+
+            shownPath = path;
+            if (path.Length == 0)
+            {
+                status.Text = noneText;
+                status.ClearValue(ToolTipService.ToolTipProperty);
+                ShowNoPreview();
+                return;
+            }
+
+            ToolTipService.SetToolTip(status, path);
+            if (!System.IO.File.Exists(path))
+            {
+                status.Text = Fmt.F(Strings.SetPictureMissing, path);
+                ShowNoPreview();
+                return;
+            }
+
+            status.Text = System.IO.Path.GetFileName(path);
+            try
+            {
+                preview.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage
+                {
+                    CreateOptions = Microsoft.UI.Xaml.Media.Imaging.BitmapCreateOptions.IgnoreImageCache,
+                    DecodePixelHeight = 48,
+                    UriSource = new Uri(path),
+                };
+                preview.Visibility = Visibility.Visible;
+            }
+            catch (Exception ex)
+            {
+                ShowNoPreview();
+                Log.Warn("Settings: the Start button picture could not be previewed (" + path + ").", ex);
+            }
+        }
+
+        Refresh();
+        _refreshers.Add(Refresh);
+
+        async void Choose()
+        {
+            choose.IsEnabled = false;
+            try
+            {
+                var picker = new Windows.Storage.Pickers.FileOpenPicker
+                {
+                    ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail,
+                    SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary,
+                };
+                foreach (string type in PictureTypes)
+                {
+                    picker.FileTypeFilter.Add(type);
+                }
+
+                // An unpackaged app's picker needs its owner window.
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+                Windows.Storage.StorageFile? file = await picker.PickSingleFileAsync();
+                if (file is null || string.IsNullOrEmpty(file.Path))
+                {
+                    // Cancelled (or not a file on this PC).
+                    return;
+                }
+
+                string path = file.Path;
+                _host.Settings.Update(s =>
+                {
+                    write(s, path);
+                    if (turnsOn)
+                    {
+                        s.CustomStartButton = true;
+                    }
+                });
+                shownPath = null;
+                Refresh();
+            }
+            catch (Exception ex)
+            {
+                status.Text = Strings.SetPicturePickFailed;
+                Log.Error("Settings: the picture picker failed.", ex);
+            }
+            finally
+            {
+                choose.IsEnabled = true;
+            }
+        }
+
+        choose.Click += (_, _) => Choose();
+        remove.Click += (_, _) =>
+        {
+            _host.Settings.Update(s => write(s, string.Empty));
+            Refresh();
+        };
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        buttons.Children.Add(preview);
+        buttons.Children.Add(choose);
+        buttons.Children.Add(remove);
+
+        Grid row = Row(label, string.Empty, buttons);
+        if (row.Children[0] is StackPanel text)
+        {
+            text.Children.Add(status);
+        }
+
+        return row;
+    }
+
+    /// <summary>The picture files the Start button can show.</summary>
+    private static readonly string[] PictureTypes = { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".ico" };
+
+    /// <summary>
+    /// The buttons next to Start's power button: each with its icon, on or off, and dragged
+    /// by its handle to a new place (top to bottom here is left to right on Start); Alt+Up and
+    /// Alt+Down move the one whose handle has the keyboard. Rebuilt when the order changes.
+    /// </summary>
+    private void AddFolderCard()
+    {
+        var rows = new StackPanel();
+        AddCard(rows);
+        var toggles = new List<(ToggleSwitch Toggle, Start.StartFolder Folder)>();
+        var views = new List<Grid>();
+        string builtOrder = string.Empty;
+        string? focusId = null;
+
+        int dragFrom = -1;
+        int dragTo = -1;
+        bool dragging = false;
+        double dragStartY = 0;
+        double[] tops = Array.Empty<double>();
+        double[] heights = Array.Empty<double>();
+        var clear = new SolidColorBrush(Colors.Transparent);
+        Brush lifted = clear;
+
+        void MoveTo(string id, int to)
+        {
+            List<string> order = ShellSettings.ParseFolderOrder(_host.Settings.Current.FolderOrder);
+            int from = order.IndexOf(id);
+            if (from < 0 || to < 0 || to >= order.Count || to == from)
+            {
+                return;
+            }
+
+            order.RemoveAt(from);
+            order.Insert(to, id);
+            focusId = id;
+            string text = string.Join(",", order);
+            _host.Settings.Update(s => s.FolderOrder = text);
+            Refresh();
+        }
+
+        void ResetShifts()
+        {
+            foreach (Grid view in views)
+            {
+                if (view.RenderTransform is TranslateTransform shift)
+                {
+                    shift.Y = 0;
+                }
+
+                view.Background = clear;
+                Canvas.SetZIndex(view, 0);
+            }
+        }
+
+        void StartDrag(int index, double y)
+        {
+            dragFrom = index;
+            dragTo = index;
+            dragging = false;
+            dragStartY = y;
+            tops = new double[views.Count];
+            heights = new double[views.Count];
+            for (int i = 0; i < views.Count; i++)
+            {
+                tops[i] = views[i].TransformToVisual(rows).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+                heights[i] = views[i].ActualHeight;
+            }
+        }
+
+        void DragTo(double y)
+        {
+            if (dragFrom < 0 || dragFrom >= views.Count)
+            {
+                return;
+            }
+
+            double dy = y - dragStartY;
+            if (!dragging && Math.Abs(dy) < 4)
+            {
+                return;
+            }
+
+            dragging = true;
+            double size = heights[dragFrom];
+            dy = Math.Clamp(dy, -tops[dragFrom], Math.Max(0, rows.ActualHeight - tops[dragFrom] - size));
+            double centre = tops[dragFrom] + (size / 2) + dy;
+            int to = dragFrom;
+            for (int j = 0; j < views.Count; j++)
+            {
+                double middle = tops[j] + (heights[j] / 2);
+                if (j < dragFrom && centre < middle)
+                {
+                    to = Math.Min(to, j);
+                }
+                else if (j > dragFrom && centre > middle)
+                {
+                    to = Math.Max(to, j);
+                }
+            }
+
+            dragTo = to;
+            for (int j = 0; j < views.Count; j++)
+            {
+                if (views[j].RenderTransform is not TranslateTransform shift)
+                {
+                    continue;
+                }
+
+                if (j == dragFrom)
+                {
+                    shift.Y = dy;
+                    views[j].Background = lifted;
+                    Canvas.SetZIndex(views[j], 1);
+                }
+                else if (j > dragFrom && j <= to)
+                {
+                    shift.Y = -size;
+                }
+                else if (j < dragFrom && j >= to)
+                {
+                    shift.Y = size;
+                }
+                else
+                {
+                    shift.Y = 0;
+                }
+            }
+        }
+
+        void EndDrag(string id)
+        {
+            if (dragFrom < 0)
+            {
+                return;
+            }
+
+            int to = dragTo;
+            bool moved = dragging && to != dragFrom;
+            dragFrom = -1;
+            dragging = false;
+            ResetShifts();
+            if (moved)
+            {
+                MoveTo(id, to);
+            }
+        }
+
+        void Build()
+        {
+            ShellSettings settings = _host.Settings.Current;
+            List<Start.StartFolder> folders = Start.StartFolders.InOrder(settings);
+            builtOrder = settings.FolderOrder;
+            rows.Children.Clear();
+            toggles.Clear();
+            views.Clear();
+            dragFrom = -1;
+            Button? focusTarget = null;
+            bool dark = IsDark();
+            var line = new SolidColorBrush(dark ? ColorHelper.FromArgb(30, 255, 255, 255) : ColorHelper.FromArgb(30, 0, 0, 0));
+
+            // While dragged, a row gets a solid fill, so it hides the rows it passes over.
+            lifted = new SolidColorBrush(dark ? ColorHelper.FromArgb(255, 50, 50, 50) : ColorHelper.FromArgb(255, 249, 249, 249));
+            for (int i = 0; i < folders.Count; i++)
+            {
+                Start.StartFolder folder = folders[i];
+                int index = i;
+
+                var handle = new Button
+                {
+                    Content = new FontIcon { Glyph = ((char)0xE76F).ToString(), FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 14 },
+                    Width = 28,
+                    Height = 32,
+                    MinWidth = 0,
+                    MinHeight = 0,
+                    Padding = new Thickness(0),
+                    Background = new SolidColorBrush(Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                AutomationProperties.SetName(handle, Fmt.F(Strings.SetMoveName, folder.Name));
+                AutomationProperties.SetHelpText(handle, Strings.SetDragHelp);
+                ToolTipService.SetToolTip(handle, Strings.SetDragTip);
+                handle.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, e) =>
+                {
+                    handle.CapturePointer(e.Pointer);
+                    StartDrag(index, e.GetCurrentPoint(rows).Position.Y);
+                }), handledEventsToo: true);
+                handle.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler((_, e) =>
+                {
+                    if (dragFrom == index)
+                    {
+                        DragTo(e.GetCurrentPoint(rows).Position.Y);
+                    }
+                }), handledEventsToo: true);
+                handle.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler((_, _) => EndDrag(folder.Id)), handledEventsToo: true);
+                handle.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler((_, _) => EndDrag(folder.Id)), handledEventsToo: true);
+                handle.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler((_, e) =>
+                {
+                    bool alt = (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu)
+                        & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
+                    if (alt && e.Key is VirtualKey.Up or VirtualKey.Down)
+                    {
+                        e.Handled = true;
+                        MoveTo(folder.Id, index + (e.Key == VirtualKey.Up ? -1 : 1));
+                    }
+                }), handledEventsToo: true);
+
+                FrameworkElement icon = Start.StartFolders.Icon(folder, 16);
+                icon.Width = 16;
+                icon.Height = 16;
+                icon.VerticalAlignment = VerticalAlignment.Center;
+
+                var name = new TextBlock { Text = folder.Name, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+
+                var toggle = new ToggleSwitch { OnContent = Strings.On, OffContent = Strings.Off, MinWidth = 0, IsOn = folder.On(settings), VerticalAlignment = VerticalAlignment.Center };
+                AutomationProperties.SetName(toggle, folder.Name);
+                toggle.Toggled += (_, _) =>
+                {
+                    if (!_refreshing)
+                    {
+                        bool on = toggle.IsOn;
+                        _host.Settings.Update(s => folder.Set(s, on));
+                    }
+                };
+                toggles.Add((toggle, folder));
+
+                var view = new Grid
+                {
+                    Padding = new Thickness(0, 8, 0, 8),
+                    ColumnSpacing = 12,
+                    Background = clear,
+                    BorderBrush = line,
+                    BorderThickness = new Thickness(0, i > 0 ? 1 : 0, 0, 0),
+                    RenderTransform = new TranslateTransform(),
+                };
+                view.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                view.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                view.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                view.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                view.Children.Add(handle);
+                Grid.SetColumn(icon, 1);
+                view.Children.Add(icon);
+                Grid.SetColumn(name, 2);
+                view.Children.Add(name);
+                Grid.SetColumn(toggle, 3);
+                view.Children.Add(toggle);
+                rows.Children.Add(view);
+                views.Add(view);
+
+                if (folder.Id == focusId)
+                {
+                    focusTarget = handle;
+                }
+            }
+
+            if (focusTarget is not null)
+            {
+                focusId = null;
+                Button target = focusTarget;
+                DispatcherQueue.TryEnqueue(() => target.Focus(FocusState.Keyboard));
+            }
+        }
+
+        void Refresh()
+        {
+            ShellSettings settings = _host.Settings.Current;
+            if (settings.FolderOrder != builtOrder)
+            {
+                Build();
+                return;
+            }
+
+            foreach ((ToggleSwitch toggle, Start.StartFolder folder) in toggles)
+            {
+                toggle.IsOn = folder.On(settings);
+            }
+        }
+
+        Build();
+        _refreshers.Add(Refresh);
+    }
+
+    private void BuildWidgetsPage()
+    {
+        AddSection(Strings.SetInfoLine);
+        AddCard(
+            ToggleRow(
+                Strings.SetInfoLine,
+                string.Empty,
                 s => s.InfoLineEnabled,
                 (s, on) => s.InfoLineEnabled = on),
-            ToggleRow("Show date", "Part of the info line.", s => s.InfoLineShowDate, (s, on) => s.InfoLineShowDate = on),
-            ToggleRow("Show time", "Part of the info line.", s => s.InfoLineShowTime, (s, on) => s.InfoLineShowTime = on),
+            CornerRow(Strings.SetCorner, s => s.InfoLineCorner, (s, c) => s.InfoLineCorner = c),
+            SliderRow(
+                Strings.SetSize,
+                string.Empty,
+                ShellSettings.MinWidgetSize,
+                ShellSettings.MaxWidgetSize,
+                5,
+                s => s.InfoLineSize,
+                (s, v) => s.InfoLineSize = (int)Math.Round(v),
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"),
+            ToggleRow(Strings.SetDate, string.Empty, s => s.InfoLineShowDate, (s, on) => s.InfoLineShowDate = on),
+            ToggleRow(Strings.SetTime, string.Empty, s => s.InfoLineShowTime, (s, on) => s.InfoLineShowTime = on),
+            ToggleRow(Strings.SetSeconds, string.Empty, s => s.InfoLineShowSeconds, (s, on) => s.InfoLineShowSeconds = on),
             ToggleRow(
-                "Show seconds",
-                "The info line's time shows seconds too.",
-                s => s.InfoLineShowSeconds,
-                (s, on) => s.InfoLineShowSeconds = on),
-            ToggleRow(
-                "Show weather",
-                "Part of the info line, from Open-Meteo; hidden when there is no recent reading. Uses your approximate location; see Privacy below.",
+                Strings.SetWeather,
+                string.Empty,
                 s => s.InfoLineShowWeather,
-                (s, on) => s.InfoLineShowWeather = on),
+                (s, on) => s.InfoLineShowWeather = on));
+
+        AddSection(Strings.SetWeatherPlace);
+        AddCard(
             ComboRow(
-                "Weather location",
-                "Windows' location, or a place you choose below.",
-                new[] { "Windows' location", "A place I choose" },
+                Strings.SetLocation,
+                string.Empty,
+                new[] { Strings.SetWindowsLocation, Strings.SetPlaceIChoose },
                 s => s.WeatherUseManualPlace ? 1 : 0,
                 (s, i) => s.WeatherUseManualPlace = i == 1),
-            WeatherPlaceRow(),
-            CornerRow("Info line corner", s => s.InfoLineCorner, (s, c) => s.InfoLineCorner = c),
+            WeatherPlaceRow());
+
+        AddSection(Strings.SetStatusRing);
+        AddCard(
             ToggleRow(
-                "Status ring",
-                "Battery, Wi-Fi and volume in a screen corner. Its colours follow the wallpaper behind it, with a soft backing where the wallpaper is too busy. A click opens Windows' own quick settings.",
+                Strings.SetStatusRing,
+                string.Empty,
                 s => s.ShowDuoRing,
                 (s, on) => s.ShowDuoRing = on),
-            CornerRow("Status ring corner", s => s.DuoRingCorner, (s, c) => s.DuoRingCorner = c),
+            CornerRow(Strings.SetCorner, s => s.DuoRingCorner, (s, c) => s.DuoRingCorner = c),
+            SliderRow(
+                Strings.SetSize,
+                string.Empty,
+                ShellSettings.MinWidgetSize,
+                ShellSettings.MaxWidgetSize,
+                5,
+                s => s.DuoRingSize,
+                (s, v) => s.DuoRingSize = (int)Math.Round(v),
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"));
+    }
+
+    private void BuildDynalandPage()
+    {
+        AddCard(
             ToggleRow(
-                "Keep the free edge clear",
-                "Keeps a strip at the screen edge without the bar (the top while the bar is at the bottom, and the other way round) for the widgets and Dynaland there, so maximised windows stay clear of them.",
+                Strings.SetPageDynaland,
+                string.Empty,
+                s => s.EnableDynaland,
+                (s, on) => s.EnableDynaland = on),
+            ComboRow(
+                Strings.SetPosition,
+                string.Empty,
+                new[] { Strings.SetOppositeBar, Strings.SetTop, Strings.SetBottom },
+                s => (int)s.DynalandPosition,
+                (s, i) => s.DynalandPosition = (DynalandPosition)i),
+            ComboRow(
+                Strings.SetShape,
+                string.Empty,
+                new[] { Strings.SetNotch, Strings.SetIsland },
+                s => (int)s.DynalandStyle,
+                (s, i) => s.DynalandStyle = (DynalandStyle)i),
+            SliderRow(
+                Strings.SetWidth,
+                string.Empty,
+                ShellSettings.MinDynalandWidth,
+                ShellSettings.MaxDynalandWidth,
+                10,
+                s => s.DynalandWidth,
+                (s, v) => s.DynalandWidth = (int)Math.Round(v),
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture)),
+            SliderRow(
+                Strings.SetSize,
+                string.Empty,
+                ShellSettings.MinWidgetSize,
+                ShellSettings.MaxWidgetSize,
+                5,
+                s => s.DynalandSize,
+                (s, v) => s.DynalandSize = (int)Math.Round(v),
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"),
+            ToggleRow(
+                Strings.SetPrivacyDots,
+                Strings.SetPrivacyDotsNote,
+                s => s.ShowPrivacyDots,
+                (s, on) => s.ShowPrivacyDots = on));
+    }
+
+    private void BuildEdgePage()
+    {
+        AddNote(Strings.SetEdgeNote);
+        AddCard(
+            ToggleRow(
+                Strings.SetKeepEdgeClear,
+                string.Empty,
                 s => s.ReserveTopStrip,
                 (s, on) => s.ReserveTopStrip = on),
             ToggleRow(
-                "Cover the strip",
-                "Fills the strip at the free edge with one colour, like a menu bar. Shows only while the strip is kept, and steps aside for full-screen apps.",
+                Strings.SetCover,
+                Strings.SetCoverNote,
                 s => s.TopStripCover,
                 (s, on) => s.TopStripCover = on),
             ComboRow(
-                "Cover colour",
-                "Dark, light, or Windows' accent colour.",
-                new[] { "Dark", "Light", "Accent colour" },
+                Strings.SetCoverColour,
+                string.Empty,
+                new[] { Strings.SetDark, Strings.SetLight, Strings.SetAccentColour },
                 s => (int)s.TopStripCoverColour,
                 (s, i) => s.TopStripCoverColour = (StripCoverColour)i),
             SliderRow(
-                "Cover opacity",
-                "How solid the cover is: 100% hides what is behind it.",
+                Strings.SetCoverOpacity,
+                string.Empty,
                 ShellSettings.MinCoverOpacity * 100,
                 ShellSettings.MaxCoverOpacity * 100,
                 5,
                 s => s.TopStripCoverOpacity * 100,
                 (s, v) => s.TopStripCoverOpacity = Math.Round(v) / 100.0,
                 v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"));
+    }
 
-        AddSection("Dynaland");
-        AddCard(
-            ToggleRow(
-                "Dynaland",
-                "A black pill at the top or bottom of the screen. Small and quiet when nothing is happening; it shows what is playing (from Windows' media controls) and the volume when it changes. Hover it to open: the player first, and an arrow to the page with what is using the camera or mic.",
-                s => s.EnableDynaland,
-                (s, on) => s.EnableDynaland = on),
-            ComboRow(
-                "Position",
-                "Opposite the bar (the top while the bar is at the bottom, and the other way round), or always the top or the bottom. On the bar's own edge it floats just past the bar when the bar is in the middle.",
-                new[] { "Opposite the bar", "Top", "Bottom" },
-                s => (int)s.DynalandPosition,
-                (s, i) => s.DynalandPosition = (DynalandPosition)i),
-            ComboRow(
-                "Shape",
-                "Notch hangs from the screen's edge, its sides curving out into it. Island floats just off the edge, round all around, in line with the corner widgets.",
-                new[] { "Notch", "Island" },
-                s => (int)s.DynalandStyle,
-                (s, i) => s.DynalandStyle = (DynalandStyle)i),
-            ToggleRow(
-                "Camera and mic dots",
-                "A green dot while an app uses the camera, an orange one for the mic, and a short look at which app when it starts.",
-                s => s.ShowPrivacyDots,
-                (s, on) => s.ShowPrivacyDots = on));
-
-        AddSection("Other options from the plan");
-        AddNote("Not built yet. These stay off and cannot be changed until the parts that use them exist.");
-        AddCard(
-            DisabledToggleRow("System stats", s => s.ShowSystemStats),
-            DisabledToggleRow("Focused app name", s => s.ShowFocusedAppName),
-            DisabledToggleRow("Recent items", s => s.ShowRecentItems));
-
-        AddSection("Privacy");
-        AddCard(
-            TextRow(
-                "Weather",
-                "When the info line's weather is on, Machitan asks Windows for this PC's location (at most once an hour), rounds it to about 1 km, and sends that to Open-Meteo (open-meteo.com) every 15 minutes to get the current weather. If Windows does not allow desktop apps to use your location, the weather stays hidden. With a place you chose, Windows' location is not used: that place's coordinates (rounded to about 1 km) are sent instead, and finding a place sends the name you typed to Open-Meteo's place search. Nothing else leaves this PC."),
-            TextRow(
-                "Status ring",
-                "Battery, network and volume are read from Windows on this PC. The Wi-Fi name comes from Windows' network list, so the ring does not need location permission."),
-            TextRow(
-                "Diagnostics log",
-                "Machitan keeps a log for troubleshooting at " + AppPaths.LogFile
-                + ". It can contain app names, file paths and window titles. It stays on this PC unless you share it."),
-            ButtonRow("Open Machitan's folder", "Settings, pins and the log.", OpenDataFolder));
-
-        AddSection("System status");
+    private void BuildShortcutsPage()
+    {
+        AddSection(Strings.SetStatus);
         _statusText = new TextBlock { Text = _host.SystemStatus, TextWrapping = TextWrapping.Wrap };
-        AutomationProperties.SetName(_statusText, "System status");
-        AddCard(Row("Hotkeys", "Whether Machitan owns the Windows key and its shortcuts.", _statusText, stacked: true));
+        AutomationProperties.SetName(_statusText, Strings.SetHotkeyStatus);
+        AddCard(Row(Strings.SetHotkeys, string.Empty, _statusText, stacked: true));
 
-        AddSection("About");
+        AddSection(Strings.SetAdminApps);
+        AddCard(AdminKeysRow());
+    }
+
+    /// <summary>
+    /// "Shortcuts in apps running as administrator": read from the shell each time (on only for
+    /// this copy of Machitan.exe); switching asks Windows (one prompt each way).
+    /// </summary>
+    private Grid AdminKeysRow()
+    {
+        var toggle = new ToggleSwitch { OnContent = Strings.On, OffContent = Strings.Off, MinWidth = 0 };
+        string label = Strings.SetAdminKeys;
+        AutomationProperties.SetName(toggle, label);
+
+        bool settingIt = false;
+        void Refresh()
+        {
+            settingIt = true;
+            toggle.IsOn = _host.AdminAppShortcutsOn;
+            settingIt = false;
+        }
+
+        Refresh();
+        _refreshers.Add(Refresh);
+        toggle.Toggled += async (_, _) =>
+        {
+            if (settingIt || _refreshing)
+            {
+                return;
+            }
+
+            bool on = toggle.IsOn;
+            toggle.IsEnabled = false;
+            try
+            {
+                await _host.SetAdminAppShortcutsAsync(on);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Settings: the shortcuts-in-admin-apps option could not be changed.", ex);
+            }
+            finally
+            {
+                toggle.IsEnabled = true;
+                Refresh();
+                RefreshStatus();
+            }
+        };
+
+        return Row(label, Strings.SetAdminKeysNote, toggle);
+    }
+
+    private void BuildPrivacyPage()
+    {
+        AddCard(
+            TextRow(
+                Strings.SetWeather,
+                Strings.SetPrivacyWeather),
+            TextRow(
+                Strings.SetStatusRing,
+                Strings.SetPrivacyRing),
+            TextRow(
+                Strings.SetDiagnosticsLog,
+                Fmt.F(Strings.SetPrivacyLog, AppPaths.LogFile)),
+            ButtonRow(Strings.SetOpenFolder, string.Empty, OpenDataFolder));
+    }
+
+    private void BuildAboutPage()
+    {
         AddCard(TextRow(
             "Machitan " + typeof(SettingsWindow).Assembly.GetName().Version,
-            "Free software under the GNU GPL, version 3. Windows build "
-            + Environment.OSVersion.Version.Build.ToString(CultureInfo.InvariantCulture) + "."));
+            Fmt.F(Strings.SetAboutText, Environment.OSVersion.Version.Build.ToString(CultureInfo.InvariantCulture))));
+
+        AddSection(Strings.SetPlanned);
+        AddNote(Strings.SetNotBuiltYet);
+        AddCard(
+            DisabledToggleRow(Strings.SetSystemStats, s => s.ShowSystemStats),
+            DisabledToggleRow(Strings.SetFocusedAppName, s => s.ShowFocusedAppName),
+            DisabledToggleRow(Strings.SetRecentItems, s => s.ShowRecentItems));
     }
 
     // ---------------------------------------------------------------- building blocks
@@ -306,11 +1072,7 @@ public sealed partial class SettingsWindow : Window
         {
             if (i > 0)
             {
-                stack.Children.Add(new Border
-                {
-                    Height = 1,
-                    Background = new SolidColorBrush(IsDark() ? ColorHelper.FromArgb(30, 255, 255, 255) : ColorHelper.FromArgb(30, 0, 0, 0)),
-                });
+                stack.Children.Add(CardLine());
             }
 
             stack.Children.Add(rows[i]);
@@ -328,6 +1090,16 @@ public sealed partial class SettingsWindow : Window
             BorderBrush = new SolidColorBrush(dark ? ColorHelper.FromArgb(25, 0, 0, 0) : ColorHelper.FromArgb(15, 0, 0, 0)),
         };
         Sections.Children.Add(card);
+    }
+
+    /// <summary>The thin line between a card's rows.</summary>
+    private Border CardLine()
+    {
+        return new Border
+        {
+            Height = 1,
+            Background = new SolidColorBrush(IsDark() ? ColorHelper.FromArgb(30, 255, 255, 255) : ColorHelper.FromArgb(30, 0, 0, 0)),
+        };
     }
 
     /// <summary>Label and description on the left, the control on the right (or below when stacked).</summary>
@@ -362,7 +1134,7 @@ public sealed partial class SettingsWindow : Window
 
     private Grid ToggleRow(string label, string description, Func<ShellSettings, bool> read, Action<ShellSettings, bool> write)
     {
-        var toggle = new ToggleSwitch { OnContent = "On", OffContent = "Off", MinWidth = 0 };
+        var toggle = new ToggleSwitch { OnContent = Strings.On, OffContent = Strings.Off, MinWidth = 0 };
         AutomationProperties.SetName(toggle, label);
 
         void Refresh() => toggle.IsOn = read(_host.Settings.Current);
@@ -381,11 +1153,69 @@ public sealed partial class SettingsWindow : Window
         return Row(label, description, toggle);
     }
 
+    /// <summary>An entry that is always there: its toggle shows On, greyed, and the note says why.</summary>
+    private static Grid AlwaysOnRow(string label, string note)
+    {
+        var toggle = new ToggleSwitch
+        {
+            OnContent = Strings.On,
+            OffContent = Strings.Off,
+            MinWidth = 0,
+            IsOn = true,
+            IsEnabled = false,
+        };
+        AutomationProperties.SetName(toggle, label + " (" + note + ")");
+        return Row(label, note, toggle);
+    }
+
+    /// <summary>A toggle for something this PC may not offer: when it does not, the toggle is greyed and says why.</summary>
+    private Grid OfferedToggleRow(string label, bool offered, string whyNot, Func<ShellSettings, bool> read, Action<ShellSettings, bool> write)
+    {
+        Grid row = ToggleRow(label, offered ? string.Empty : whyNot, read, write);
+        if (!offered && row.Children[1] is ToggleSwitch toggle)
+        {
+            toggle.IsEnabled = false;
+            AutomationProperties.SetName(toggle, label + " (" + whyNot + ")");
+        }
+
+        return row;
+    }
+
+    /// <summary>"Run at startup": read from and written to Windows' startup list itself (see StartupRegistration).</summary>
+    private Grid RunAtStartupRow()
+    {
+        var toggle = new ToggleSwitch { OnContent = Strings.On, OffContent = Strings.Off, MinWidth = 0 };
+        AutomationProperties.SetName(toggle, Strings.SetRunAtStartup);
+
+        bool settingIt = false;
+        void Refresh()
+        {
+            settingIt = true;
+            toggle.IsOn = StartupRegistration.IsOn();
+            settingIt = false;
+        }
+
+        Refresh();
+        _refreshers.Add(Refresh);
+        toggle.Toggled += (_, _) =>
+        {
+            if (settingIt || _refreshing)
+            {
+                return;
+            }
+
+            StartupRegistration.Set(toggle.IsOn);
+            Refresh();
+        };
+
+        return Row(Strings.SetRunAtStartup, string.Empty, toggle);
+    }
+
     private Grid DisabledToggleRow(string label, Func<ShellSettings, bool> read)
     {
-        var toggle = new ToggleSwitch { OnContent = "On", OffContent = "Off", MinWidth = 0, IsEnabled = false, IsOn = read(_host.Settings.Current) };
-        AutomationProperties.SetName(toggle, label + " (not built yet)");
-        return Row(label, "Not built yet.", toggle);
+        var toggle = new ToggleSwitch { OnContent = Strings.On, OffContent = Strings.Off, MinWidth = 0, IsEnabled = false, IsOn = read(_host.Settings.Current) };
+        AutomationProperties.SetName(toggle, Fmt.F(Strings.SetNotBuiltName, label));
+        return Row(label, string.Empty, toggle);
     }
 
     private Grid ComboRow(string label, string description, string[] choices, Func<ShellSettings, int> read, Action<ShellSettings, int> write)
@@ -419,7 +1249,7 @@ public sealed partial class SettingsWindow : Window
         return ComboRow(
             label,
             string.Empty,
-            new[] { "Top left", "Top right", "Bottom left", "Bottom right" },
+            new[] { Strings.SetTopLeft, Strings.SetTopRight, Strings.SetBottomLeft, Strings.SetBottomRight },
             s => (int)read(s),
             (s, i) => write(s, (ScreenCorner)i));
     }
@@ -484,17 +1314,17 @@ public sealed partial class SettingsWindow : Window
     {
         var box = new TextBox
         {
-            PlaceholderText = "A city, or latitude, longitude",
+            PlaceholderText = Strings.SetPlaceBox,
             Width = 280,
             Text = _host.Settings.Current.WeatherPlaceName,
         };
-        AutomationProperties.SetName(box, "Weather place");
+        AutomationProperties.SetName(box, Strings.SetWeatherPlace);
 
-        var find = new Button { Content = "Find", CornerRadius = new CornerRadius(8) };
-        AutomationProperties.SetName(find, "Find this place and use it for the weather");
+        var find = new Button { Content = Strings.SetFind, CornerRadius = new CornerRadius(Radii.Small) };
+        AutomationProperties.SetName(find, Strings.SetFindName);
 
         var status = new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
-        AutomationProperties.SetName(status, "Weather place in use");
+        AutomationProperties.SetName(status, Strings.SetPlaceInUseName);
 
         void Refresh() => status.Text = DescribeWeatherPlace(_host.Settings.Current);
         Refresh();
@@ -504,7 +1334,7 @@ public sealed partial class SettingsWindow : Window
         {
             string query = box.Text;
             find.IsEnabled = false;
-            status.Text = "Looking up \"" + query.Trim() + "\"...";
+            status.Text = Fmt.F(Strings.SetLookingUp, query.Trim());
             try
             {
                 (WeatherPlace? place, string problem) = await WeatherService.FindPlaceAsync(query);
@@ -527,7 +1357,7 @@ public sealed partial class SettingsWindow : Window
             }
             catch (Exception ex)
             {
-                status.Text = "The place search did not work.";
+                status.Text = Strings.SetPlaceSearchFailed;
                 Log.Error("Settings: the weather place search failed.", ex);
             }
             finally
@@ -558,8 +1388,8 @@ public sealed partial class SettingsWindow : Window
         control.Children.Add(line);
         control.Children.Add(status);
         return Row(
-            "Weather place",
-            "Type a city and press Find (or Enter). The first match is used, and the weather switches to it.",
+            Strings.SetWeatherPlace,
+            string.Empty,
             control,
             stacked: true);
     }
@@ -570,18 +1400,19 @@ public sealed partial class SettingsWindow : Window
         if (!settings.WeatherUseManualPlace)
         {
             return hasPlace
-                ? "In use: Windows' location. Chosen place kept for later: " + settings.WeatherPlaceName + "."
-                : "In use: Windows' location.";
+                ? Fmt.F(Strings.SetInUseWindowsKept, settings.WeatherPlaceName)
+                : Strings.SetInUseWindows;
         }
 
         if (!hasPlace)
         {
-            return "In use: no place chosen yet, so the weather stays hidden. Find one above, or switch back to Windows' location.";
+            return Strings.SetInUseNone;
         }
 
-        return "In use: " + settings.WeatherPlaceName + " ("
-            + settings.WeatherLatitude!.Value.ToString("0.00", CultureInfo.InvariantCulture) + ", "
-            + settings.WeatherLongitude!.Value.ToString("0.00", CultureInfo.InvariantCulture) + ").";
+        return Fmt.F(Strings.SetInUsePlace,
+            settings.WeatherPlaceName,
+            settings.WeatherLatitude!.Value.ToString("0.00", CultureInfo.InvariantCulture),
+            settings.WeatherLongitude!.Value.ToString("0.00", CultureInfo.InvariantCulture));
     }
 
     private static Grid TextRow(string label, string description)
@@ -591,7 +1422,7 @@ public sealed partial class SettingsWindow : Window
 
     private static Grid ButtonRow(string label, string description, Action onClick)
     {
-        var button = new Button { Content = label, CornerRadius = new CornerRadius(8) };
+        var button = new Button { Content = label, CornerRadius = new CornerRadius(Radii.Small) };
         AutomationProperties.SetName(button, label);
         button.Click += (_, _) => onClick();
         return Row(label, description, button);
@@ -618,11 +1449,9 @@ public sealed partial class SettingsWindow : Window
         {
             if (_builtDark != IsDark())
             {
-                // Card colours depend on the theme: rebuild, keeping the scroll position.
+                // Card colours depend on the theme: rebuild the page, keeping the scroll position.
                 double offset = Scroller.VerticalOffset;
-                Sections.Children.Clear();
-                _refreshers.Clear();
-                BuildSections();
+                ShowPage(_page);
                 Scroller.ChangeView(null, offset, null, true);
             }
             else
@@ -649,6 +1478,26 @@ public sealed partial class SettingsWindow : Window
             ThemeMode.Light => ElementTheme.Light,
             _ => ElementTheme.Default,
         };
+
+        // The window's buttons sit on Machitan's title bar: give them the same theme.
+        try
+        {
+            bool dark = IsDark();
+            Microsoft.UI.Windowing.AppWindowTitleBar bar = AppWindow.TitleBar;
+            Windows.UI.Color text = dark ? Colors.White : Colors.Black;
+            bar.ButtonBackgroundColor = Colors.Transparent;
+            bar.ButtonInactiveBackgroundColor = Colors.Transparent;
+            bar.ButtonForegroundColor = text;
+            bar.ButtonHoverForegroundColor = text;
+            bar.ButtonPressedForegroundColor = text;
+            bar.ButtonInactiveForegroundColor = dark ? ColorHelper.FromArgb(120, 255, 255, 255) : ColorHelper.FromArgb(120, 0, 0, 0);
+            bar.ButtonHoverBackgroundColor = dark ? ColorHelper.FromArgb(24, 255, 255, 255) : ColorHelper.FromArgb(24, 0, 0, 0);
+            bar.ButtonPressedBackgroundColor = dark ? ColorHelper.FromArgb(40, 255, 255, 255) : ColorHelper.FromArgb(40, 0, 0, 0);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Settings: the window's buttons could not take the theme's colours.", ex);
+        }
     }
 
     private static void OpenDataFolder()

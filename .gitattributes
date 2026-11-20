@@ -10,6 +10,9 @@
 *.manifest text eol=crlf
 *.json     text eol=crlf
 *.md       text eol=crlf
+*.resx     text eol=crlf
+*.iss      text eol=crlf
+*.cmd      text eol=crlf
 
 *.png  binary
 *.jpg  binary

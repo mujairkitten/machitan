@@ -13,6 +13,7 @@ internal static partial class Shell32
     internal const uint ABM_QUERYPOS = 2;
     internal const uint ABM_SETPOS = 3;
     internal const uint ABM_GETSTATE = 4;
+    internal const uint ABM_GETTASKBARPOS = 5;
     internal const uint ABM_SETSTATE = 10;
 
     internal const uint ABS_AUTOHIDE = 1;

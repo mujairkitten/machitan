@@ -10,12 +10,21 @@ namespace Machitan.Widgets;
 /// Keeps a strip at the free edge of the bar's screen (the edge without the bar: the top while
 /// the bar is at the bottom, the bottom while it is at the top) for the corner widgets and
 /// Dynaland there, through the Windows AppBar system, so maximised windows stay clear of them.
-/// It is an AppBar of its own, owned by a small hidden window made here; the bar's own AppBar
-/// is never touched. (Named for where it started: the top.) Use on the UI thread.
+/// It is an AppBar of its own, owned by a window made here; the bar's own AppBar is never
+/// touched. (Named for where it started: the top.) Use on the UI thread.
+///
+/// The window sits exactly on the strip, shown but fully see-through, click-through, behind
+/// every other window and never active (Part 13). While Machitan's tray receiver runs, the
+/// strip's AppBar messages reach Machitan's "Shell_TrayWnd" window first; AppBarRelay passes them
+/// on to Explorer with an answer block Explorer can open (Part 15). The log's "Strip check" line
+/// says whether Windows took the strip off.
 /// </summary>
 internal sealed class TopStrip : IDisposable
 {
     private const uint CallbackMessage = User32.WM_APP + 0x52;
+    private const uint AbmWindowPosChanged = 9;
+    private const nint HwndBottom = 1;
+    private const uint SwpShowWindow = 0x0040;
 
     private nint _hwnd;
     private WindowSubclass? _subclass;
@@ -28,6 +37,9 @@ internal sealed class TopStrip : IDisposable
 
     /// <summary>Raised when Windows moved the strip (another top app bar came or went).</summary>
     internal event Action? Moved;
+
+    /// <summary>Raised after the strip was (re)taken, so maximised windows can be checked.</summary>
+    internal event Action? Applied;
 
     /// <summary>The strip Windows gave, or null when none is kept.</summary>
     internal RECT? Granted => _registered ? _granted : null;
@@ -95,6 +107,11 @@ internal sealed class TopStrip : IDisposable
         APPBARDATA data = NewData();
         Shell32.SHAppBarMessage(Shell32.ABM_REMOVE, ref data);
         _registered = false;
+        if (_hwnd != 0)
+        {
+            User32.ShowWindow(_hwnd, User32.SW_HIDE);
+        }
+
         Log.Info("Strip: given back.");
     }
 
@@ -126,6 +143,17 @@ internal sealed class TopStrip : IDisposable
 
         Shell32.SHAppBarMessage(Shell32.ABM_SETPOS, ref data);
         _granted = data.rc;
+
+        // The window goes where the strip is (see the class notes), then Windows is told it moved.
+        if (!User32.SetWindowPos(_hwnd, HwndBottom, _granted.Left, _granted.Top, _granted.Width, _granted.Height,
+            User32.SWP_NOACTIVATE | User32.SWP_NOOWNERZORDER | SwpShowWindow))
+        {
+            Log.Warn("Strip: its window could not be put on the strip (error " + Marshal.GetLastSystemError() + ").");
+        }
+
+        APPBARDATA moved = NewData();
+        Shell32.SHAppBarMessage(AbmWindowPosChanged, ref moved);
+        Applied?.Invoke();
     }
 
     private APPBARDATA Proposed()
@@ -145,7 +173,7 @@ internal sealed class TopStrip : IDisposable
         return data;
     }
 
-    /// <summary>A plain hidden window to own the AppBar and receive its notices.</summary>
+    /// <summary>The window that owns the AppBar and receives its notices: see-through and click-through.</summary>
     private bool EnsureWindow()
     {
         if (_hwnd != 0)
@@ -159,7 +187,7 @@ internal sealed class TopStrip : IDisposable
         }
 
         _hwnd = User32.CreateWindowEx(
-            (uint)(User32.WS_EX_TOOLWINDOW | User32.WS_EX_NOACTIVATE),
+            (uint)(User32.WS_EX_TOOLWINDOW | User32.WS_EX_NOACTIVATE | User32.WS_EX_LAYERED | User32.WS_EX_TRANSPARENT),
             "STATIC",
             "Machitan top strip",
             unchecked((uint)User32.WS_POPUP),
@@ -178,6 +206,8 @@ internal sealed class TopStrip : IDisposable
             return false;
         }
 
+        // Fully see-through: shown on the strip, nothing of it is ever seen.
+        User32.SetLayeredWindowAttributes(_hwnd, 0, 0, User32.LWA_ALPHA);
         _subclass = new WindowSubclass(_hwnd, OnMessage);
         return true;
     }

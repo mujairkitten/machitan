@@ -73,6 +73,15 @@ internal static unsafe class IconReader
         return icon == 0 ? null : Read(icon);
     }
 
+    /// <summary>
+    /// An icon handle another app handed over (a tray icon). Read at once, while the app still
+    /// has it; it belongs to that app, so it is never destroyed here.
+    /// </summary>
+    internal static IconPixels? FromIconHandle(nint icon)
+    {
+        return icon == 0 ? null : Read(icon);
+    }
+
     private static nint AskWindow(nint hwnd, nint which)
     {
         // A hung window must not hang the shell: give up after a short wait.

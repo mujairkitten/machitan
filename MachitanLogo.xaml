@@ -1,0 +1,139 @@
+<!-- MachitanLogo.xaml — the Machitan logo as a reusable WinUI 3 UserControl.
+     Drop this file (plus MachitanLogo.xaml.cs) into the project, e.g. under
+     Controls/, keeping the namespace below in step with the folder (adjust
+     Machitan.Controls if the project uses a different controls namespace).
+
+     Usage: place it where an icon goes and set Width/Height on the instance —
+     e.g. Width="36" Height="24" for the bar's Start button, Width="24"
+     Height="16" for a titlebar icon. The Viewbox scales the mark to fit, so
+     one control serves every size.
+
+     The three pills are vector shapes (no image assets): soft Fluent
+     gradients (light top -> base colour -> dark bottom), gloss strip, lean
+     first pill right (/), second and third left (\). Colours match
+     machitan-logo.svg exactly.
+
+     States: Normal / PointerOver / Pressed are driven by the code-behind
+     from pointer input — hover lightens every pill ~15%, pressed darkens
+     ~15% and scales the mark to 0.97. If the logo sits inside a Button, the
+     Button's own hover/press visuals still apply on top.
+
+     The drop shadow from the SVG/PNG versions is intentionally left out:
+     WinUI has no per-element blur effect for arbitrary shapes, and at icon
+     sizes the shadow is barely visible. If a shadow is wanted, put a
+     ThemeShadow on the host Button instead. -->
+<UserControl
+    x:Class="Machitan.Controls.MachitanLogo"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Viewbox Stretch="Uniform">
+        <!-- The states sit on the control's first element: that is where GoToState looks for them. -->
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="CommonStates">
+                <VisualState x:Name="Normal" />
+                <VisualState x:Name="PointerOver">
+                    <Storyboard>
+                        <ColorAnimation Storyboard.TargetName="Pill1Top" Storyboard.TargetProperty="Color" To="#7AC0E4" Duration="0:0:0.15" />
+                        <ColorAnimation Storyboard.TargetName="Pill1Mid" Storyboard.TargetProperty="Color" To="#339ED5" Duration="0:0:0.15" />
+                        <ColorAnimation Storyboard.TargetName="Pill1Bottom" Storyboard.TargetProperty="Color" To="#3089B6" Duration="0:0:0.15" />
+                        <ColorAnimation Storyboard.TargetName="Pill2Top" Storyboard.TargetProperty="Color" To="#D9BFBA" Duration="0:0:0.15" />
+                        <ColorAnimation Storyboard.TargetName="Pill2Mid" Storyboard.TargetProperty="Color" To="#C49C96" Duration="0:0:0.15" />
+                        <ColorAnimation Storyboard.TargetName="Pill2Bottom" Storyboard.TargetProperty="Color" To="#A88781" Duration="0:0:0.15" />
+                        <ColorAnimation Storyboard.TargetName="Pill3Top" Storyboard.TargetProperty="Color" To="#F6A4A2" Duration="0:0:0.15" />
+                        <ColorAnimation Storyboard.TargetName="Pill3Mid" Storyboard.TargetProperty="Color" To="#F1746F" Duration="0:0:0.15" />
+                        <ColorAnimation Storyboard.TargetName="Pill3Bottom" Storyboard.TargetProperty="Color" To="#CC6663" Duration="0:0:0.15" />
+                    </Storyboard>
+                </VisualState>
+                <VisualState x:Name="Pressed">
+                    <Storyboard>
+                        <ColorAnimation Storyboard.TargetName="Pill1Top" Storyboard.TargetProperty="Color" To="#549ABE" Duration="0:0:0.1" />
+                        <ColorAnimation Storyboard.TargetName="Pill1Mid" Storyboard.TargetProperty="Color" To="#0D78AF" Duration="0:0:0.1" />
+                        <ColorAnimation Storyboard.TargetName="Pill1Bottom" Storyboard.TargetProperty="Color" To="#0A6390" Duration="0:0:0.1" />
+                        <ColorAnimation Storyboard.TargetName="Pill2Top" Storyboard.TargetProperty="Color" To="#B29994" Duration="0:0:0.1" />
+                        <ColorAnimation Storyboard.TargetName="Pill2Mid" Storyboard.TargetProperty="Color" To="#9E766F" Duration="0:0:0.1" />
+                        <ColorAnimation Storyboard.TargetName="Pill2Bottom" Storyboard.TargetProperty="Color" To="#82615B" Duration="0:0:0.1" />
+                        <ColorAnimation Storyboard.TargetName="Pill3Top" Storyboard.TargetProperty="Color" To="#CF7E7B" Duration="0:0:0.1" />
+                        <ColorAnimation Storyboard.TargetName="Pill3Mid" Storyboard.TargetProperty="Color" To="#CA4D49" Duration="0:0:0.1" />
+                        <ColorAnimation Storyboard.TargetName="Pill3Bottom" Storyboard.TargetProperty="Color" To="#A6403C" Duration="0:0:0.1" />
+                        <DoubleAnimation Storyboard.TargetName="LogoScale" Storyboard.TargetProperty="ScaleX" To="0.97" Duration="0:0:0.1" />
+                        <DoubleAnimation Storyboard.TargetName="LogoScale" Storyboard.TargetProperty="ScaleY" To="0.97" Duration="0:0:0.1" />
+                    </Storyboard>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <Grid Width="1536" Height="1024" Background="Transparent" RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform>
+                <ScaleTransform x:Name="LogoScale" ScaleX="1" ScaleY="1" />
+            </Grid.RenderTransform>
+            <Canvas Width="1536" Height="1024">
+                <!-- Pill 1: leans right (/) -->
+                <Border Canvas.Left="354" Canvas.Top="212" Width="200" Height="600"
+                        CornerRadius="100" RenderTransformOrigin="0.5,0.5">
+                    <Border.RenderTransform>
+                        <RotateTransform Angle="10" />
+                    </Border.RenderTransform>
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop x:Name="Pill1Top" Offset="0" Color="#63B5DF" />
+                            <GradientStop x:Name="Pill1Mid" Offset="0.5" Color="#0F8DCE" />
+                            <GradientStop x:Name="Pill1Bottom" Offset="1" Color="#0C74A9" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border CornerRadius="50" Margin="14,16,86,16">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Offset="0" Color="#6BFFFFFF" />
+                                <GradientStop Offset="1" Color="#00FFFFFF" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                </Border>
+                <!-- Pill 2: leans left (\) -->
+                <Border Canvas.Left="668" Canvas.Top="212" Width="200" Height="600"
+                        CornerRadius="100" RenderTransformOrigin="0.5,0.5">
+                    <Border.RenderTransform>
+                        <RotateTransform Angle="-10" />
+                    </Border.RenderTransform>
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop x:Name="Pill2Top" Offset="0" Color="#D2B4AE" />
+                            <GradientStop x:Name="Pill2Mid" Offset="0.5" Color="#BA8B83" />
+                            <GradientStop x:Name="Pill2Bottom" Offset="1" Color="#99726B" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border CornerRadius="50" Margin="14,16,86,16">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Offset="0" Color="#6BFFFFFF" />
+                                <GradientStop Offset="1" Color="#00FFFFFF" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                </Border>
+                <!-- Pill 3: leans left (\) -->
+                <Border Canvas.Left="982" Canvas.Top="212" Width="200" Height="600"
+                        CornerRadius="100" RenderTransformOrigin="0.5,0.5">
+                    <Border.RenderTransform>
+                        <RotateTransform Angle="-10" />
+                    </Border.RenderTransform>
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop x:Name="Pill3Top" Offset="0" Color="#F49491" />
+                            <GradientStop x:Name="Pill3Mid" Offset="0.5" Color="#EE5B56" />
+                            <GradientStop x:Name="Pill3Bottom" Offset="1" Color="#C34B47" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border CornerRadius="50" Margin="14,16,86,16">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Offset="0" Color="#6BFFFFFF" />
+                                <GradientStop Offset="1" Color="#00FFFFFF" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                </Border>
+            </Canvas>
+        </Grid>
+    </Viewbox>
+</UserControl>

@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using Machitan.Config;
 using Machitan.Core;
+using Machitan.Custom;
 using Machitan.Interop;
 using Machitan.Shell;
 using Machitan.Visuals;
@@ -92,7 +93,7 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
         };
         _capsule.Children.Add(_hover);
         _capsule.Children.Add(_row);
-        AutomationProperties.SetName(_capsule, "Info line. Opens Windows' notification centre.");
+        AutomationProperties.SetName(_capsule, Strings.InfoLineName);
         _capsule.Tapped += (_, _) => OnClicked();
         _capsule.PointerEntered += (_, _) => SetHover(true);
         _capsule.PointerExited += (_, _) => SetHover(false);
@@ -130,12 +131,16 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
         }
     }
 
+    private protected override CustomPiece Piece => CustomPiece.InfoLine;
+
     private protected override bool IsEnabled(ShellSettings settings) => settings.InfoLineEnabled;
 
     /// <summary>The capsule's width (it follows its text), for the widgets beside it.</summary>
     private protected override double ShapeWidthDip() => _capsule.ActualWidth > 0 ? _capsule.ActualWidth : _capsule.DesiredSize.Width;
 
     private protected override ScreenCorner CornerOf(ShellSettings settings) => settings.InfoLineCorner;
+
+    private protected override double SizeOf(ShellSettings settings) => settings.InfoLineSize / 100.0;
 
     private protected override void OnSettingsApplied(ShellSettings settings)
     {
@@ -260,7 +265,7 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
         if (reading is not null && settings.InfoLineShowWeather)
         {
             string place = settings.WeatherUseManualPlace && settings.WeatherPlaceName.Length > 0
-                ? " in " + settings.WeatherPlaceName
+                ? " " + Fmt.F(Strings.InfoLineIn, settings.WeatherPlaceName)
                 : string.Empty;
             tip += "\n" + reading.Description + ", "
                 + reading.TemperatureC.ToString("0.#", CultureInfo.CurrentCulture) + " \u00B0C" + place + " (Open-Meteo, "

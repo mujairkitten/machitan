@@ -109,13 +109,24 @@ internal sealed class SettingsStore
 
             _document["Theme"] = s.Theme.ToString();
             _document["TaskbarMode"] = s.TaskbarMode.ToString();
+            _document["PreviewStyle"] = s.PreviewStyle.ToString();
             _document["DockEdge"] = s.DockEdge.ToString();
             _document["DockAlignment"] = s.DockAlignment.ToString();
             _document["BarSize"] = s.BarSize;
             _document["IconSize"] = s.IconSize;
             _document["Opacity"] = s.Opacity;
             _document["EnableAcrylic"] = s.EnableAcrylic;
+            _document["TurnOffAnimations"] = s.TurnOffAnimations;
             _document["SearchMode"] = s.SearchMode.ToString();
+
+            // The bar's order lives in bar-layout.json now (it holds app groups too).
+            _document.Remove("SegmentOrder");
+            _document["SearchPlace"] = s.SearchPlace.ToString();
+            _document["DockLabels"] = s.DockLabels;
+            _document["ShowStartOnBar"] = s.ShowStartOnBar;
+            _document["ShowAppsOnBar"] = s.ShowAppsOnBar;
+            _document["TrayOnBar"] = s.TrayOnBar;
+            _document["PeekAtDesktop"] = s.PeekAtDesktop;
             _document["ShowSystemStats"] = s.ShowSystemStats;
             _document["ShowFocusedAppName"] = s.ShowFocusedAppName;
             _document["ShowRecentItems"] = s.ShowRecentItems;
@@ -139,10 +150,28 @@ internal sealed class SettingsStore
             _document["TopStripCover"] = s.TopStripCover;
             _document["TopStripCoverColour"] = s.TopStripCoverColour.ToString();
             _document["TopStripCoverOpacity"] = s.TopStripCoverOpacity;
+            _document["AccentSource"] = s.AccentSource.ToString();
+            _document["InfoLineSize"] = s.InfoLineSize;
+            _document["DuoRingSize"] = s.DuoRingSize;
+            _document["DynalandSize"] = s.DynalandSize;
+            _document["DynalandWidth"] = s.DynalandWidth;
             _document["DuoRingCorner"] = s.DuoRingCorner.ToString();
             _document["ReserveTopStrip"] = s.ReserveTopStrip;
             _document["CalendarShowSeconds"] = s.CalendarShowSeconds;
+            _document["Language"] = s.Language;
+            _document["AdminAppShortcuts"] = s.AdminAppShortcuts;
+            _document["AdminAppShortcutsFor"] = s.AdminAppShortcutsFor;
             _document["CalendarCollapsed"] = s.CalendarCollapsed;
+            foreach (var option in StartOptions)
+            {
+                _document[option.Key] = option.Read(s);
+            }
+
+            _document["FolderOrder"] = s.FolderOrder;
+            _document["CustomStartButton"] = s.CustomStartButton;
+            _document["StartButtonPicture"] = s.StartButtonPicture;
+            _document["StartButtonPictureHover"] = s.StartButtonPictureHover;
+            _document["StartButtonPicturePressed"] = s.StartButtonPicturePressed;
 
             string text = _document.ToJsonString(WriteOptions);
             AtomicFile.WriteAllText(AppPaths.SettingsFile, text);
@@ -248,6 +277,15 @@ internal sealed class SettingsStore
             NoteUnreadable(document, "TaskbarMode");
         }
 
+        if (TryEnum(document["PreviewStyle"], out PreviewStyle previews))
+        {
+            s.PreviewStyle = previews;
+        }
+        else
+        {
+            NoteUnreadable(document, "PreviewStyle");
+        }
+
         if (TryEnum(document["DockEdge"], out DockEdge edge))
         {
             s.DockEdge = edge;
@@ -302,6 +340,15 @@ internal sealed class SettingsStore
             NoteUnreadable(document, "EnableAcrylic");
         }
 
+        if (TryBool(document["TurnOffAnimations"], out bool noAnimations))
+        {
+            s.TurnOffAnimations = noAnimations;
+        }
+        else
+        {
+            NoteUnreadable(document, "TurnOffAnimations");
+        }
+
         if (TryEnum(document["SearchMode"], out SearchMode search))
         {
             s.SearchMode = search;
@@ -309,6 +356,15 @@ internal sealed class SettingsStore
         else
         {
             NoteUnreadable(document, "SearchMode");
+        }
+
+        if (TryEnum(document["SearchPlace"], out SearchPlace place))
+        {
+            s.SearchPlace = place;
+        }
+        else
+        {
+            NoteUnreadable(document, "SearchPlace");
         }
 
         if (TryBool(document["ShowSystemStats"], out bool stats))
@@ -457,6 +513,51 @@ internal sealed class SettingsStore
             NoteUnreadable(document, "TopStripCoverOpacity");
         }
 
+        if (TryEnum(document["AccentSource"], out AccentSource accentSource))
+        {
+            s.AccentSource = accentSource;
+        }
+        else
+        {
+            NoteUnreadable(document, "AccentSource");
+        }
+
+        if (TryInt(document["InfoLineSize"], out int infoLineSize))
+        {
+            s.InfoLineSize = infoLineSize;
+        }
+        else
+        {
+            NoteUnreadable(document, "InfoLineSize");
+        }
+
+        if (TryInt(document["DuoRingSize"], out int duoRingSize))
+        {
+            s.DuoRingSize = duoRingSize;
+        }
+        else
+        {
+            NoteUnreadable(document, "DuoRingSize");
+        }
+
+        if (TryInt(document["DynalandSize"], out int dynalandSize))
+        {
+            s.DynalandSize = dynalandSize;
+        }
+        else
+        {
+            NoteUnreadable(document, "DynalandSize");
+        }
+
+        if (TryInt(document["DynalandWidth"], out int dynalandWidth))
+        {
+            s.DynalandWidth = dynalandWidth;
+        }
+        else
+        {
+            NoteUnreadable(document, "DynalandWidth");
+        }
+
         if (TryEnum(document["DuoRingCorner"], out ScreenCorner duoCorner))
         {
             s.DuoRingCorner = duoCorner;
@@ -538,6 +639,90 @@ internal sealed class SettingsStore
             NoteUnreadable(document, "CalendarCollapsed");
         }
 
+        foreach (var option in StartOptions)
+        {
+            if (TryBool(document[option.Key], out bool on))
+            {
+                option.Write(s, on);
+            }
+            else
+            {
+                NoteUnreadable(document, option.Key);
+            }
+        }
+
+        if (TryString(document["Language"], out string language))
+        {
+            s.Language = language.Trim();
+        }
+        else
+        {
+            NoteUnreadable(document, "Language");
+        }
+
+        if (TryBool(document["AdminAppShortcuts"], out bool adminKeys))
+        {
+            s.AdminAppShortcuts = adminKeys;
+        }
+        else
+        {
+            NoteUnreadable(document, "AdminAppShortcuts");
+        }
+
+        if (TryString(document["AdminAppShortcutsFor"], out string adminKeysFor))
+        {
+            s.AdminAppShortcutsFor = adminKeysFor;
+        }
+        else
+        {
+            NoteUnreadable(document, "AdminAppShortcutsFor");
+        }
+
+        if (TryString(document["FolderOrder"], out string folderOrder))
+        {
+            s.FolderOrder = folderOrder;
+        }
+        else
+        {
+            NoteUnreadable(document, "FolderOrder");
+        }
+
+        if (TryBool(document["DockLabels"], out bool labels))
+        {
+            s.DockLabels = labels;
+        }
+        else
+        {
+            NoteUnreadable(document, "DockLabels");
+        }
+
+        if (TryBool(document["ShowStartOnBar"], out bool startOnBar))
+        {
+            s.ShowStartOnBar = startOnBar;
+        }
+        else
+        {
+            NoteUnreadable(document, "ShowStartOnBar");
+        }
+
+        if (TryBool(document["ShowAppsOnBar"], out bool appsOnBar))
+        {
+            s.ShowAppsOnBar = appsOnBar;
+        }
+        else
+        {
+            NoteUnreadable(document, "ShowAppsOnBar");
+        }
+
+        if (TryBool(document["TrayOnBar"], out bool trayOnBar))
+        {
+            s.TrayOnBar = trayOnBar;
+        }
+        else
+        {
+            NoteUnreadable(document, "TrayOnBar");
+        }
+
         if (TryBool(document["EnableDynaland"], out bool dynaland))
         {
             s.EnableDynaland = dynaland;
@@ -547,9 +732,75 @@ internal sealed class SettingsStore
             NoteUnreadable(document, "EnableDynaland");
         }
 
+        if (TryBool(document["PeekAtDesktop"], out bool peekDesktop))
+        {
+            s.PeekAtDesktop = peekDesktop;
+        }
+        else
+        {
+            NoteUnreadable(document, "PeekAtDesktop");
+        }
+
+        if (TryBool(document["CustomStartButton"], out bool ownStartPictures))
+        {
+            s.CustomStartButton = ownStartPictures;
+        }
+        else
+        {
+            NoteUnreadable(document, "CustomStartButton");
+        }
+
+        if (TryString(document["StartButtonPicture"], out string startPicture))
+        {
+            s.StartButtonPicture = startPicture;
+        }
+        else
+        {
+            NoteUnreadable(document, "StartButtonPicture");
+        }
+
+        if (TryString(document["StartButtonPictureHover"], out string startPictureHover))
+        {
+            s.StartButtonPictureHover = startPictureHover;
+        }
+        else
+        {
+            NoteUnreadable(document, "StartButtonPictureHover");
+        }
+
+        if (TryString(document["StartButtonPicturePressed"], out string startPicturePressed))
+        {
+            s.StartButtonPicturePressed = startPicturePressed;
+        }
+        else
+        {
+            NoteUnreadable(document, "StartButtonPicturePressed");
+        }
+
         s.Normalize();
         return s;
     }
+
+    /// <summary>Start's power menu items and folder buttons: name in settings.json, read, write.</summary>
+    private static readonly (string Key, Func<ShellSettings, bool> Read, Action<ShellSettings, bool> Write)[] StartOptions =
+    {
+        ("PowerSleep", s => s.PowerSleep, (s, v) => s.PowerSleep = v),
+        ("PowerHibernate", s => s.PowerHibernate, (s, v) => s.PowerHibernate = v),
+        ("PowerRestart", s => s.PowerRestart, (s, v) => s.PowerRestart = v),
+        ("PowerShutDown", s => s.PowerShutDown, (s, v) => s.PowerShutDown = v),
+        ("PowerUpdateRestart", s => s.PowerUpdateRestart, (s, v) => s.PowerUpdateRestart = v),
+        ("PowerUpdateShutDown", s => s.PowerUpdateShutDown, (s, v) => s.PowerUpdateShutDown = v),
+        ("FolderSettings", s => s.FolderSettings, (s, v) => s.FolderSettings = v),
+        ("FolderExplorer", s => s.FolderExplorer, (s, v) => s.FolderExplorer = v),
+        ("FolderDocuments", s => s.FolderDocuments, (s, v) => s.FolderDocuments = v),
+        ("FolderDownloads", s => s.FolderDownloads, (s, v) => s.FolderDownloads = v),
+        ("FolderMusic", s => s.FolderMusic, (s, v) => s.FolderMusic = v),
+        ("FolderPictures", s => s.FolderPictures, (s, v) => s.FolderPictures = v),
+        ("FolderVideos", s => s.FolderVideos, (s, v) => s.FolderVideos = v),
+        ("FolderNetwork", s => s.FolderNetwork, (s, v) => s.FolderNetwork = v),
+        ("FolderPersonal", s => s.FolderPersonal, (s, v) => s.FolderPersonal = v),
+        ("FolderMachitan", s => s.FolderMachitan, (s, v) => s.FolderMachitan = v),
+    };
 
     /// <summary>A key that is present but whose value is not understood keeps its default; say so.</summary>
     private static void NoteUnreadable(JsonObject document, string key)

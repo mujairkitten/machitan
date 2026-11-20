@@ -10,11 +10,13 @@ namespace Machitan.Shell;
 /// <summary>
 /// What Machitan's shortcuts do. All of this runs on the UI thread.
 ///
-/// Win+1..9: the app in that place on the bar's dock. Not running: start it. Running but not
+/// Win+1..9: the app in that place on the bar, counted from the left as the bar shows them
+/// (bubbles in their order, each bubble's apps in their dragged order); Win+0 is the 10th, as
+/// in Windows. Not running: start it. Running but not
 ///   in front: bring it forward. In front with one window: minimise it. In front with
 ///   several windows: step to the next one.
-/// Win+Shift+1..9: start another copy of that app.
-/// Win+1..9 and Win+Shift+1..9 are caught in the keyboard hook when Windows keeps them for
+/// Win+Shift+1..9 (and 0): start another copy of that app.
+/// Win+0..9 and Win+Shift+0..9 are caught in the keyboard hook when Windows keeps them for
 ///   itself, because Windows' versions act on Explorer's hidden taskbar instead of the dock.
 /// Win+D: Show desktop (the same as the bar's Show Desktop strip).
 /// Win+E: File Explorer. Win+L: lock the PC. Win+R: Windows' Run box.
@@ -23,6 +25,8 @@ namespace Machitan.Shell;
 ///   when Windows keeps them, like Win+1..9).
 /// Win+Tab and Win+`: Machitan's switcher, both caught in the hook when Windows keeps them
 ///   (Sam's choice: Win+Tab opens Machitan's switcher, not Windows' Task View).
+/// Win+X: Machitan's own Win+X menu above its Start button (caught in the hook when Windows
+///   keeps it; Windows' own menu jumped about when moved, Part 13).
 /// </summary>
 internal static class HotkeyActions
 {
@@ -32,8 +36,10 @@ internal static class HotkeyActions
     private const uint KeyL = 0x4C;
     private const uint KeyR = 0x52;
     private const uint KeyN = 0x4E;
+    private const uint Key0 = 0x30;
     private const uint Key1 = 0x31;
     private const uint KeyTab = 0x09;
+    private const uint KeyX = 0x58;
 
     /// <summary>The key left of 1 on US-style keyboards (` and ~).</summary>
     private const uint KeyBacktick = 0xC0;
@@ -42,18 +48,21 @@ internal static class HotkeyActions
     {
         var list = new List<HotkeyDefinition>();
 
-        for (int slot = 1; slot <= 9; slot++)
+        // Places 1..10; the 10th is the 0 key, as in Windows.
+        for (int index = 0; index < 10; index++)
         {
-            int index = slot - 1;
-            uint key = Key1 + (uint)index;
-            list.Add(new HotkeyDefinition("Win+" + slot, "Win+1..9", User32.MOD_WIN, key, () => SwitchToDockItem(host, index), catchWhenWindowsOwnsIt: true));
+            int place = index;
+            uint key = index == 9 ? Key0 : Key1 + (uint)index;
+            string digit = index == 9 ? "0" : (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            list.Add(new HotkeyDefinition("Win+" + digit, "Win+0..9", User32.MOD_WIN, key, () => SwitchToDockItem(host, place), catchWhenWindowsOwnsIt: true));
         }
 
-        for (int slot = 1; slot <= 9; slot++)
+        for (int index = 0; index < 10; index++)
         {
-            int index = slot - 1;
-            uint key = Key1 + (uint)index;
-            list.Add(new HotkeyDefinition("Win+Shift+" + slot, "Win+Shift+1..9", User32.MOD_WIN | User32.MOD_SHIFT, key, () => StartNewCopy(host, index), catchWhenWindowsOwnsIt: true));
+            int place = index;
+            uint key = index == 9 ? Key0 : Key1 + (uint)index;
+            string digit = index == 9 ? "0" : (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            list.Add(new HotkeyDefinition("Win+Shift+" + digit, "Win+Shift+0..9", User32.MOD_WIN | User32.MOD_SHIFT, key, () => StartNewCopy(host, place), catchWhenWindowsOwnsIt: true));
         }
 
         list.Add(new HotkeyDefinition("Win+D", "Win+D", User32.MOD_WIN, KeyD, () => host.Desktop.Toggle(host.Tasks.Groups)));
@@ -65,12 +74,13 @@ internal static class HotkeyActions
         list.Add(new HotkeyDefinition("Win+A", "Win+A", User32.MOD_WIN, KeyA, host.ToggleQuickSettings, catchWhenWindowsOwnsIt: true));
         list.Add(new HotkeyDefinition("Win+Tab", "Win+Tab", User32.MOD_WIN, KeyTab, host.ShowSwitcher, catchWhenWindowsOwnsIt: true));
         list.Add(new HotkeyDefinition("Win+`", "Win+`", User32.MOD_WIN, KeyBacktick, host.ShowSwitcher, catchWhenWindowsOwnsIt: true));
+        list.Add(new HotkeyDefinition("Win+X", "Win+X", User32.MOD_WIN, KeyX, host.ToggleWinXMenu, catchWhenWindowsOwnsIt: true));
         return list;
     }
 
     private static void SwitchToDockItem(ShellHost host, int index)
     {
-        List<DockItem> items = DockModel.Build(host.Pins.Pins, host.Tasks.Groups);
+        List<DockItem> items = host.BarOrderedApps();
         if (index >= items.Count)
         {
             return;
@@ -108,7 +118,7 @@ internal static class HotkeyActions
 
     private static void StartNewCopy(ShellHost host, int index)
     {
-        List<DockItem> items = DockModel.Build(host.Pins.Pins, host.Tasks.Groups);
+        List<DockItem> items = host.BarOrderedApps();
         if (index >= items.Count)
         {
             return;
@@ -126,7 +136,7 @@ internal static class HotkeyActions
         // A steady order: the bar's app order, and within an app by window handle (the
         // front-most-first order changes with every switch and would only flip between two).
         var windows = new List<nint>();
-        foreach (DockItem item in DockModel.Build(host.Pins.Pins, host.Tasks.Groups))
+        foreach (DockItem item in host.BarOrderedApps())
         {
             if (item.Group is null)
             {
@@ -165,7 +175,7 @@ internal static class HotkeyActions
     }
 
     /// <summary>Windows' own Run box, through the Shell's scripting object (Explorer shows it).</summary>
-    private static void ShowRunBox()
+    internal static void ShowRunBox()
     {
         object? shell = null;
         try

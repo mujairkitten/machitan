@@ -25,21 +25,21 @@ public sealed record WeatherReading(double TemperatureC, int Code, bool IsDay, D
     /// <summary>A plain description of the WMO code.</summary>
     public string Description => Code switch
     {
-        0 => IsDay ? "Clear" : "Clear night",
-        1 => "Mainly clear",
-        2 => "Partly cloudy",
-        3 => "Overcast",
-        45 or 48 => "Fog",
-        51 or 53 or 55 => "Drizzle",
-        56 or 57 => "Freezing drizzle",
-        61 or 63 or 65 => "Rain",
-        66 or 67 => "Freezing rain",
-        71 or 73 or 75 or 77 => "Snow",
-        80 or 81 or 82 => "Rain showers",
-        85 or 86 => "Snow showers",
-        95 => "Thunderstorm",
-        96 or 99 => "Thunderstorm with hail",
-        _ => "Weather code " + Code.ToString(CultureInfo.InvariantCulture),
+        0 => IsDay ? Strings.WxClear : Strings.WxClearNight,
+        1 => Strings.WxMainlyClear,
+        2 => Strings.WxPartlyCloudy,
+        3 => Strings.WxOvercast,
+        45 or 48 => Strings.WxFog,
+        51 or 53 or 55 => Strings.WxDrizzle,
+        56 or 57 => Strings.WxFreezingDrizzle,
+        61 or 63 or 65 => Strings.WxRain,
+        66 or 67 => Strings.WxFreezingRain,
+        71 or 73 or 75 or 77 => Strings.WxSnow,
+        80 or 81 or 82 => Strings.WxRainShowers,
+        85 or 86 => Strings.WxSnowShowers,
+        95 => Strings.WxThunderstorm,
+        96 or 99 => Strings.WxThunderHail,
+        _ => Fmt.F(Strings.WxCode, Code),
     };
 
     /// <summary>A one-colour symbol (Segoe UI Symbol) for the code.</summary>
@@ -157,7 +157,7 @@ internal sealed class WeatherService
 
         if (query.Length < 2)
         {
-            return (null, "Type at least two letters of a place, or latitude, longitude.");
+            return (null, Strings.WxTypeMore);
         }
 
         try
@@ -168,7 +168,7 @@ internal sealed class WeatherService
             using HttpResponseMessage response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
-                return (null, "Open-Meteo's place search answered " + (int)response.StatusCode + ". Try again in a moment.");
+                return (null, Fmt.F(Strings.WxSearchAnswered, (int)response.StatusCode));
             }
 
             await using Stream body = await response.Content.ReadAsStreamAsync();
@@ -177,14 +177,14 @@ internal sealed class WeatherService
                 || results.ValueKind != JsonValueKind.Array
                 || results.GetArrayLength() == 0)
             {
-                return (null, "No place found for \"" + query + "\". Try another spelling, or add the country.");
+                return (null, Fmt.F(Strings.WxNoPlace, query));
             }
 
             JsonElement first = results[0];
             if (!first.TryGetProperty("latitude", out JsonElement latitude) || latitude.ValueKind != JsonValueKind.Number
                 || !first.TryGetProperty("longitude", out JsonElement longitude) || longitude.ValueKind != JsonValueKind.Number)
             {
-                return (null, "Open-Meteo's answer for \"" + query + "\" had no coordinates.");
+                return (null, Fmt.F(Strings.WxNoCoordinates, query));
             }
 
             string found = Text(first, "name");
@@ -205,7 +205,7 @@ internal sealed class WeatherService
         }
         catch (Exception ex)
         {
-            return (null, "The place search did not work (" + ex.GetType().Name + "). Check the connection and try again.");
+            return (null, Fmt.F(Strings.WxSearchFailed, ex.GetType().Name));
         }
     }
 

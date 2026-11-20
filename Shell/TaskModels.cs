@@ -25,8 +25,18 @@ public sealed class TaskWindow
 /// <summary>All open windows of one app, shown as one button.</summary>
 public sealed class TaskGroup
 {
-    public TaskGroup(string key, string displayName, string? executablePath, string? packageFullName, IReadOnlyList<TaskWindow> windows, bool isFocused)
+    public TaskGroup(
+        string key,
+        string displayName,
+        string? executablePath,
+        string? packageFullName,
+        IReadOnlyList<TaskWindow> windows,
+        bool isFocused,
+        string? ownAppId = null,
+        string? iconResource = null)
     {
+        OwnAppId = ownAppId;
+        IconResource = iconResource;
         PackageFullName = packageFullName;
         Key = key;
         DisplayName = displayName;
@@ -51,4 +61,14 @@ public sealed class TaskGroup
 
     /// <summary>True when one of the windows is the foreground window.</summary>
     public bool IsFocused { get; }
+
+    /// <summary>
+    /// Set when these windows carry an app ID of their own that is not the app's usual one
+    /// (Firefox's private windows): Windows' taskbar gives them their own button, and so does
+    /// the bar. A pin of the app never stands for this group.
+    /// </summary>
+    public string? OwnAppId { get; }
+
+    /// <summary>The icon those windows asked for ("file,index"), when they named one.</summary>
+    public string? IconResource { get; }
 }

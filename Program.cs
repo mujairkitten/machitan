@@ -14,19 +14,14 @@ namespace Machitan;
 ///
 /// Order:
 ///   1. "--guardian &lt;pid&gt;": this process is the guardian. It never starts any UI.
+///      "--adminkeys": the admin-keys helper (see AdminKeys). It never starts any UI either.
 ///   2. "--exit": ask the running shell to close, then leave.
-///   3. "--proof" or "--seethrough": show only that test window; Explorer is left alone.
-///   4. Otherwise run the shell: single-instance check, start the guardian, run (the shell hides
+///   3. Otherwise run the shell: single-instance check, start the guardian, run (the shell hides
 ///      Explorer's taskbar once its own bar is up), and restore the taskbar in a finally block
 ///      whatever happens.
 /// </summary>
 internal static class EntryPoint
 {
-    private const string ProofArgument = "--proof";
-    private const string SeeThroughArgument = "--seethrough";
-
-    internal static StartupMode Mode { get; private set; } = StartupMode.Shell;
-
     [STAThread]
     private static int Main(string[] args)
     {
@@ -37,26 +32,18 @@ internal static class EntryPoint
                 return Guardian.Run(args);
             }
 
+            if (args.Length > 0 && string.Equals(args[0], AdminKeys.Argument, StringComparison.OrdinalIgnoreCase))
+            {
+                // Started as administrator by its scheduled task; no UI at all.
+                return AdminKeysHelper.Run();
+            }
+
             if (HasArgument(args, ExitSignal.Argument))
             {
                 bool delivered = ExitSignal.Send();
                 Log.Info(delivered
                     ? "Exit request sent to the running shell."
                     : "Exit requested, but no running shell was found.");
-                return 0;
-            }
-
-            if (HasArgument(args, ProofArgument))
-            {
-                Mode = StartupMode.Proof;
-                RunXaml();
-                return 0;
-            }
-
-            if (HasArgument(args, SeeThroughArgument))
-            {
-                Mode = StartupMode.SeeThrough;
-                RunXaml();
                 return 0;
             }
 

@@ -18,6 +18,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -29,9 +30,14 @@ namespace Machitan.Start;
 
 /// <summary>
 /// The Start menu: separate floating boxes on a see-through window, height capped at 400 DIP.
-/// Left: search (focused on open, filters both lists) over the Pinned grid (unpin on hover).
-/// Right: All apps, as tall as the left column; each row's pin button shows on hover (always
-/// on touch devices). Below: a slim user strip with avatar, name and power button.
+/// Left: search (focused on open, filters both lists) over the Pinned grid ("Pin to Start";
+/// unpin on hover). While searching files, a preview of the pointed file takes its place.
+/// Right: All apps, as tall as the left column; each row's "..." button (on hover, always on
+/// touch devices, or a right-click) opens Windows' Start menu entries and the app's jump list
+/// tasks.
+/// Below: a slim user strip with avatar, name, the folder buttons chosen in Settings, and the
+/// power button (its menu holds the entries chosen in Settings that this PC offers, and
+/// always Exit Machitan).
 /// No recently used apps, no recent items, no widgets.
 ///
 /// Search scopes: "apps:" (the default) and "files:". There is deliberately no web scope.
@@ -45,18 +51,26 @@ public sealed partial class StartMenuWindow : Window
     private const double GapToBarDip = 8;
 
     // Radius scale: 16 large surfaces, 10 medium controls, 8 small inner buttons; search is a capsule.
-    private const double LargeRadius = 16;
-    private const double MediumRadius = 10;
-    private const double SmallRadius = 8;
+    private const double LargeRadius = Radii.Large;
+    private const double MediumRadius = Radii.Medium;
+    private const double SmallRadius = Radii.Small;
     private const double SearchRadius = 20;
 
     private const double RowIconDip = 24;
     private const double TileIconDip = 32;
     private const int MaxFileResults = 40;
 
-    private static readonly string PinGlyph = ((char)0xE718).ToString();
+    // Opening and closing (Visuals/Motion.cs): Start rises from the bar's side and fades in,
+    // and sinks back and fades out, as Windows' Start does.
+    private const float OpenFromDip = 40;
+    private const int OpenMs = 250;
+    private const float CloseToDip = 24;
+    private const int CloseMs = 150;
+
     private static readonly string UnpinGlyph = ((char)0xE77A).ToString();
+    private static readonly string MoreGlyph = ((char)0xE712).ToString();
     private static readonly string FileGlyph = ((char)0xE8A5).ToString();
+
     private static readonly FontFamily IconFont = new("Segoe Fluent Icons, Segoe MDL2 Assets");
 
     private readonly ShellHost _host;
@@ -67,6 +81,8 @@ public sealed partial class StartMenuWindow : Window
     private readonly Dictionary<string, ImageSource> _icons = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<AppRow> _appRows = new();
     private readonly List<(PinnedApp Pin, FrameworkElement Tile)> _pinTiles = new();
+    private readonly ResultActions _actions;
+    private readonly FilePreview _preview;
 
     private WindowSubclass? _subclass;
     private CancellationTokenSource? _fileSearch;
@@ -76,6 +92,9 @@ public sealed partial class StartMenuWindow : Window
     private long _closedByFocusLossAt;
     private bool _filesMode;
     private string _query = string.Empty;
+    private string _folderLook = string.Empty;
+    private int _popupsOpen;
+    private AppRow? _asking;
 
     internal StartMenuWindow(ShellHost host)
     {
@@ -83,6 +102,16 @@ public sealed partial class StartMenuWindow : Window
         InitializeComponent();
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         _hasTouch = User32.GetSystemMetrics(User32.SM_MAXIMUMTOUCHES) > 0;
+
+        // Text from the string table (the XAML's own text is the English fallback).
+        SearchInput.PlaceholderText = Strings.StartSearchPlaceholder;
+        AutomationProperties.SetName(SearchInput, Strings.SearchBoxName);
+        PinnedHeader.Text = Strings.StartPinned;
+        AppsHeader.Text = Strings.StartAllApps;
+        AutomationProperties.SetName(UserButton, Strings.StartAccountSettings);
+        ToolTipService.SetToolTip(UserButton, Strings.StartAccountSettings);
+        AutomationProperties.SetName(PowerButton, Strings.StartPower);
+        ToolTipService.SetToolTip(PowerButton, Strings.StartPower);
 
         SeeThrough.Prepare(this, _hwnd, alwaysOnTop: true);
         _subclass = new WindowSubclass(_hwnd, OnWindowMessage);
@@ -105,6 +134,10 @@ public sealed partial class StartMenuWindow : Window
             SearchInput.Resources[key] = clear;
         }
 
+        _actions = new ResultActions(host, _hwnd, HideMenu, () => _host.Catalog.RefreshIfStale(ListIconPixels, _dark));
+        _preview = new FilePreview(_actions, Scale);
+        PreviewHost.Children.Add(_preview);
+
         _fileTimer = DispatcherQueue.CreateTimer();
         _fileTimer.Interval = TimeSpan.FromMilliseconds(250);
         _fileTimer.IsRepeating = false;
@@ -118,34 +151,44 @@ public sealed partial class StartMenuWindow : Window
         };
 
         _host.Catalog.Changed += OnCatalogChanged;
-        _host.Pins.Changed += OnPinsChanged;
+        _host.StartPins.Changed += OnPinsChanged;
         _host.Settings.Changed += OnSettingsChanged;
 
         ApplyLook();
+        BuildFolders();
         LoadUser();
         RebuildApps();
     }
 
+    /// <summary>One All apps row: the app, its "..." button, and room for the uninstall question.</summary>
     private sealed class AppRow
     {
-        internal AppRow(AppEntry app, Grid row, Button pin, FontIcon pinGlyph)
+        internal AppRow(AppEntry app, Grid row, Button main, Button more)
         {
             App = app;
             Row = row;
-            Pin = pin;
-            PinGlyph = pinGlyph;
+            Main = main;
+            More = more;
         }
 
         internal AppEntry App { get; }
 
         internal Grid Row { get; }
 
-        internal Button Pin { get; }
+        internal Button Main { get; }
 
-        internal FontIcon PinGlyph { get; }
+        internal Button More { get; }
+
+        internal FrameworkElement? Question { get; set; }
     }
 
     internal bool IsOpen => _open;
+
+    /// <summary>
+    /// Raised on the UI thread when the menu opens (true) or closes (false). The bar's Start
+    /// button keeps its pressed picture while the menu is open (Settings > Start > Start button).
+    /// </summary>
+    internal static event Action<bool>? OpenChanged;
 
     /// <summary>Icon size for the app list, in physical pixels (also used to build the catalog).</summary>
     internal int ListIconPixels => IconService.PickSize((int)Math.Ceiling(TileIconDip * Scale()));
@@ -208,6 +251,36 @@ public sealed partial class StartMenuWindow : Window
             PlaceAboveBar();
             _cutter.Invalidate();
 
+            // Animated: the cut is lifted while the boxes move (else their edges would clip),
+            // and the motion starts before the window shows, so its first frame is already the
+            // start of it. Still on screen means it was closing: it turns back from where it is.
+            Layout.IsHitTestVisible = true;
+            if (Motion.IsOn(_host.Settings.Current))
+            {
+                _cutter.Suspend();
+                Action settled = () =>
+                {
+                    if (_open)
+                    {
+                        _cutter.Resume();
+                    }
+                };
+
+                if (User32.IsWindowVisible(_hwnd))
+                {
+                    Motion.Return(Layout, OpenMs, settled);
+                }
+                else
+                {
+                    Motion.Arrive(Layout, FromBarSide(OpenFromDip), OpenMs, settled);
+                }
+            }
+            else
+            {
+                Motion.Reset(Layout);
+                _cutter.Resume();
+            }
+
             User32.ShowWindow(_hwnd, User32.SW_SHOW);
             Activate();
 
@@ -215,6 +288,7 @@ public sealed partial class StartMenuWindow : Window
             WindowActivator.BringToFront(_hwnd);
             _open = true;
             Log.Info("Start menu opened.");
+            RaiseOpenChanged(true);
 
             AppsScroller.ChangeView(null, 0, null, true);
             DispatcherQueue.TryEnqueue(() => SearchInput.Focus(FocusState.Programmatic));
@@ -234,20 +308,88 @@ public sealed partial class StartMenuWindow : Window
 
         _open = false;
         _fileSearch?.Cancel();
-        User32.ShowWindow(_hwnd, User32.SW_HIDE);
+        if (Motion.IsOn(_host.Settings.Current) && User32.IsWindowVisible(_hwnd))
+        {
+            // Hidden once it has sunk away; nothing in it takes a click meanwhile.
+            Layout.IsHitTestVisible = false;
+            _cutter.Suspend();
+            Motion.Leave(Layout, FromBarSide(CloseToDip), CloseMs, () =>
+            {
+                if (!_open)
+                {
+                    User32.ShowWindow(_hwnd, User32.SW_HIDE);
+                }
+            });
+        }
+        else
+        {
+            User32.ShowWindow(_hwnd, User32.SW_HIDE);
+        }
+
         Log.Info("Start menu closed.");
+        RaiseOpenChanged(false);
+    }
+
+    /// <summary>A distance towards the bar: down for a bottom bar, up for a top bar.</summary>
+    private float FromBarSide(float distanceDip)
+    {
+        return _host.Settings.Current.DockEdge == DockEdge.Top ? -distanceDip : distanceDip;
+    }
+
+    private static void RaiseOpenChanged(bool open)
+    {
+        try
+        {
+            OpenChanged?.Invoke(open);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Start menu: a part that follows it opening and closing failed.", ex);
+        }
     }
 
     // ---------------------------------------------------------------- window plumbing
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
     {
-        // A click anywhere else closes the menu, like Windows' own Start.
-        if (args.WindowActivationState == WindowActivationState.Deactivated && _open)
+        // A click anywhere else closes the menu, like Windows' own Start. Start's own menus
+        // ("...", power) are windows of their own: focus moving to them is not "elsewhere".
+        if (args.WindowActivationState == WindowActivationState.Deactivated && _open
+            && _popupsOpen == 0 && !OwnsForeground())
         {
             HideMenu();
             _closedByFocusLossAt = Environment.TickCount64;
         }
+    }
+
+    /// <summary>True when the foreground window is Start or one of its menus.</summary>
+    private bool OwnsForeground()
+    {
+        nint foreground = User32.GetForegroundWindow();
+        return foreground == _hwnd
+            || (foreground != 0 && User32.GetAncestor(foreground, User32.GA_ROOTOWNER) == _hwnd);
+    }
+
+    /// <summary>
+    /// Opens one of Start's menus. While it is open, Start does not close on focus loss; once it
+    /// closes, Start closes too if the click that closed it went to another window.
+    /// </summary>
+    private void ShowPopup(FlyoutBase menu, FrameworkElement target, FlyoutShowOptions options)
+    {
+        menu.Opening += (_, _) => _popupsOpen++;
+        menu.Closed += (_, _) =>
+        {
+            _popupsOpen = Math.Max(0, _popupsOpen - 1);
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (_open && _popupsOpen == 0 && !OwnsForeground())
+                {
+                    HideMenu();
+                    _closedByFocusLossAt = Environment.TickCount64;
+                }
+            });
+        };
+        menu.ShowAt(target, options);
     }
 
     private bool OnWindowMessage(uint message, nint wParam, nint lParam, out nint result)
@@ -263,7 +405,11 @@ public sealed partial class StartMenuWindow : Window
         }
 
         e.Handled = true;
-        if (PowerPanel.Children.Count > 0)
+        if (_asking is AppRow row)
+        {
+            EndQuestion(row);
+        }
+        else if (PowerPanel.Children.Count > 0)
         {
             ResetPowerPanel();
         }
@@ -298,6 +444,7 @@ public sealed partial class StartMenuWindow : Window
     private void OnSettingsChanged()
     {
         ApplyLook();
+        BuildFolders();
     }
 
     private void ApplyLook()
@@ -376,6 +523,18 @@ public sealed partial class StartMenuWindow : Window
         }
     }
 
+    /// <summary>The picture and name: Windows' Settings at Accounts > Your info.</summary>
+    private void OnUserClicked(object sender, RoutedEventArgs e)
+    {
+        HideMenu();
+        Launcher.Start("ms-settings:yourinfo");
+    }
+
+    /// <summary>
+    /// The power menu: the entries chosen in Settings > Start that this PC offers right now,
+    /// then, always, Exit Machitan (it cannot be turned off, so Machitan can always be closed
+    /// from Start).
+    /// </summary>
     private void OnPowerClicked(object sender, RoutedEventArgs e)
     {
         if (PowerPanel.Children.Count > 0)
@@ -384,46 +543,140 @@ public sealed partial class StartMenuWindow : Window
             return;
         }
 
-        PowerPanel.Children.Add(MakeTextButton("Restart", () => ConfirmPower("Restart now?", "Restart", "/r /t 0")));
-        PowerPanel.Children.Add(MakeTextButton("Shut down", () => ConfirmPower("Shut down now?", "Shut down", "/s /t 0")));
+        var menu = new MenuFlyout { ShouldConstrainToRootBounds = false };
+        List<PowerChoice> choices = PowerActions.Choices(_host.Settings.Current);
+        foreach (PowerChoice choice in choices)
+        {
+            var item = new MenuFlyoutItem { Text = choice.Label };
+            item.Click += (_, _) =>
+            {
+                if (choice.Ask is string question)
+                {
+                    ConfirmPower(choice, question);
+                }
+                else
+                {
+                    choice.Run(_hwnd);
+                    HideMenu();
+                }
+            };
+            menu.Items.Add(item);
+        }
+
+        if (choices.Count == 0)
+        {
+            menu.Items.Add(new MenuFlyoutItem { Text = Strings.StartPowerNothing, IsEnabled = false });
+        }
+
+        // No question, as on the bar's own menu; Machitan's exit closes Start itself.
+        menu.Items.Add(new MenuFlyoutSeparator());
+        var exit = new MenuFlyoutItem { Text = Strings.BarExit };
+        exit.Click += (_, _) =>
+        {
+            Log.Info("Start: Exit Machitan chosen from the power menu.");
+            _host.Shutdown();
+        };
+        menu.Items.Add(exit);
+
+        ShowPopup(menu, PowerButton, new FlyoutShowOptions { Placement = FlyoutPlacementMode.TopEdgeAlignedRight });
     }
 
     /// <summary>Inline confirmation: the strip asks once more before anything happens.</summary>
-    private void ConfirmPower(string question, string action, string arguments)
+    private void ConfirmPower(PowerChoice choice, string question)
     {
         PowerPanel.Children.Clear();
+        FolderPanel.Visibility = Visibility.Collapsed;
         PowerPanel.Children.Add(new TextBlock { Text = question, VerticalAlignment = VerticalAlignment.Center });
 
-        Button confirm = MakeTextButton(action, () => RunShutdown(action, arguments));
-        if (Application.Current.Resources.TryGetValue("AccentButtonStyle", out object? style) && style is Style accent)
-        {
-            confirm.Style = accent;
-        }
+        Button confirm = MakeTextButton(choice.Label, () => choice.Run(_hwnd));
+        ResultActions.PaintAccent(confirm, _host.Accent.Current);
 
         PowerPanel.Children.Add(confirm);
-        PowerPanel.Children.Add(MakeTextButton("Cancel", ResetPowerPanel));
+        PowerPanel.Children.Add(MakeTextButton(Strings.Cancel, ResetPowerPanel));
         confirm.Focus(FocusState.Programmatic);
     }
 
     private void ResetPowerPanel()
     {
         PowerPanel.Children.Clear();
+        FolderPanel.Visibility = Visibility.Visible;
     }
 
-    private static void RunShutdown(string action, string arguments)
+    /// <summary>The folder buttons left of the power button, in the order set in Settings; rebuilt when their settings change.</summary>
+    private void BuildFolders()
     {
+        ShellSettings settings = _host.Settings.Current;
+        List<StartFolder> folders = StartFolders.InOrder(settings);
+        var look = new System.Text.StringBuilder();
+        foreach (StartFolder folder in folders)
+        {
+            look.Append(folder.Id).Append(folder.On(settings) ? '1' : '0');
+        }
+
+        if (look.ToString() == _folderLook)
+        {
+            return;
+        }
+
+        _folderLook = look.ToString();
+        FolderPanel.Children.Clear();
+        foreach (StartFolder folder in folders)
+        {
+            if (!folder.On(settings))
+            {
+                continue;
+            }
+
+            var button = new Button
+            {
+                Content = StartFolders.Icon(folder, 16),
+                Width = 36,
+                Height = 32,
+                MinWidth = 0,
+                MinHeight = 0,
+                Padding = new Thickness(0),
+                CornerRadius = new CornerRadius(SmallRadius),
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            AutomationProperties.SetName(button, folder.Name);
+            ToolTipService.SetToolTip(button, folder.Name);
+            string? target = folder.Target;
+            button.Click += (_, _) =>
+            {
+                HideMenu();
+                if (target is null)
+                {
+                    _host.OpenSettings();
+                }
+                else
+                {
+                    OpenFolder(target);
+                }
+            };
+            FolderPanel.Children.Add(button);
+        }
+    }
+
+    /// <summary>Settings by its link, File Explorer by name, the folders by their shell names in File Explorer.</summary>
+    private static void OpenFolder(string target)
+    {
+        if (!target.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+        {
+            Launcher.Start(target);
+            return;
+        }
+
         try
         {
-            Log.Info("Power: " + action + " confirmed.");
-            using Process? process = Process.Start(new ProcessStartInfo("shutdown.exe", arguments)
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            });
+            var start = new ProcessStartInfo("explorer.exe") { UseShellExecute = true };
+            start.ArgumentList.Add(target);
+            using Process? explorer = Process.Start(start);
         }
         catch (Exception ex)
         {
-            Log.Error("Power: " + action + " failed.", ex);
+            Log.Error("Start: could not open " + target, ex);
         }
     }
 
@@ -532,11 +785,11 @@ public sealed partial class StartMenuWindow : Window
 
         if (_pinTiles.Count == 0)
         {
-            ShowNote(PinnedEmpty, "No pinned apps yet. Use the pin button next to an app in All apps.");
+            ShowNote(PinnedEmpty, Strings.StartNoPins);
         }
         else if (PinnedPanel.Children.Count == 0)
         {
-            ShowNote(PinnedEmpty, "No pinned app matches.");
+            ShowNote(PinnedEmpty, Strings.StartNoPinMatch);
         }
         else
         {
@@ -545,19 +798,22 @@ public sealed partial class StartMenuWindow : Window
 
         if (_filesMode)
         {
-            AppsHeader.Text = "Files";
+            AppsHeader.Text = Strings.SearchFiles;
             AppsPanel.Visibility = Visibility.Collapsed;
             FilesPanel.Visibility = Visibility.Visible;
             if (_query.Length < 2)
             {
                 FilesPanel.Children.Clear();
-                ShowNote(AppsEmpty, "Type at least two letters after files: to search your Desktop, Documents, Downloads, Pictures, Music and Videos.");
+                ShowPreview(null);
+                ShowNote(AppsEmpty, Strings.StartFilesHint);
             }
 
             return;
         }
 
-        AppsHeader.Text = _query.Length == 0 ? "All apps" : "Results";
+        ShowPreview(null);
+
+        AppsHeader.Text = _query.Length == 0 ? Strings.StartAllApps : Strings.StartResults;
         AppsPanel.Visibility = Visibility.Visible;
         FilesPanel.Visibility = Visibility.Collapsed;
 
@@ -596,11 +852,11 @@ public sealed partial class StartMenuWindow : Window
 
         if (!_host.Catalog.IsReady)
         {
-            ShowNote(AppsEmpty, "Reading your apps...");
+            ShowNote(AppsEmpty, Strings.SearchReadingApps);
         }
         else if (shown == 0)
         {
-            ShowNote(AppsEmpty, _appRows.Count == 0 ? "No apps found." : "No app matches.");
+            ShowNote(AppsEmpty, _appRows.Count == 0 ? Strings.StartNoApps : Strings.SearchNoAppMatch);
         }
         else
         {
@@ -627,7 +883,8 @@ public sealed partial class StartMenuWindow : Window
         string query = _query;
 
         FilesPanel.Children.Clear();
-        ShowNote(AppsEmpty, "Searching your files...");
+        ShowPreview(null);
+        ShowNote(AppsEmpty, Strings.SearchSearchingFiles);
 
         List<string> files;
         try
@@ -653,12 +910,29 @@ public sealed partial class StartMenuWindow : Window
 
         if (files.Count == 0)
         {
-            ShowNote(AppsEmpty, "No file matches in your folders.");
+            ShowNote(AppsEmpty, Strings.SearchNoFileMatch);
         }
         else
         {
             AppsEmpty.Visibility = Visibility.Collapsed;
+            ShowPreview(files[0]);
         }
+    }
+
+    /// <summary>The file's preview in place of Pinned (the first result, or the one pointed at); null shows Pinned again.</summary>
+    private void ShowPreview(string? path)
+    {
+        if (path is null)
+        {
+            _preview.Clear();
+            PreviewHost.Visibility = Visibility.Collapsed;
+            PinnedContent.Visibility = Visibility.Visible;
+            return;
+        }
+
+        _preview.Show(path);
+        PinnedContent.Visibility = Visibility.Collapsed;
+        PreviewHost.Visibility = Visibility.Visible;
     }
 
     private Button CreateFileRow(string path)
@@ -681,6 +955,10 @@ public sealed partial class StartMenuWindow : Window
         Button row = MakeRowButton(content, Path.GetFileName(path), 48);
         row.Tag = path;
         row.Click += (_, _) => LaunchAndClose(path);
+
+        // The pointed (or keyboard-focused) file is the one previewed, with its actions.
+        row.PointerEntered += (_, _) => ShowPreview(path);
+        row.GotFocus += (_, _) => ShowPreview(path);
         return row;
     }
 
@@ -727,10 +1005,9 @@ public sealed partial class StartMenuWindow : Window
         Button main = MakeRowButton(content, app.Name, 40);
         main.Click += (_, _) => LaunchAndClose(app.LaunchTarget);
 
-        var pinGlyph = new FontIcon { FontFamily = IconFont, FontSize = 14 };
-        var pin = new Button
+        var more = new Button
         {
-            Content = pinGlyph,
+            Content = new FontIcon { Glyph = MoreGlyph, FontFamily = IconFont, FontSize = 14 },
             Width = 32,
             Height = 32,
             MinWidth = 0,
@@ -742,45 +1019,98 @@ public sealed partial class StartMenuWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             Opacity = _hasTouch ? 1 : 0,
         };
-        pin.Click += (_, _) => TogglePin(app);
+        AutomationProperties.SetName(more, Fmt.F(Strings.MoreOptionsFor, app.Name));
+        ToolTipService.SetToolTip(more, Strings.MoreOptions);
 
         var row = new Grid { Tag = app.LaunchTarget };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(pin, 1);
+        Grid.SetColumn(more, 1);
         row.Children.Add(main);
-        row.Children.Add(pin);
+        row.Children.Add(more);
 
-        // Pin button: hover only (and while it has keyboard focus); always on touch devices.
-        row.PointerEntered += (_, _) => pin.Opacity = 1;
-        row.PointerExited += (_, _) => pin.Opacity = _hasTouch || pin.FocusState != FocusState.Unfocused ? 1 : 0;
-        pin.GotFocus += (_, _) => pin.Opacity = 1;
-        pin.LostFocus += (_, _) => pin.Opacity = _hasTouch ? 1 : 0;
+        var appRow = new AppRow(app, row, main, more);
+        more.Click += (_, _) => ShowAppMenu(appRow, more, new FlyoutShowOptions { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight });
+        main.ContextRequested += (_, e) =>
+        {
+            e.Handled = true;
+            ShowAppMenu(appRow, main, e.TryGetPosition(main, out Windows.Foundation.Point at)
+                ? new FlyoutShowOptions { Position = at }
+                : new FlyoutShowOptions { Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft });
+        };
 
-        var appRow = new AppRow(app, row, pin, pinGlyph);
-        UpdatePinButton(appRow);
+        // "..." button: hover only (and while it has keyboard focus); always on touch devices.
+        row.PointerEntered += (_, _) => more.Opacity = 1;
+        row.PointerExited += (_, _) => more.Opacity = _hasTouch || more.FocusState != FocusState.Unfocused ? 1 : 0;
+        more.GotFocus += (_, _) => more.Opacity = 1;
+        more.LostFocus += (_, _) => more.Opacity = _hasTouch ? 1 : 0;
+
         return appRow;
     }
 
-    private void UpdatePinButton(AppRow row)
+    private void ShowAppMenu(AppRow row, FrameworkElement target, FlyoutShowOptions options)
     {
-        bool pinned = _host.Pins.IsPinned(row.App.ToPin().Path);
-        row.PinGlyph.Glyph = pinned ? UnpinGlyph : PinGlyph;
-        string label = (pinned ? "Unpin " : "Pin ") + row.App.Name;
-        AutomationProperties.SetName(row.Pin, label);
-        ToolTipService.SetToolTip(row.Pin, pinned ? "Unpin" : "Pin");
+        try
+        {
+            MenuFlyout menu = _actions.AppMenu(row.App, () => AskUninstall(row), ListIconPixels / 2);
+            ShowPopup(menu, target, options);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Start: the menu for " + row.App.Name + " could not be opened.", ex);
+        }
     }
 
-    private void TogglePin(AppEntry app)
+    /// <summary>The store-app uninstall question, in place of the row (one row at a time).</summary>
+    private void AskUninstall(AppRow row)
     {
-        PinnedApp pin = app.ToPin();
-        if (_host.Pins.IsPinned(pin.Path))
+        if (_asking is AppRow other)
         {
-            _host.Pins.Unpin(pin.Path);
+            EndQuestion(other);
         }
-        else
+
+        _asking = row;
+        Grid question = _actions.UninstallQuestion(row.App, () => EndQuestion(row));
+        Grid.SetColumnSpan(question, 2);
+        row.Question = question;
+        row.Main.Visibility = Visibility.Collapsed;
+        row.More.Visibility = Visibility.Collapsed;
+        row.Row.Children.Add(question);
+    }
+
+    /// <summary>From a pinned tile: the question goes on the app's All apps row, shown unfiltered.</summary>
+    private void AskUninstallFromPin(AppEntry app)
+    {
+        AppRow? row = _appRows.Find(r => ReferenceEquals(r.App, app));
+        if (row is null)
         {
-            _host.Pins.Pin(pin);
+            return;
+        }
+
+        if (SearchInput.Text.Length > 0)
+        {
+            SearchInput.Text = string.Empty;
+            ParseQuery();
+            ApplyFilter();
+        }
+
+        AskUninstall(row);
+        row.Row.StartBringIntoView();
+    }
+
+    private void EndQuestion(AppRow row)
+    {
+        if (row.Question is FrameworkElement question)
+        {
+            row.Row.Children.Remove(question);
+        }
+
+        row.Question = null;
+        row.Main.Visibility = Visibility.Visible;
+        row.More.Visibility = Visibility.Visible;
+        if (ReferenceEquals(_asking, row))
+        {
+            _asking = null;
         }
     }
 
@@ -809,10 +1139,6 @@ public sealed partial class StartMenuWindow : Window
     private void OnPinsChanged()
     {
         RebuildPins();
-        foreach (AppRow row in _appRows)
-        {
-            UpdatePinButton(row);
-        }
     }
 
     private void RebuildPins()
@@ -825,7 +1151,7 @@ public sealed partial class StartMenuWindow : Window
             byPinPath.TryAdd(app.ToPin().Path, app);
         }
 
-        foreach (PinnedApp pin in _host.Pins.Pins)
+        foreach (PinnedApp pin in _host.StartPins.Pins)
         {
             byPinPath.TryGetValue(pin.Path, out AppEntry? app);
             _pinTiles.Add((pin, CreatePinTile(pin, app)));
@@ -879,9 +1205,29 @@ public sealed partial class StartMenuWindow : Window
             VerticalAlignment = VerticalAlignment.Top,
             Opacity = _hasTouch ? 1 : 0,
         };
-        AutomationProperties.SetName(unpin, "Unpin " + pin.Name);
-        ToolTipService.SetToolTip(unpin, "Unpin");
-        unpin.Click += (_, _) => _host.Pins.Unpin(pin.Path);
+        AutomationProperties.SetName(unpin, Fmt.F(Strings.UnpinXFromStart, pin.Name));
+        ToolTipService.SetToolTip(unpin, Strings.UnpinFromStart);
+        unpin.Click += (_, _) => _host.StartPins.Unpin(pin.Path);
+
+        // Right-click: the same menu as in All apps (for apps still in the app list).
+        if (app is not null)
+        {
+            main.ContextRequested += (_, e) =>
+            {
+                e.Handled = true;
+                try
+                {
+                    MenuFlyout menu = _actions.AppMenu(app, () => AskUninstallFromPin(app), ListIconPixels / 2);
+                    ShowPopup(menu, main, e.TryGetPosition(main, out Windows.Foundation.Point at)
+                        ? new FlyoutShowOptions { Position = at }
+                        : new FlyoutShowOptions { Placement = FlyoutPlacementMode.Bottom });
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Start: the menu for " + pin.Name + " could not be opened.", ex);
+                }
+            };
+        }
 
         var tile = new Grid { Width = 64, Height = 72 };
         tile.Children.Add(main);

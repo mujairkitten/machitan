@@ -6,6 +6,11 @@ namespace Machitan.Interop;
 internal static unsafe partial class Kernel32
 {
     internal const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+    internal const uint PROCESS_TERMINATE = 0x0001;
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool TerminateProcess(nint process, uint exitCode);
 
     [LibraryImport("kernel32.dll")]
     internal static partial nint OpenProcess(uint access, [MarshalAs(UnmanagedType.Bool)] bool inheritHandle, uint processId);

@@ -11,6 +11,9 @@ namespace Machitan.Visuals;
 /// Cuts a window to a set of rounded shapes, each 2 px wider than drawn: smooth edges stay
 /// inside, gaps between shapes are not part of the window (clicks there go through).
 /// Call <see cref="Update"/> after layout; it does nothing when the shapes did not move.
+/// While content moves on its way in or out (Visuals/Motion.cs), the cut is lifted
+/// (<see cref="Suspend"/>), so nothing is clipped at the shapes' final edges, and put back
+/// afterwards (<see cref="Resume"/>).
 /// </summary>
 internal sealed class WindowCutter
 {
@@ -20,12 +23,19 @@ internal sealed class WindowCutter
     private readonly FrameworkElement _root;
     private readonly List<(FrameworkElement Element, double RadiusDip)> _shapes = new();
     private string _signature = string.Empty;
+    private bool _suspended;
 
     internal WindowCutter(nint hwnd, FrameworkElement root)
     {
         _hwnd = hwnd;
         _root = root;
     }
+
+    /// <summary>
+    /// Multiplies every shape's corner radius: a window whose content is scaled as a whole
+    /// (a widget's size setting) sets its scale here. The shapes' bounds already include it.
+    /// </summary>
+    internal double RadiusScale { get; set; } = 1;
 
     internal void Add(FrameworkElement element, double radiusDip)
     {
@@ -39,9 +49,38 @@ internal sealed class WindowCutter
         _signature = string.Empty;
     }
 
+    /// <summary>The whole window shows (and takes clicks) until <see cref="Resume"/>.</summary>
+    internal void Suspend()
+    {
+        if (_suspended)
+        {
+            return;
+        }
+
+        _suspended = true;
+        _signature = string.Empty;
+        if (User32.SetWindowRgn(_hwnd, 0, true) == 0)
+        {
+            Log.Warn("A window region could not be lifted for an animation.");
+        }
+    }
+
+    /// <summary>Cuts the window to its shapes again.</summary>
+    internal void Resume()
+    {
+        if (!_suspended)
+        {
+            return;
+        }
+
+        _suspended = false;
+        _signature = string.Empty;
+        Update();
+    }
+
     internal void Update()
     {
-        if (_root.XamlRoot is null || _shapes.Count == 0)
+        if (_suspended || _root.XamlRoot is null || _shapes.Count == 0)
         {
             return;
         }
@@ -66,7 +105,7 @@ internal sealed class WindowCutter
                 int top = (int)Math.Floor(bounds.Top * scale) - SlackPx;
                 int right = (int)Math.Ceiling(bounds.Right * scale) + SlackPx + 1;
                 int bottom = (int)Math.Ceiling(bounds.Bottom * scale) + SlackPx + 1;
-                int ellipse = (int)Math.Round(((radiusDip * scale) + SlackPx) * 2);
+                int ellipse = (int)Math.Round(((radiusDip * RadiusScale * scale) + SlackPx) * 2);
 
                 rects.Add((left, top, right, bottom, ellipse));
                 signature.Append(left).Append(',').Append(top).Append(',').Append(right).Append(',')

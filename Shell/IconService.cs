@@ -27,6 +27,8 @@ namespace Machitan.Shell;
 /// background; <see cref="Changed"/> says when one arrived.
 /// Everything else, and packaged apps while their logo loads: the executable icon at the size
 /// the bar needs (sharpest), then the icon the window reports, then its window class icon.
+/// Windows with an app ID of their own (Firefox's private windows): the icon they asked
+/// Windows' taskbar for, then the window's own icon, then the executable's.
 ///
 /// Successes are cached for the run. Failures are never kept: a miss is tried again, at most
 /// once every few seconds.
@@ -91,7 +93,20 @@ internal sealed class IconService
         {
             IconPixels? pixels = null;
 
-            if (item.Path is string path)
+            if (item.Group is { OwnAppId: not null } own)
+            {
+                if (own.IconResource is string resource && WindowAppId.TrySplitIcon(resource, out string file, out int index))
+                {
+                    pixels = IconReader.FromExecutable(file, size, index);
+                }
+
+                foreach (TaskWindow window in own.Windows)
+                {
+                    pixels ??= IconReader.FromWindow(window.Handle);
+                }
+            }
+
+            if (pixels is null && item.Path is string path)
             {
                 pixels = IconReader.FromExecutable(path, size);
             }

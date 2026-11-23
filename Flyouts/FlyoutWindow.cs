@@ -21,7 +21,10 @@ namespace Machitan.Flyouts;
 /// <summary>Where a flyout opens.</summary>
 internal enum FlyoutPlacement
 {
-    /// <summary>Next to the bar, lined up with it exactly like Start (see PopupPlacement).</summary>
+    /// <summary>
+    /// Next to the bar, lined up with it exactly like Start (see PopupPlacement); or, for a
+    /// flyout that belongs to a corner widget (WidgetAnchor) while that widget is shown, next to the widget.
+    /// </summary>
     BesideBar,
 
     /// <summary>In the middle of the screen.</summary>
@@ -52,12 +55,20 @@ public abstract partial class FlyoutWindow : Window
     private const float CloseToDip = 8;
     private const int CloseMs = 120;
 
+    /// <summary>A click on the opener this soon after a click elsewhere closed the flyout is that same click.</summary>
+    private const long SameClickMs = 500;
+
     private readonly WindowCutter _cutter;
     private readonly List<(Grid Box, double Radius)> _boxes = new();
     private readonly string _name;
     private readonly bool _takesFocus;
     private WindowSubclass? _subclass;
     private string _fillLook = string.Empty;
+    private long _closedByFocusLossAt;
+    private POINT _closedByFocusLossWhere;
+
+    /// <summary>True: opened below a widget in the top half (it moves from above); false: from below; null: by the bar.</summary>
+    private bool? _fromTop;
 
     private protected FlyoutWindow(ShellHost host, string name, bool takesFocus = true)
     {
@@ -105,6 +116,24 @@ public abstract partial class FlyoutWindow : Window
 
     private protected nint Hwnd { get; }
 
+    /// <summary>
+    /// True once, just after a click on <paramref name="opener"/> (its place on screen, physical
+    /// pixels) closed the flyout. A press on the thing that opens it (the bar's ^, a widget)
+    /// takes the focus first, which closes the flyout, and its click arrives after: that click
+    /// means "close", so the caller leaves the flyout shut.
+    /// </summary>
+    internal bool TakeClosingClick(RECT opener)
+    {
+        if (_closedByFocusLossAt == 0 || Environment.TickCount64 - _closedByFocusLossAt >= SameClickMs
+            || !opener.Contains(_closedByFocusLossWhere, 2))
+        {
+            return false;
+        }
+
+        _closedByFocusLossAt = 0;
+        return true;
+    }
+
     /// <summary>The window's content; derived flyouts put their boxes in it.</summary>
     private protected Grid Root { get; }
 
@@ -128,6 +157,8 @@ public abstract partial class FlyoutWindow : Window
         {
             Log.Error(_name + ": closing failed.", ex);
         }
+
+        NoteOpenChanged(false);
 
         UIElement? target = MotionTarget;
         if (target is not null && Motion.IsOn(Host.Settings.Current) && User32.IsWindowVisible(Hwnd))
@@ -180,6 +211,14 @@ public abstract partial class FlyoutWindow : Window
         int width = (int)Math.Round((contentWidthDip + (2 * PadDip)) * scale);
         int height = (int)Math.Round((contentHeightDip + (2 * PadDip)) * scale);
 
+        if (placement == FlyoutPlacement.BesideBar && WidgetAnchor is RECT widget && widget.Width > 0 && widget.Height > 0)
+        {
+            _fromTop = PopupPlacement.IsInTopHalf(widget);
+            PresentAt(PopupPlacement.NextToWidget(widget, width, height, pad, gap));
+            return;
+        }
+
+        _fromTop = null;
         PresentAt(placement == FlyoutPlacement.BesideBar
             ? PopupPlacement.BesideBar(Host, width, height, pad, gap)
             : PopupPlacement.ScreenCentre(width, height));
@@ -246,10 +285,13 @@ public abstract partial class FlyoutWindow : Window
         }
 
         IsOpen = true;
+        _closedByFocusLossAt = 0;
         if (_takesFocus)
         {
             Log.Info(_name + " opened.");
         }
+
+        NoteOpenChanged(true);
     }
 
     /// <summary>
@@ -258,10 +300,20 @@ public abstract partial class FlyoutWindow : Window
     /// </summary>
     private protected virtual UIElement? MotionTarget => null;
 
-    /// <summary>A distance towards the bar: down for a bottom bar, up for a top bar.</summary>
+    /// <summary>
+    /// The corner widget this flyout opens by (its shape on screen, physical pixels), or null
+    /// (the default) to open by the bar. Asked each time the flyout is placed.
+    /// </summary>
+    private protected virtual RECT? WidgetAnchor => null;
+
+    /// <summary>
+    /// A distance towards where the flyout opened from: the bar (down for a bottom bar, up for
+    /// a top bar), or the widget it opened by (up for one in the top half).
+    /// </summary>
     private float FromBarSide(float distanceDip)
     {
-        return Host.Settings.Current.DockEdge == DockEdge.Top ? -distanceDip : distanceDip;
+        bool fromTop = _fromTop ?? Host.Settings.Current.DockEdge == DockEdge.Top;
+        return fromTop ? -distanceDip : distanceDip;
     }
 
     /// <summary>The largest content height (DIP) that fits on the screen with room to spare.</summary>
@@ -284,6 +336,11 @@ public abstract partial class FlyoutWindow : Window
 
     /// <summary>Runs as the flyout closes (stop timers and the like).</summary>
     private protected virtual void OnHiding()
+    {
+    }
+
+    /// <summary>Runs once the flyout has opened, and as it closes (after OnHiding).</summary>
+    private protected virtual void OnOpenChanged(bool open)
     {
     }
 
@@ -347,6 +404,23 @@ public abstract partial class FlyoutWindow : Window
         if (_takesFocus && args.WindowActivationState == WindowActivationState.Deactivated && IsOpen && !KeepOpenWhenDeactivated)
         {
             HideFlyout();
+            if (User32.GetCursorPos(out POINT at))
+            {
+                _closedByFocusLossAt = Environment.TickCount64;
+                _closedByFocusLossWhere = at;
+            }
+        }
+    }
+
+    private void NoteOpenChanged(bool open)
+    {
+        try
+        {
+            OnOpenChanged(open);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(_name + ": a part that follows it opening and closing failed.", ex);
         }
     }
 

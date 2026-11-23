@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Machitan.Config;
@@ -24,29 +25,37 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Graphics;
 using Windows.Storage.Streams;
+using Rectangle = Microsoft.UI.Xaml.Shapes.Rectangle;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace Machitan.Start;
 
 /// <summary>
-/// The Start menu: separate floating boxes on a see-through window, height capped at 400 DIP.
-/// Left: search (focused on open, filters both lists) over the Pinned grid ("Pin to Start";
-/// unpin on hover). While searching files, a preview of the pointed file takes its place.
-/// Right: All apps, as tall as the left column; each row's "..." button (on hover, always on
-/// touch devices, or a right-click) opens Windows' Start menu entries and the app's jump list
-/// tasks.
-/// Below: a slim user strip with avatar, name, the folder buttons chosen in Settings, and the
-/// power button (its menu holds the entries chosen in Settings that this PC offers, and
-/// always Exit Machitan).
-/// No recently used apps, no recent items, no widgets.
+/// The Start menu: separate floating boxes on a see-through window, 480 DIP tall.
+/// Top: the user's box: picture and a greeting with the first name (opens Windows' account
+/// settings), the folder buttons chosen in Settings, and the power button (its menu, with
+/// icons, holds Lock, the entries chosen in Settings that this PC offers, and always Exit
+/// Machitan).
+/// Left: search (focused on open, filters both lists) over the pinned apps ("Pin to Start";
+/// unpin on hover) in categories the user names, orders and adds (a category's menu: right-
+/// click its name or its "..."; an app's "Move to"). Pinned apps drag to any place in any
+/// category; an app dragged from All apps is pinned where it is dropped (and stays in All
+/// apps). While searching, the matching pins show best first without categories; while
+/// searching files, a preview of the pointed file takes their place.
+/// Right: All apps: Most used first (Settings, off by default; folds away), then A to Z under
+/// letters; a letter opens the letters' grid to jump to another, as in Windows' Start. Each
+/// row's "..." button (on hover, always on touch devices, or a right-click) opens Windows'
+/// Start menu entries and the app's jump list tasks.
+/// No recent items, no widgets.
 ///
 /// Search scopes: "apps:" (the default) and "files:". There is deliberately no web scope.
-/// Everything listed comes from Windows: Start menu shortcuts, store apps, the user's files.
+/// Everything listed comes from Windows: Start menu shortcuts, store apps, the user's files;
+/// Most used is Machitan's own count of apps opened from Start (AppUsage).
 /// </summary>
 public sealed partial class StartMenuWindow : Window
 {
-    private const double ColumnsWidthDip = 300 + 8 + 340;
-    private const double MenuHeightDip = 400;
+    private const double ColumnsWidthDip = 376 + 8 + 276;
+    private const double MenuHeightDip = 480;
     private const double PadDip = 4;
     private const double GapToBarDip = 8;
 
@@ -58,7 +67,18 @@ public sealed partial class StartMenuWindow : Window
 
     private const double RowIconDip = 24;
     private const double TileIconDip = 32;
+    private const double TileWidthDip = 84;
+    private const double TileHeightDip = 88;
+
+    // Dragging (pinned apps, and apps from All apps into Pinned): starts once the pointer moves
+    // this far; the pinned box scrolls while the pointer is near its top or bottom.
+    private const double DragStartDip = 6;
+    private const double DimmedOpacity = 0.35;
+    private const double DragScrollEdgeDip = 28;
+    private const double DragScrollStepDip = 14;
     private const int MaxFileResults = 40;
+    private const int MostUsedCount = 5;
+    private const int CategoryNameMax = 40;
 
     // Opening and closing (Visuals/Motion.cs): Start rises from the bar's side and fades in,
     // and sinks back and fades out, as Windows' Start does.
@@ -70,6 +90,23 @@ public sealed partial class StartMenuWindow : Window
     private static readonly string UnpinGlyph = ((char)0xE77A).ToString();
     private static readonly string MoreGlyph = ((char)0xE712).ToString();
     private static readonly string FileGlyph = ((char)0xE8A5).ToString();
+    private static readonly string ExpandedGlyph = ((char)0xE70D).ToString();
+    private static readonly string FoldedGlyph = ((char)0xE76C).ToString();
+
+    private const int RenameGlyph = 0xE8AC;
+    private const int AddGlyph = 0xE710;
+    private const int UpGlyph = 0xE74A;
+    private const int DownGlyph = 0xE74B;
+    private const int RemoveGlyph = 0xE74D;
+    private const int MoveGlyph = 0xE8DE;
+    private const int UnpinMenuGlyph = 0xE77A;
+
+    /// <summary>The letters of All apps, in Windows' order: "#" (digits, signs and other scripts), then A to Z.</summary>
+    private static readonly string[] Letters =
+    {
+        "#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+        "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+    };
 
     private static readonly FontFamily IconFont = new("Segoe Fluent Icons, Segoe MDL2 Assets");
 
@@ -81,6 +118,9 @@ public sealed partial class StartMenuWindow : Window
     private readonly Dictionary<string, ImageSource> _icons = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<AppRow> _appRows = new();
     private readonly List<(PinnedApp Pin, FrameworkElement Tile)> _pinTiles = new();
+    private readonly List<PinSection> _pinSections = new();
+    private readonly List<UIElement> _alphaChildren = new();
+    private readonly Dictionary<string, Button> _letterHeaders = new(StringComparer.Ordinal);
     private readonly ResultActions _actions;
     private readonly FilePreview _preview;
 
@@ -95,6 +135,16 @@ public sealed partial class StartMenuWindow : Window
     private string _folderLook = string.Empty;
     private int _popupsOpen;
     private AppRow? _asking;
+    private string _firstName = string.Empty;
+    private bool _mostUsedShown;
+    private bool _mostUsedOn;
+    private StackPanel? _mostUsedRows;
+    private DispatcherQueueTimer? _renameTimer;
+    private StartPress? _press;
+    private StartDrag? _drag;
+    private DispatcherQueueTimer? _dragTimer;
+    private FontIcon? _mostUsedChevron;
+    private Button? _mostUsedHeader;
 
     internal StartMenuWindow(ShellHost host)
     {
@@ -106,8 +156,8 @@ public sealed partial class StartMenuWindow : Window
         // Text from the string table (the XAML's own text is the English fallback).
         SearchInput.PlaceholderText = Strings.StartSearchPlaceholder;
         AutomationProperties.SetName(SearchInput, Strings.SearchBoxName);
-        PinnedHeader.Text = Strings.StartPinned;
-        AppsHeader.Text = Strings.StartAllApps;
+        PinnedHeader.Text = Upper(Strings.StartPinned);
+        AppsHeader.Text = Upper(Strings.StartAllApps);
         AutomationProperties.SetName(UserButton, Strings.StartAccountSettings);
         ToolTipService.SetToolTip(UserButton, Strings.StartAccountSettings);
         AutomationProperties.SetName(PowerButton, Strings.StartPower);
@@ -122,6 +172,10 @@ public sealed partial class StartMenuWindow : Window
         _cutter.Add(AppsBox, LargeRadius);
         _cutter.Add(UserStrip, LargeRadius);
         Layout.LayoutUpdated += (_, _) => _cutter.Update();
+
+        // While dragging, moves over Start redraw at once (the drag timer covers the rest).
+        Root.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(OnRootDragMoved), true);
+        Root.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(OnRootDragReleased), true);
 
         // The search box is a bare field inside its capsule: no fill or border of its own.
         var clear = new SolidColorBrush(Colors.Transparent);
@@ -158,6 +212,35 @@ public sealed partial class StartMenuWindow : Window
         BuildFolders();
         LoadUser();
         RebuildApps();
+    }
+
+    /// <summary>One category of the pinned apps: its name row, its tiles, and the note shown while it is empty.</summary>
+    private sealed class PinSection
+    {
+        internal PinSection(PinGroup group, StackPanel panel, Grid header, TextBlock title, VariableSizedWrapGrid grid, TextBlock empty)
+        {
+            Group = group;
+            Panel = panel;
+            Header = header;
+            Title = title;
+            TileGrid = grid;
+            Empty = empty;
+        }
+
+        internal PinGroup Group { get; }
+
+        internal StackPanel Panel { get; }
+
+        internal Grid Header { get; }
+
+        internal TextBlock Title { get; }
+
+        internal VariableSizedWrapGrid TileGrid { get; }
+
+        internal TextBlock Empty { get; }
+
+        /// <summary>Indexes into _pinTiles, in pin order.</summary>
+        internal List<int> Tiles { get; } = new();
     }
 
     /// <summary>One All apps row: the app, its "..." button, and room for the uninstall question.</summary>
@@ -245,6 +328,9 @@ public sealed partial class StartMenuWindow : Window
             _host.Catalog.RefreshIfStale(ListIconPixels, _dark);
 
             SearchInput.Text = string.Empty;
+            UserName.Text = Greeting();
+            HideLetterGrid();
+            RebuildMostUsed();
             ParseQuery();
             ApplyFilter();
             ResetPowerPanel();
@@ -306,6 +392,8 @@ public sealed partial class StartMenuWindow : Window
             return;
         }
 
+        _press = null;
+        EndDrag(apply: false);
         _open = false;
         _fileSearch?.Cancel();
         if (Motion.IsOn(_host.Settings.Current) && User32.IsWindowVisible(_hwnd))
@@ -405,7 +493,15 @@ public sealed partial class StartMenuWindow : Window
         }
 
         e.Handled = true;
-        if (_asking is AppRow row)
+        if (_drag is not null)
+        {
+            EndDrag(apply: false);
+        }
+        else if (LetterGrid.Visibility == Visibility.Visible)
+        {
+            HideLetterGrid();
+        }
+        else if (_asking is AppRow row)
         {
             EndQuestion(row);
         }
@@ -445,6 +541,17 @@ public sealed partial class StartMenuWindow : Window
     {
         ApplyLook();
         BuildFolders();
+        ShellSettings settings = _host.Settings.Current;
+        _host.Usage.SetOn(settings.StartMostUsed);
+        if (settings.StartMostUsed != _mostUsedOn)
+        {
+            RebuildMostUsed();
+            ApplyFilter();
+        }
+        else
+        {
+            ApplyMostUsedFold();
+        }
     }
 
     private void ApplyLook()
@@ -498,10 +605,34 @@ public sealed partial class StartMenuWindow : Window
     private void LoadUser()
     {
         string name = UserInfo.DisplayName();
-        UserName.Text = name;
+        string[] words = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        _firstName = words.Length > 0 ? words[0] : name;
+        UserName.Text = Greeting();
         Avatar.DisplayName = name;
         AutomationProperties.SetName(Avatar, name);
         _ = LoadAvatarAsync();
+    }
+
+    /// <summary>"Good evening, Sam": by the time of day now (as Indonesian has it: pagi, siang, sore, malam), with the first name.</summary>
+    private string Greeting()
+    {
+        int hour = DateTime.Now.Hour;
+        string format = hour >= 4 && hour < 11 ? Strings.StartGreetMorning
+            : hour >= 11 && hour < 15 ? Strings.StartGreetMidday
+            : hour >= 15 && hour < 18 ? Strings.StartGreetAfternoon
+            : Strings.StartGreetEvening;
+        return Fmt.F(format, _firstName);
+    }
+
+    private static string Upper(string text) => text.ToUpper(CultureInfo.CurrentUICulture);
+
+    private static FontIcon MenuGlyph(int glyph) => new() { Glyph = ((char)glyph).ToString(), FontFamily = IconFont };
+
+    private static MenuFlyoutItem MenuItem(string text, int glyph, Action onClick, bool enabled = true)
+    {
+        var item = new MenuFlyoutItem { Text = text, Icon = MenuGlyph(glyph), IsEnabled = enabled };
+        item.Click += (_, _) => onClick();
+        return item;
     }
 
     private async Task LoadAvatarAsync()
@@ -531,9 +662,9 @@ public sealed partial class StartMenuWindow : Window
     }
 
     /// <summary>
-    /// The power menu: the entries chosen in Settings > Start that this PC offers right now,
-    /// then, always, Exit Machitan (it cannot be turned off, so Machitan can always be closed
-    /// from Start).
+    /// The power menu: always Lock first; the entries chosen in Settings > Start that this PC
+    /// offers right now; then, always, Exit Machitan (it cannot be turned off, so Machitan can
+    /// always be closed from Start).
     /// </summary>
     private void OnPowerClicked(object sender, RoutedEventArgs e)
     {
@@ -544,10 +675,32 @@ public sealed partial class StartMenuWindow : Window
         }
 
         var menu = new MenuFlyout { ShouldConstrainToRootBounds = false };
+
+        // No question, as Win+L asks none; Start goes first, so it is not there after unlocking.
+        var lockItem = new MenuFlyoutItem { Text = Strings.PowerLock, Icon = MenuGlyph(PowerActions.LockGlyph) };
+        lockItem.Click += (_, _) =>
+        {
+            HideMenu();
+            if (User32.LockWorkStation())
+            {
+                Log.Info("Start: Lock chosen from the power menu.");
+            }
+            else
+            {
+                Log.Warn("Start: Windows did not lock the PC (error " + System.Runtime.InteropServices.Marshal.GetLastPInvokeError() + ").");
+            }
+        };
+        menu.Items.Add(lockItem);
+
         List<PowerChoice> choices = PowerActions.Choices(_host.Settings.Current);
         foreach (PowerChoice choice in choices)
         {
             var item = new MenuFlyoutItem { Text = choice.Label };
+            if (choice.Glyph != 0)
+            {
+                item.Icon = MenuGlyph(choice.Glyph);
+            }
+
             item.Click += (_, _) =>
             {
                 if (choice.Ask is string question)
@@ -570,7 +723,7 @@ public sealed partial class StartMenuWindow : Window
 
         // No question, as on the bar's own menu; Machitan's exit closes Start itself.
         menu.Items.Add(new MenuFlyoutSeparator());
-        var exit = new MenuFlyoutItem { Text = Strings.BarExit };
+        var exit = new MenuFlyoutItem { Text = Strings.BarExit, Icon = MenuGlyph(PowerActions.ExitGlyph) };
         exit.Click += (_, _) =>
         {
             Log.Info("Start: Exit Machitan chosen from the power menu.");
@@ -724,7 +877,18 @@ public sealed partial class StartMenuWindow : Window
         StackPanel panel = _filesMode ? FilesPanel : AppsPanel;
         foreach (UIElement child in panel.Children)
         {
-            if (child.Visibility == Visibility.Visible && child is FrameworkElement { Tag: string target })
+            if (child.Visibility != Visibility.Visible || child is not FrameworkElement element)
+            {
+                continue;
+            }
+
+            if (element.Tag is AppEntry app)
+            {
+                LaunchApp(app, app.LaunchTarget);
+                return;
+            }
+
+            if (element.Tag is string target)
             {
                 LaunchAndClose(target);
                 return;
@@ -763,31 +927,60 @@ public sealed partial class StartMenuWindow : Window
         return a.Rank != b.Rank ? a.Rank.CompareTo(b.Rank) : a.Index.CompareTo(b.Index);
     }
 
-    /// <summary>Shows only matching pins and apps (or the file results), with honest empty states.</summary>
+    /// <summary>
+    /// Shows the pins in their categories and All apps under their letters, or, while
+    /// searching, only the matches best first (or the file results), with honest empty states.
+    /// </summary>
     private void ApplyFilter()
     {
+        // A tile sits either in its category or in the search results, never both.
         PinnedPanel.Children.Clear();
-        var pins = new List<(int Rank, int Index)>();
-        for (int i = 0; i < _pinTiles.Count; i++)
+        foreach (PinSection section in _pinSections)
         {
-            int rank = Rank(_pinTiles[i].Pin.Name);
-            if (rank != NoMatch)
+            section.TileGrid.Children.Clear();
+        }
+
+        bool searching = _query.Length > 0 || _filesMode;
+        PinnedHeader.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
+        bool noPins = _pinTiles.Count == 0 && _drag is null;
+        PinnedGroups.Visibility = searching || noPins ? Visibility.Collapsed : Visibility.Visible;
+        PinnedPanel.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
+        if (searching)
+        {
+            var pins = new List<(int Rank, int Index)>();
+            for (int i = 0; i < _pinTiles.Count; i++)
             {
-                pins.Add((rank, i));
+                int rank = Rank(_pinTiles[i].Pin.Name);
+                if (rank != NoMatch)
+                {
+                    pins.Add((rank, i));
+                }
+            }
+
+            pins.Sort(ByRank);
+            foreach (var (_, index) in pins)
+            {
+                PinnedPanel.Children.Add(_pinTiles[index].Tile);
+            }
+        }
+        else
+        {
+            foreach (PinSection section in _pinSections)
+            {
+                foreach (int index in section.Tiles)
+                {
+                    section.TileGrid.Children.Add(_pinTiles[index].Tile);
+                }
+
+                section.Empty.Visibility = section.Tiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 
-        pins.Sort(ByRank);
-        foreach (var (_, index) in pins)
-        {
-            PinnedPanel.Children.Add(_pinTiles[index].Tile);
-        }
-
-        if (_pinTiles.Count == 0)
+        if (noPins)
         {
             ShowNote(PinnedEmpty, Strings.StartNoPins);
         }
-        else if (PinnedPanel.Children.Count == 0)
+        else if (searching && PinnedPanel.Children.Count == 0)
         {
             ShowNote(PinnedEmpty, Strings.StartNoPinMatch);
         }
@@ -796,9 +989,16 @@ public sealed partial class StartMenuWindow : Window
             PinnedEmpty.Visibility = Visibility.Collapsed;
         }
 
+        if (searching)
+        {
+            HideLetterGrid();
+        }
+
+        MostUsedHost.Visibility = !searching && _mostUsedShown ? Visibility.Visible : Visibility.Collapsed;
+
         if (_filesMode)
         {
-            AppsHeader.Text = Strings.SearchFiles;
+            AppsHeader.Text = Upper(Strings.SearchFiles);
             AppsPanel.Visibility = Visibility.Collapsed;
             FilesPanel.Visibility = Visibility.Visible;
             if (_query.Length < 2)
@@ -813,40 +1013,61 @@ public sealed partial class StartMenuWindow : Window
 
         ShowPreview(null);
 
-        AppsHeader.Text = _query.Length == 0 ? Strings.StartAllApps : Strings.StartResults;
+        AppsHeader.Text = Upper(_query.Length == 0 ? Strings.StartAllApps : Strings.StartResults);
         AppsPanel.Visibility = Visibility.Visible;
         FilesPanel.Visibility = Visibility.Collapsed;
 
         int shown = 0;
-        var order = new List<(int Rank, int Index)>(_appRows.Count);
-        for (int i = 0; i < _appRows.Count; i++)
+        var wanted = new List<UIElement>(_alphaChildren.Count);
+        if (_query.Length == 0)
         {
-            AppRow row = _appRows[i];
-            int rank = Rank(row.App.Name);
-            bool match = rank != NoMatch;
-            row.Row.Visibility = match ? Visibility.Visible : Visibility.Collapsed;
-            if (match)
+            // A to Z under the letters.
+            foreach (AppRow row in _appRows)
             {
-                shown++;
+                row.Row.Visibility = Visibility.Visible;
             }
 
-            order.Add((rank, i));
+            shown = _appRows.Count;
+            wanted.AddRange(_alphaChildren);
+        }
+        else
+        {
+            var order = new List<(int Rank, int Index)>(_appRows.Count);
+            for (int i = 0; i < _appRows.Count; i++)
+            {
+                AppRow row = _appRows[i];
+                int rank = Rank(row.App.Name);
+                bool match = rank != NoMatch;
+                row.Row.Visibility = match ? Visibility.Visible : Visibility.Collapsed;
+                if (match)
+                {
+                    shown++;
+                }
+
+                order.Add((rank, i));
+            }
+
+            // Best fit at the top (Enter opens the first one), no letters.
+            order.Sort(ByRank);
+            foreach (var (_, index) in order)
+            {
+                wanted.Add(_appRows[index].Row);
+            }
         }
 
-        // Best fit at the top (Enter opens the first one); rows are moved only when the order changes.
-        order.Sort(ByRank);
-        bool sameOrder = AppsPanel.Children.Count == order.Count;
-        for (int i = 0; sameOrder && i < order.Count; i++)
+        // Rows are moved only when the order changes.
+        bool sameOrder = AppsPanel.Children.Count == wanted.Count;
+        for (int i = 0; sameOrder && i < wanted.Count; i++)
         {
-            sameOrder = ReferenceEquals(AppsPanel.Children[i], _appRows[order[i].Index].Row);
+            sameOrder = ReferenceEquals(AppsPanel.Children[i], wanted[i]);
         }
 
         if (!sameOrder)
         {
             AppsPanel.Children.Clear();
-            foreach (var (_, index) in order)
+            foreach (UIElement child in wanted)
             {
-                AppsPanel.Children.Add(_appRows[index].Row);
+                AppsPanel.Children.Add(child);
             }
         }
 
@@ -969,26 +1190,278 @@ public sealed partial class StartMenuWindow : Window
         RebuildApps();
     }
 
+    /// <summary>
+    /// All apps again from the catalog: one row per app, kept in the catalog's order within
+    /// each letter, under the letters in Windows' order ("#" first, then A to Z; a letter
+    /// with no apps has no heading). Then Most used and the pins, which use the same apps.
+    /// </summary>
     private void RebuildApps()
     {
         try
         {
+            HideLetterGrid();
             AppsPanel.Children.Clear();
             _appRows.Clear();
+            _alphaChildren.Clear();
+            _letterHeaders.Clear();
 
+            var byLetter = new Dictionary<string, List<AppRow>>(StringComparer.Ordinal);
             foreach (AppEntry app in _host.Catalog.Apps)
             {
                 AppRow row = CreateAppRow(app);
                 _appRows.Add(row);
-                AppsPanel.Children.Add(row.Row);
+                string letter = LetterOf(app.Name);
+                if (!byLetter.TryGetValue(letter, out List<AppRow>? rows))
+                {
+                    rows = new List<AppRow>();
+                    byLetter[letter] = rows;
+                }
+
+                rows.Add(row);
             }
 
+            foreach (string letter in Letters)
+            {
+                if (!byLetter.TryGetValue(letter, out List<AppRow>? rows))
+                {
+                    continue;
+                }
+
+                Button header = CreateLetterHeader(letter);
+                _letterHeaders[letter] = header;
+                _alphaChildren.Add(header);
+                foreach (AppRow row in rows)
+                {
+                    _alphaChildren.Add(row.Row);
+                }
+            }
+
+            foreach (UIElement child in _alphaChildren)
+            {
+                AppsPanel.Children.Add(child);
+            }
+
+            RebuildMostUsed();
             RebuildPins();
         }
         catch (Exception ex)
         {
             Log.Error("The All apps list could not be built.", ex);
         }
+    }
+
+    /// <summary>The letter an app name is listed under: its first letter without accents, A to Z, else "#".</summary>
+    private static string LetterOf(string name)
+    {
+        foreach (char c in name.Normalize(NormalizationForm.FormD))
+        {
+            if (char.IsWhiteSpace(c))
+            {
+                continue;
+            }
+
+            char upper = char.ToUpperInvariant(c);
+            return upper is >= 'A' and <= 'Z' ? upper.ToString() : "#";
+        }
+
+        return "#";
+    }
+
+    /// <summary>A letter's heading in All apps: a click opens the letters' grid, to jump to another letter.</summary>
+    private Button CreateLetterHeader(string letter)
+    {
+        var header = new Button
+        {
+            Content = new TextBlock { Text = letter, FontSize = 13, FontWeight = FontWeights.SemiBold },
+            Height = 30,
+            MinWidth = 36,
+            MinHeight = 0,
+            Margin = new Thickness(0, 6, 0, 0),
+            Padding = new Thickness(10, 0, 10, 0),
+            CornerRadius = new CornerRadius(SmallRadius),
+            Background = new SolidColorBrush(Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Opacity = 0.8,
+        };
+        AutomationProperties.SetName(header, Fmt.F(Strings.StartLetterName, letter));
+        ToolTipService.SetToolTip(header, Strings.StartJumpToLetter);
+        header.Click += (_, _) => ShowLetterGrid(letter);
+        return header;
+    }
+
+    /// <summary>
+    /// The letters' grid in place of the list, as in Windows' Start: "#" and A to Z, four a
+    /// row; letters with no apps are greyed. A click jumps to that letter; Escape goes back.
+    /// </summary>
+    private void ShowLetterGrid(string current)
+    {
+        LetterGrid.Children.Clear();
+        LetterGrid.RowDefinitions.Clear();
+        LetterGrid.ColumnDefinitions.Clear();
+        const int Columns = 4;
+        int rowCount = (Letters.Length + Columns - 1) / Columns;
+        for (int i = 0; i < Columns; i++)
+        {
+            LetterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        }
+
+        for (int i = 0; i < rowCount; i++)
+        {
+            LetterGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
+        }
+
+        Button? focus = null;
+        for (int i = 0; i < Letters.Length; i++)
+        {
+            string letter = Letters[i];
+            var button = new Button
+            {
+                Content = letter,
+                FontSize = 16,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                CornerRadius = new CornerRadius(MediumRadius),
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                IsEnabled = _letterHeaders.ContainsKey(letter),
+            };
+            AutomationProperties.SetName(button, Fmt.F(Strings.StartAppsWithLetter, letter));
+            Grid.SetRow(button, i / Columns);
+            Grid.SetColumn(button, i % Columns);
+            button.Click += (_, _) => JumpToLetter(letter);
+            LetterGrid.Children.Add(button);
+            if (letter == current)
+            {
+                focus = button;
+            }
+        }
+
+        AppsScroller.Visibility = Visibility.Collapsed;
+        LetterGrid.Visibility = Visibility.Visible;
+        focus?.Focus(FocusState.Programmatic);
+    }
+
+    private void HideLetterGrid()
+    {
+        if (LetterGrid.Visibility == Visibility.Visible)
+        {
+            LetterGrid.Visibility = Visibility.Collapsed;
+            AppsScroller.Visibility = Visibility.Visible;
+        }
+    }
+
+    /// <summary>Back to the list, scrolled so the letter's heading is at the top (and focused, for the keyboard).</summary>
+    private void JumpToLetter(string letter)
+    {
+        HideLetterGrid();
+        if (!_letterHeaders.TryGetValue(letter, out Button? header) || AppsScroller.Content is not UIElement list)
+        {
+            return;
+        }
+
+        try
+        {
+            AppsScroller.UpdateLayout();
+            double top = header.TransformToVisual(list).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+            AppsScroller.ChangeView(null, Math.Max(0, top - header.Margin.Top), null, true);
+            header.Focus(FocusState.Programmatic);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Start: could not jump to the letter " + letter + ".", ex);
+        }
+    }
+
+    /// <summary>
+    /// Most used (Settings > Start, off by default): the apps opened most from Start, at most
+    /// five, above A to Z; its heading folds them away (remembered). On but nothing counted yet:
+    /// the heading and a note. Hidden while searching.
+    /// </summary>
+    private void RebuildMostUsed()
+    {
+        MostUsedHost.Children.Clear();
+        _mostUsedRows = null;
+        _mostUsedChevron = null;
+        _mostUsedHeader = null;
+        _mostUsedOn = _host.Settings.Current.StartMostUsed;
+        _mostUsedShown = _mostUsedOn && _host.Catalog.IsReady;
+        if (!_mostUsedShown)
+        {
+            MostUsedHost.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var byKey = new Dictionary<string, AppEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (AppEntry app in _host.Catalog.Apps)
+        {
+            byKey.TryAdd(app.Key, app);
+        }
+
+        var rows = new StackPanel { Spacing = 2 };
+        foreach (string key in _host.Usage.Top(MostUsedCount))
+        {
+            if (byKey.TryGetValue(key, out AppEntry? app))
+            {
+                rows.Children.Add(CreateAppRow(app).Row);
+            }
+        }
+
+        if (rows.Children.Count == 0)
+        {
+            rows.Children.Add(new TextBlock
+            {
+                Text = Strings.StartMostUsedEmpty,
+                Margin = new Thickness(8, 0, 8, 4),
+                FontSize = 12,
+                Opacity = 0.7,
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
+
+        var chevron = new FontIcon { FontFamily = IconFont, FontSize = 10, Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center };
+        var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        title.Children.Add(new TextBlock { Text = Strings.StartMostUsed, FontSize = 13, FontWeight = FontWeights.SemiBold, Opacity = 0.8 });
+        title.Children.Add(chevron);
+        var header = new Button
+        {
+            Content = title,
+            Height = 30,
+            MinHeight = 0,
+            Padding = new Thickness(10, 0, 10, 0),
+            CornerRadius = new CornerRadius(SmallRadius),
+            Background = new SolidColorBrush(Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        AutomationProperties.SetName(header, Strings.StartMostUsed);
+        header.Click += (_, _) =>
+        {
+            bool fold = !_host.Settings.Current.StartMostUsedCollapsed;
+            _host.Settings.Update(s => s.StartMostUsedCollapsed = fold, "Start");
+        };
+
+        MostUsedHost.Children.Add(header);
+        MostUsedHost.Children.Add(rows);
+        _mostUsedRows = rows;
+        _mostUsedChevron = chevron;
+        _mostUsedHeader = header;
+        ApplyMostUsedFold();
+    }
+
+    /// <summary>Most used folded away or not, as remembered; the arrow and its name follow.</summary>
+    private void ApplyMostUsedFold()
+    {
+        if (_mostUsedRows is null || _mostUsedChevron is null || _mostUsedHeader is null)
+        {
+            return;
+        }
+
+        bool folded = _host.Settings.Current.StartMostUsedCollapsed;
+        _mostUsedRows.Visibility = folded ? Visibility.Collapsed : Visibility.Visible;
+        _mostUsedChevron.Glyph = folded ? FoldedGlyph : ExpandedGlyph;
+        ToolTipService.SetToolTip(_mostUsedHeader, folded ? Strings.StartExpand : Strings.StartCollapse);
+        AutomationProperties.SetHelpText(_mostUsedHeader, folded ? Strings.StartExpand : Strings.StartCollapse);
     }
 
     private AppRow CreateAppRow(AppEntry app)
@@ -1003,7 +1476,7 @@ public sealed partial class StartMenuWindow : Window
         });
 
         Button main = MakeRowButton(content, app.Name, 40);
-        main.Click += (_, _) => LaunchAndClose(app.LaunchTarget);
+        main.Click += (_, _) => LaunchApp(app, app.LaunchTarget);
 
         var more = new Button
         {
@@ -1022,7 +1495,7 @@ public sealed partial class StartMenuWindow : Window
         AutomationProperties.SetName(more, Fmt.F(Strings.MoreOptionsFor, app.Name));
         ToolTipService.SetToolTip(more, Strings.MoreOptions);
 
-        var row = new Grid { Tag = app.LaunchTarget };
+        var row = new Grid { Tag = app };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(more, 1);
@@ -1038,6 +1511,9 @@ public sealed partial class StartMenuWindow : Window
                 ? new FlyoutShowOptions { Position = at }
                 : new FlyoutShowOptions { Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft });
         };
+
+        // Dragged into Pinned: pinned there, and still listed here.
+        AttachDrag(main, row, app.ToPin(), app, fromPins: false);
 
         // "..." button: hover only (and while it has keyboard focus); always on touch devices.
         row.PointerEntered += (_, _) => more.Opacity = 1;
@@ -1094,6 +1570,7 @@ public sealed partial class StartMenuWindow : Window
             ApplyFilter();
         }
 
+        HideLetterGrid();
         AskUninstall(row);
         row.Row.StartBringIntoView();
     }
@@ -1141,9 +1618,15 @@ public sealed partial class StartMenuWindow : Window
         RebuildPins();
     }
 
+    /// <summary>
+    /// The pinned apps again, category by category in the user's order; each pin under the
+    /// category it sits in (see PinStore). A category with no apps keeps its name and a note.
+    /// </summary>
     private void RebuildPins()
     {
         _pinTiles.Clear();
+        _pinSections.Clear();
+        PinnedGroups.Children.Clear();
 
         var byPinPath = new Dictionary<string, AppEntry>(StringComparer.OrdinalIgnoreCase);
         foreach (AppEntry app in _host.Catalog.Apps)
@@ -1151,23 +1634,275 @@ public sealed partial class StartMenuWindow : Window
             byPinPath.TryAdd(app.ToPin().Path, app);
         }
 
+        IReadOnlyList<PinGroup> groups = _host.StartPins.Groups;
+        foreach (PinGroup group in groups)
+        {
+            PinSection section = CreatePinSection(group, groups.Count);
+            _pinSections.Add(section);
+            PinnedGroups.Children.Add(section.Panel);
+        }
+
         foreach (PinnedApp pin in _host.StartPins.Pins)
         {
             byPinPath.TryGetValue(pin.Path, out AppEntry? app);
+            PinSection? section = _pinSections.Find(s => string.Equals(s.Group.Id, pin.Group, StringComparison.Ordinal))
+                ?? (_pinSections.Count > 0 ? _pinSections[0] : null);
+            section?.Tiles.Add(_pinTiles.Count);
             _pinTiles.Add((pin, CreatePinTile(pin, app)));
         }
 
         ApplyFilter();
     }
 
+    /// <summary>The category's name as shown: the user's, else "Pinned" (the first one before it is renamed).</summary>
+    private static string NameOf(PinGroup group) => group.Name ?? Strings.StartPinned;
+
+    /// <summary>
+    /// One category: its name in capitals with a "..." button (on hover, always on touch
+    /// devices; a right-click on the name does the same; a double-click renames), then its
+    /// tiles four a row, or a note while it has none.
+    /// </summary>
+    private PinSection CreatePinSection(PinGroup group, int groupCount)
+    {
+        string name = NameOf(group);
+        var title = new TextBlock
+        {
+            Text = Upper(name),
+            Margin = new Thickness(4, 0, 0, 0),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            CharacterSpacing = 60,
+            Opacity = 0.75,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+
+        var more = new Button
+        {
+            Content = new FontIcon { Glyph = MoreGlyph, FontFamily = IconFont, FontSize = 12 },
+            Width = 28,
+            Height = 24,
+            MinWidth = 0,
+            MinHeight = 0,
+            Padding = new Thickness(0),
+            CornerRadius = new CornerRadius(SmallRadius),
+            Background = new SolidColorBrush(Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Opacity = _hasTouch ? 1 : 0,
+        };
+        AutomationProperties.SetName(more, Fmt.F(Strings.StartCategoryOptions, name));
+        ToolTipService.SetToolTip(more, Strings.MoreOptions);
+
+        var header = new Grid { Height = 28, Background = new SolidColorBrush(Colors.Transparent) };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(more, 1);
+        header.Children.Add(title);
+        header.Children.Add(more);
+
+        var grid = new VariableSizedWrapGrid
+        {
+            ItemWidth = TileWidthDip + 4,
+            ItemHeight = TileHeightDip + 4,
+            MaximumRowsOrColumns = 4,
+            Orientation = Orientation.Horizontal,
+        };
+
+        var empty = new TextBlock
+        {
+            Text = Strings.StartEmptyCategory,
+            Margin = new Thickness(4, 2, 4, 6),
+            FontSize = 12,
+            Opacity = 0.6,
+            TextWrapping = TextWrapping.Wrap,
+            Visibility = Visibility.Collapsed,
+        };
+
+        var panel = new StackPanel { Spacing = 4 };
+        panel.Children.Add(header);
+        panel.Children.Add(grid);
+        panel.Children.Add(empty);
+
+        var section = new PinSection(group, panel, header, title, grid, empty);
+        more.Click += (_, _) => ShowCategoryMenu(section, groupCount, more, new FlyoutShowOptions { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight });
+        header.ContextRequested += (_, e) =>
+        {
+            e.Handled = true;
+            ShowCategoryMenu(section, groupCount, header, e.TryGetPosition(header, out Windows.Foundation.Point at)
+                ? new FlyoutShowOptions { Position = at }
+                : new FlyoutShowOptions { Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft });
+        };
+        title.DoubleTapped += (_, e) =>
+        {
+            e.Handled = true;
+            BeginRename(section);
+        };
+
+        // "..." button: hover only (and while it has keyboard focus); always on touch devices.
+        header.PointerEntered += (_, _) => more.Opacity = 1;
+        header.PointerExited += (_, _) => more.Opacity = _hasTouch || more.FocusState != FocusState.Unfocused ? 1 : 0;
+        more.GotFocus += (_, _) => more.Opacity = 1;
+        more.LostFocus += (_, _) => more.Opacity = _hasTouch ? 1 : 0;
+        return section;
+    }
+
+    /// <summary>A category's menu: rename, a new category below it, move it up or down, remove it (its apps move, nothing is unpinned).</summary>
+    private void ShowCategoryMenu(PinSection section, int groupCount, FrameworkElement target, FlyoutShowOptions options)
+    {
+        try
+        {
+            string id = section.Group.Id;
+            int index = _pinSections.IndexOf(section);
+            var menu = new MenuFlyout { ShouldConstrainToRootBounds = false };
+            menu.Items.Add(MenuItem(Strings.StartRenameCategory, RenameGlyph, () => BeginRename(section)));
+            menu.Items.Add(MenuItem(Strings.StartNewCategory, AddGlyph, () => AddCategory(id, null)));
+            menu.Items.Add(new MenuFlyoutSeparator());
+            menu.Items.Add(MenuItem(Strings.StartMoveUp, UpGlyph, () => _host.StartPins.MoveGroup(id, -1), enabled: index > 0));
+            menu.Items.Add(MenuItem(Strings.StartMoveDown, DownGlyph, () => _host.StartPins.MoveGroup(id, 1), enabled: index >= 0 && index < groupCount - 1));
+            menu.Items.Add(new MenuFlyoutSeparator());
+            menu.Items.Add(MenuItem(Strings.StartRemoveCategory, RemoveGlyph, () =>
+            {
+                if (_host.StartPins.RemoveGroup(id))
+                {
+                    Log.Info("Start: a category was removed; its apps moved to the one next to it.");
+                }
+            }, enabled: groupCount > 1));
+            ShowPopup(menu, target, options);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Start: a category's menu could not be opened.", ex);
+        }
+    }
+
+    /// <summary>A new category below <paramref name="afterId"/>, named "New category" and ready to rename; the pin moves into it when given.</summary>
+    private void AddCategory(string afterId, PinnedApp? pin)
+    {
+        string id = _host.StartPins.AddGroup(Strings.StartNewCategory, afterId);
+        if (pin is not null)
+        {
+            _host.StartPins.MoveToGroup(pin.Path, id);
+        }
+
+        // The list was built again on each change; the new category's name becomes a text box.
+        PinSection? section = _pinSections.Find(s => string.Equals(s.Group.Id, id, StringComparison.Ordinal));
+        if (section is not null)
+        {
+            BeginRename(section);
+        }
+    }
+
+    /// <summary>
+    /// The category's name becomes a text box (all selected): Enter or clicking away keeps the
+    /// new name, Escape keeps the old one; an empty name gives back the default ("Pinned").
+    /// </summary>
+    private void BeginRename(PinSection section)
+    {
+        if (_query.Length > 0 || _filesMode)
+        {
+            return;
+        }
+
+        string before = NameOf(section.Group);
+        var box = new TextBox
+        {
+            Text = before,
+            MaxLength = CategoryNameMax,
+            FontSize = 12,
+            MinHeight = 0,
+            Padding = new Thickness(6, 3, 6, 3),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        AutomationProperties.SetName(box, Strings.StartCategoryName);
+        Grid.SetColumnSpan(box, 2);
+        section.Title.Visibility = Visibility.Collapsed;
+        section.Header.Children.Add(box);
+
+        bool done = false;
+        void Finish(bool keep)
+        {
+            if (done)
+            {
+                return;
+            }
+
+            done = true;
+            string typed = box.Text.Trim();
+            section.Header.Children.Remove(box);
+            section.Title.Visibility = Visibility.Visible;
+            if (keep && typed != before)
+            {
+                _host.StartPins.RenameGroup(section.Group.Id, typed);
+            }
+        }
+
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key == VirtualKey.Enter || e.Key == VirtualKey.Escape)
+            {
+                e.Handled = true;
+                Finish(e.Key == VirtualKey.Enter);
+            }
+        };
+
+        // Clicking away keeps the name, once the box has had the keyboard (a menu that just
+        // closed hands the focus back first, so the box takes it a moment later).
+        bool focused = false;
+        box.GotFocus += (_, _) => focused = true;
+        box.LostFocus += (_, _) =>
+        {
+            if (focused)
+            {
+                Finish(true);
+            }
+        };
+
+        _renameTimer?.Stop();
+        DispatcherQueueTimer later = DispatcherQueue.CreateTimer();
+        _renameTimer = later;
+        later.Interval = TimeSpan.FromMilliseconds(150);
+        later.IsRepeating = false;
+        later.Tick += (_, _) =>
+        {
+            if (!done)
+            {
+                box.Focus(FocusState.Programmatic);
+                box.SelectAll();
+            }
+        };
+        later.Start();
+    }
+
+    /// <summary>"Move to": the other categories, and a new one for this app.</summary>
+    private MenuFlyoutSubItem MoveToMenu(PinnedApp pin)
+    {
+        var move = new MenuFlyoutSubItem { Text = Strings.StartMoveTo, Icon = MenuGlyph(MoveGlyph) };
+        foreach (PinGroup group in _host.StartPins.Groups)
+        {
+            string id = group.Id;
+            var item = new MenuFlyoutItem
+            {
+                Text = NameOf(group),
+                IsEnabled = !string.Equals(id, pin.Group, StringComparison.Ordinal),
+            };
+            item.Click += (_, _) => _host.StartPins.MoveToGroup(pin.Path, id);
+            move.Items.Add(item);
+        }
+
+        move.Items.Add(new MenuFlyoutSeparator());
+        move.Items.Add(MenuItem(Strings.StartNewCategory, AddGlyph, () => AddCategory(pin.Group ?? string.Empty, pin)));
+        return move;
+    }
+
     private Grid CreatePinTile(PinnedApp pin, AppEntry? app)
     {
-        var content = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+        var content = new StackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
         content.Children.Add(CreateIcon(app?.Key ?? pin.Path, app, pin.AppId is null ? pin.Path : null, TileIconDip));
         content.Children.Add(new TextBlock
         {
             Text = pin.Name,
-            FontSize = 11,
+            FontSize = 12,
             MaxLines = 2,
             TextWrapping = TextWrapping.Wrap,
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -1178,11 +1913,11 @@ public sealed partial class StartMenuWindow : Window
         var main = new Button
         {
             Content = content,
-            Width = 64,
-            Height = 72,
+            Width = TileWidthDip,
+            Height = TileHeightDip,
             MinWidth = 0,
             MinHeight = 0,
-            Padding = new Thickness(2, 6, 2, 2),
+            Padding = new Thickness(2, 8, 2, 2),
             CornerRadius = new CornerRadius(MediumRadius),
             Background = new SolidColorBrush(Colors.Transparent),
             BorderThickness = new Thickness(0),
@@ -1190,7 +1925,17 @@ public sealed partial class StartMenuWindow : Window
             VerticalContentAlignment = VerticalAlignment.Top,
         };
         AutomationProperties.SetName(main, pin.Name);
-        main.Click += (_, _) => LaunchAndClose(pin.LaunchTarget);
+        main.Click += (_, _) =>
+        {
+            if (app is not null)
+            {
+                LaunchApp(app, pin.LaunchTarget);
+            }
+            else
+            {
+                LaunchAndClose(pin.LaunchTarget);
+            }
+        };
 
         var unpin = new Button
         {
@@ -1209,29 +1954,41 @@ public sealed partial class StartMenuWindow : Window
         ToolTipService.SetToolTip(unpin, Strings.UnpinFromStart);
         unpin.Click += (_, _) => _host.StartPins.Unpin(pin.Path);
 
-        // Right-click: the same menu as in All apps (for apps still in the app list).
-        if (app is not null)
+        // Right-click: the same menu as in All apps (for apps still in the app list), then
+        // "Move to"; for an app no longer listed, "Move to" and Unpin.
+        main.ContextRequested += (_, e) =>
         {
-            main.ContextRequested += (_, e) =>
+            e.Handled = true;
+            try
             {
-                e.Handled = true;
-                try
+                MenuFlyout menu;
+                if (app is not null)
                 {
-                    MenuFlyout menu = _actions.AppMenu(app, () => AskUninstallFromPin(app), ListIconPixels / 2);
-                    ShowPopup(menu, main, e.TryGetPosition(main, out Windows.Foundation.Point at)
-                        ? new FlyoutShowOptions { Position = at }
-                        : new FlyoutShowOptions { Placement = FlyoutPlacementMode.Bottom });
+                    menu = _actions.AppMenu(app, () => AskUninstallFromPin(app), ListIconPixels / 2);
+                    menu.Items.Insert(0, new MenuFlyoutSeparator());
+                    menu.Items.Insert(0, MoveToMenu(pin));
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log.Error("Start: the menu for " + pin.Name + " could not be opened.", ex);
+                    menu = new MenuFlyout { ShouldConstrainToRootBounds = false };
+                    menu.Items.Add(MoveToMenu(pin));
+                    menu.Items.Add(MenuItem(Strings.UnpinFromStart, UnpinMenuGlyph, () => _host.StartPins.Unpin(pin.Path)));
                 }
-            };
-        }
 
-        var tile = new Grid { Width = 64, Height = 72 };
+                ShowPopup(menu, main, e.TryGetPosition(main, out Windows.Foundation.Point at)
+                    ? new FlyoutShowOptions { Position = at }
+                    : new FlyoutShowOptions { Placement = FlyoutPlacementMode.Bottom });
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Start: the menu for " + pin.Name + " could not be opened.", ex);
+            }
+        };
+
+        var tile = new Grid { Width = TileWidthDip, Height = TileHeightDip };
         tile.Children.Add(main);
         tile.Children.Add(unpin);
+        AttachDrag(main, tile, pin, app, fromPins: true);
 
         // Unpin button: hover only (and while it has keyboard focus); always on touch devices.
         tile.PointerEntered += (_, _) => unpin.Opacity = 1;
@@ -1240,6 +1997,423 @@ public sealed partial class StartMenuWindow : Window
         unpin.LostFocus += (_, _) => unpin.Opacity = _hasTouch ? 1 : 0;
 
         return tile;
+    }
+
+    // ---------------------------------------------------------------- dragging into Pinned
+
+    /// <summary>A press on a pinned tile or an All apps row that becomes a drag once the pointer moves far enough (DIP, in Root).</summary>
+    private sealed record StartPress(PinnedApp Pin, AppEntry? App, Button Source, FrameworkElement Piece, bool FromPins, uint PointerId, Windows.Foundation.Point At);
+
+    /// <summary>A running drag: what is dragged, its copy under the pointer, and the line where it would go.</summary>
+    private sealed class StartDrag
+    {
+        internal StartDrag(StartPress press, Border ghost, Rectangle marker)
+        {
+            Press = press;
+            Ghost = ghost;
+            Marker = marker;
+        }
+
+        internal StartPress Press { get; }
+
+        internal Border Ghost { get; }
+
+        internal Rectangle Marker { get; }
+    }
+
+    /// <summary>
+    /// Lets a tile or row be dragged with the mouse (touch and pen scroll the lists and tap as
+    /// before; there, "Move to" and "Pin to Start" do the same). Buttons handle presses
+    /// themselves, so their pointer events are heard even when handled.
+    /// </summary>
+    private void AttachDrag(Button source, FrameworkElement piece, PinnedApp pin, AppEntry? app, bool fromPins)
+    {
+        source.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, e) => OnDragPressed(source, piece, pin, app, fromPins, e)), true);
+        source.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler((_, e) => OnDragPointerMoved(source, e)), true);
+        source.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler((_, e) => OnDragPressEnded(source, e)), true);
+        source.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler((_, e) => OnDragPressEnded(source, e)), true);
+    }
+
+    private void OnDragPressed(Button source, FrameworkElement piece, PinnedApp pin, AppEntry? app, bool fromPins, PointerRoutedEventArgs e)
+    {
+        if (_drag is not null || !_open || e.Pointer.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse)
+        {
+            return;
+        }
+
+        Microsoft.UI.Input.PointerPoint point = e.GetCurrentPoint(Root);
+        if (point.Properties.IsLeftButtonPressed)
+        {
+            _press = new StartPress(pin, app, source, piece, fromPins, e.Pointer.PointerId, point.Position);
+        }
+    }
+
+    private void OnDragPointerMoved(Button source, PointerRoutedEventArgs e)
+    {
+        if (_press is not { } press || _drag is not null || !ReferenceEquals(press.Source, source) || press.PointerId != e.Pointer.PointerId)
+        {
+            return;
+        }
+
+        Windows.Foundation.Point now = e.GetCurrentPoint(Root).Position;
+        if (Math.Abs(now.X - press.At.X) < DragStartDip && Math.Abs(now.Y - press.At.Y) < DragStartDip)
+        {
+            return;
+        }
+
+        _press = null;
+        BeginDrag(press, e.Pointer);
+    }
+
+    private void OnDragPressEnded(Button source, PointerRoutedEventArgs e)
+    {
+        // Let go before moving far: an ordinary click.
+        if (_press is { } press && ReferenceEquals(press.Source, source) && press.PointerId == e.Pointer.PointerId)
+        {
+            _press = null;
+        }
+    }
+
+    /// <summary>
+    /// The drag starts: the button lets go of the pointer (so it does not click when the mouse
+    /// is let go), and from here the drag follows the mouse itself, read on a timer as the
+    /// bar's drags are (Windows does not always let Start hold the pointer). Search is cleared
+    /// so the categories show, the moved tile fades in its place, and a copy of it follows the
+    /// pointer. The boxes' cut is lifted meanwhile, so the copy shows between them.
+    /// </summary>
+    private void BeginDrag(StartPress press, Pointer pointer)
+    {
+        try
+        {
+            press.Source.ReleasePointerCapture(pointer);
+            _ = Root.CapturePointer(pointer);
+
+            if (SearchInput.Text.Length > 0)
+            {
+                SearchInput.Text = string.Empty;
+                ParseQuery();
+                ApplyFilter();
+            }
+
+            // With nothing pinned yet, the first category and its note show, to drop into.
+            PinnedEmpty.Visibility = Visibility.Collapsed;
+            PinnedGroups.Visibility = Visibility.Visible;
+
+            var marker = new Rectangle
+            {
+                Width = 3,
+                RadiusX = 1.5,
+                RadiusY = 1.5,
+                Fill = new SolidColorBrush(_host.Accent.Current),
+                Visibility = Visibility.Collapsed,
+            };
+            Border ghost = MakeGhost(press);
+            DragCanvas.Children.Add(marker);
+            DragCanvas.Children.Add(ghost);
+            _drag = new StartDrag(press, ghost, marker);
+            if (press.FromPins)
+            {
+                press.Piece.Opacity = DimmedOpacity;
+            }
+
+            _cutter.Suspend();
+            if (_dragTimer is null)
+            {
+                _dragTimer = DispatcherQueue.CreateTimer();
+                _dragTimer.Interval = TimeSpan.FromMilliseconds(16);
+                _dragTimer.IsRepeating = true;
+                _dragTimer.Tick += (_, _) => OnDragTick();
+            }
+
+            _dragTimer.Start();
+            UpdateDrag();
+            Log.Info("Start drag: " + press.Pin.Name + (press.FromPins ? " picked up." : " picked up from All apps."));
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Start drag: the drag could not start.", ex);
+            EndDrag(apply: false);
+        }
+    }
+
+    /// <summary>The copy under the pointer: the app's icon and name, as its tile shows them.</summary>
+    private Border MakeGhost(StartPress press)
+    {
+        var content = new StackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(2, 8, 2, 2) };
+        content.Children.Add(CreateIcon(
+            press.App?.Key ?? press.Pin.Path,
+            press.App,
+            press.App is null && press.Pin.AppId is null ? press.Pin.Path : null,
+            TileIconDip));
+        content.Children.Add(new TextBlock
+        {
+            Text = press.Pin.Name,
+            FontSize = 12,
+            MaxLines = 2,
+            TextWrapping = TextWrapping.Wrap,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextAlignment = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+
+        return new Border
+        {
+            Child = content,
+            Width = TileWidthDip,
+            Height = TileHeightDip,
+            CornerRadius = new CornerRadius(MediumRadius),
+            Background = new SolidColorBrush(_dark ? ColorHelper.FromArgb(0xF0, 0x2C, 0x2C, 0x2C) : ColorHelper.FromArgb(0xF0, 0xFA, 0xFA, 0xFA)),
+            BorderBrush = new SolidColorBrush(_dark ? ColorHelper.FromArgb(0x30, 0xFF, 0xFF, 0xFF) : ColorHelper.FromArgb(0x20, 0x00, 0x00, 0x00)),
+            BorderThickness = new Thickness(1),
+            IsHitTestVisible = false,
+        };
+    }
+
+    /// <summary>Each tick: Escape puts it back; the mouse button let go drops it; otherwise the copy and the line follow the pointer.</summary>
+    private void OnDragTick()
+    {
+        if (_drag is null)
+        {
+            _dragTimer?.Stop();
+            return;
+        }
+
+        try
+        {
+            if ((User32.GetAsyncKeyState(User32.VK_ESCAPE) & 0x8000) != 0)
+            {
+                EndDrag(apply: false);
+            }
+            else if (!IsMouseButtonDown())
+            {
+                EndDrag(apply: true);
+            }
+            else
+            {
+                UpdateDrag();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Start drag: the drag failed; put back.", ex);
+            EndDrag(apply: false);
+        }
+    }
+
+    /// <summary>The primary mouse button, read from the hardware (with swapped buttons, the right one).</summary>
+    private static bool IsMouseButtonDown()
+    {
+        int key = User32.GetSystemMetrics(User32.SM_SWAPBUTTON) != 0 ? User32.VK_RBUTTON : User32.VK_LBUTTON;
+        return (User32.GetAsyncKeyState(key) & 0x8000) != 0;
+    }
+
+    private void OnRootDragMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_drag is not null)
+        {
+            UpdateDrag();
+        }
+    }
+
+    private void OnRootDragReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_drag is not null)
+        {
+            EndDrag(apply: true);
+        }
+    }
+
+    /// <summary>The mouse pointer in Start's window, in DIP from its top-left (as XAML lays out), or null.</summary>
+    private Windows.Foundation.Point? CursorInWindow()
+    {
+        if (!User32.GetCursorPos(out POINT cursor))
+        {
+            return null;
+        }
+
+        double scale = Root.XamlRoot?.RasterizationScale ?? Scale();
+        PointInt32 window = AppWindow.Position;
+        return new Windows.Foundation.Point((cursor.X - window.X) / scale, (cursor.Y - window.Y) / scale);
+    }
+
+    /// <summary>A point in the window (DIP) as seen from <paramref name="element"/>'s top-left.</summary>
+    private static Windows.Foundation.Point From(UIElement element, Windows.Foundation.Point inWindow)
+    {
+        Windows.Foundation.Point origin = element.TransformToVisual(null).TransformPoint(new Windows.Foundation.Point(0, 0));
+        return new Windows.Foundation.Point(inWindow.X - origin.X, inWindow.Y - origin.Y);
+    }
+
+    private void UpdateDrag()
+    {
+        if (_drag is not { } drag || CursorInWindow() is not Windows.Foundation.Point cursor)
+        {
+            return;
+        }
+
+        Windows.Foundation.Point at = From(DragCanvas, cursor);
+        Canvas.SetLeft(drag.Ghost, at.X - (TileWidthDip / 2));
+        Canvas.SetTop(drag.Ghost, at.Y - (TileHeightDip / 2));
+        ScrollNearEdge(cursor);
+
+        (PinSection? section, int slot, _) = FindDrop(drag, cursor);
+        drag.Ghost.Opacity = section is null ? 0.6 : 0.95;
+        ShowMarker(drag, section, slot);
+    }
+
+    /// <summary>While the pointer is near the pinned box's top or bottom, the box scrolls.</summary>
+    private void ScrollNearEdge(Windows.Foundation.Point cursor)
+    {
+        Windows.Foundation.Point at = From(PinnedScroller, cursor);
+        double height = PinnedScroller.ActualHeight;
+        if (at.X < 0 || at.X > PinnedScroller.ActualWidth || PinnedScroller.ScrollableHeight <= 0)
+        {
+            return;
+        }
+
+        double step = at.Y > -DragScrollEdgeDip && at.Y < DragScrollEdgeDip ? -DragScrollStepDip
+            : at.Y > height - DragScrollEdgeDip && at.Y < height + DragScrollEdgeDip ? DragScrollStepDip
+            : 0;
+        if (step != 0)
+        {
+            PinnedScroller.ChangeView(null, Math.Clamp(PinnedScroller.VerticalOffset + step, 0, PinnedScroller.ScrollableHeight), null, true);
+        }
+    }
+
+    /// <summary>
+    /// Where a drop at the pointer would go: the category under it (above the first: the
+    /// first; below the last: the last), the slot among its tiles as laid out now (four a row;
+    /// below the last row: the end), and the place among its other pins (an app already in it
+    /// leaves its own place). Nothing outside the pinned box.
+    /// </summary>
+    private (PinSection? Section, int Slot, int Index) FindDrop(StartDrag drag, Windows.Foundation.Point cursor)
+    {
+        if (_pinSections.Count == 0 || PinnedContent.Visibility != Visibility.Visible || PinnedGroups.Visibility != Visibility.Visible)
+        {
+            return (null, 0, 0);
+        }
+
+        Windows.Foundation.Point inBox = From(PinnedBox, cursor);
+        if (inBox.X < 0 || inBox.Y < 0 || inBox.X > PinnedBox.ActualWidth || inBox.Y > PinnedBox.ActualHeight)
+        {
+            return (null, 0, 0);
+        }
+
+        PinSection section = _pinSections[^1];
+        foreach (PinSection candidate in _pinSections)
+        {
+            if (From(candidate.Panel, cursor).Y < candidate.Panel.ActualHeight + 5)
+            {
+                section = candidate;
+                break;
+            }
+        }
+
+        const double ItemWidth = TileWidthDip + 4;
+        const double ItemHeight = TileHeightDip + 4;
+        int count = section.Tiles.Count;
+        int rows = (count + 3) / 4;
+        Windows.Foundation.Point inGrid = From(section.TileGrid, cursor);
+        int slot;
+        if (count == 0 || inGrid.Y >= rows * ItemHeight)
+        {
+            slot = count;
+        }
+        else
+        {
+            int row = Math.Clamp((int)Math.Floor(inGrid.Y / ItemHeight), 0, rows - 1);
+            int column = Math.Clamp((int)Math.Round(inGrid.X / ItemWidth), 0, 4);
+            slot = Math.Min((row * 4) + column, count);
+        }
+
+        int own = section.Tiles.FindIndex(i => string.Equals(_pinTiles[i].Pin.Path, drag.Press.Pin.Path, StringComparison.OrdinalIgnoreCase));
+        int index = own >= 0 && slot > own ? slot - 1 : slot;
+        return (section, slot, index);
+    }
+
+    /// <summary>The accent line at the slot (after the last tile of a full row, at the end; on the note of an empty category).</summary>
+    private void ShowMarker(StartDrag drag, PinSection? section, int slot)
+    {
+        if (section is null)
+        {
+            drag.Marker.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        const double ItemWidth = TileWidthDip + 4;
+        const double ItemHeight = TileHeightDip + 4;
+        int count = section.Tiles.Count;
+        int row;
+        int column;
+        if (count == 0)
+        {
+            row = 0;
+            column = 0;
+        }
+        else if (slot == count && slot % 4 == 0)
+        {
+            row = (slot / 4) - 1;
+            column = 4;
+        }
+        else
+        {
+            row = slot / 4;
+            column = slot % 4;
+        }
+
+        FrameworkElement origin = count == 0 ? section.Empty : section.TileGrid;
+        Windows.Foundation.Point corner = origin.TransformToVisual(DragCanvas)
+            .TransformPoint(new Windows.Foundation.Point(column * ItemWidth, row * ItemHeight));
+        drag.Marker.Height = count == 0 ? Math.Max(section.Empty.ActualHeight, 20) : ItemHeight - 16;
+        Canvas.SetLeft(drag.Marker, corner.X - 1.5);
+        Canvas.SetTop(drag.Marker, corner.Y + (count == 0 ? 0 : 8));
+        drag.Marker.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>
+    /// The drag ends: the copy and line go, the tile comes back, the cut returns. Let go over
+    /// the pinned box (<paramref name="apply"/>), the app goes to that place (a pinned app
+    /// moves; an app from All apps is pinned there and stays in All apps); otherwise, or with
+    /// Escape, nothing changes.
+    /// </summary>
+    private void EndDrag(bool apply)
+    {
+        if (_drag is not { } drag)
+        {
+            return;
+        }
+
+        PinSection? section = null;
+        int index = 0;
+        if (apply && CursorInWindow() is Windows.Foundation.Point cursor)
+        {
+            (section, _, index) = FindDrop(drag, cursor);
+        }
+
+        _drag = null;
+        _dragTimer?.Stop();
+        try
+        {
+            DragCanvas.Children.Clear();
+            drag.Press.Piece.Opacity = 1;
+            Root.ReleasePointerCaptures();
+            if (_open)
+            {
+                _cutter.Resume();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Start drag: Start could not be put back as it was.", ex);
+        }
+
+        if (section is not null && _host.StartPins.PlaceInGroup(drag.Press.Pin, section.Group.Id, index))
+        {
+            Log.Info("Start drag: " + drag.Press.Pin.Name + (drag.Press.FromPins ? " moved." : " pinned."));
+            return;
+        }
+
+        Log.Info("Start drag: put back.");
+        ApplyFilter();
     }
 
     // ---------------------------------------------------------------- icons
@@ -1360,5 +2534,12 @@ public sealed partial class StartMenuWindow : Window
     {
         HideMenu();
         Launcher.Start(target);
+    }
+
+    /// <summary>An app from the app list (or a pin of one): counted for Most used (only while it is on), then started.</summary>
+    private void LaunchApp(AppEntry app, string target)
+    {
+        _host.Usage.Note(app.Key);
+        LaunchAndClose(target);
     }
 }

@@ -94,6 +94,10 @@ public sealed partial class BarWindow : Window
         Closed += OnClosed;
         Root.Padding = new Thickness(WindowPadDip);
 
+        // Every move on the bar, even over buttons that keep their pointer events (Show Desktop's
+        // line shows only near it).
+        Root.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(OnRootPointerMoved), handledEventsToo: true);
+
         // The first real layout pass can change the measured width of the content.
         Root.Loaded += (_, _) => ApplyPlacement(forceReservation: false);
 
@@ -141,6 +145,7 @@ public sealed partial class BarWindow : Window
         _host.Icons.Changed += OnIconsChanged;
         _host.Desktop.Changed += OnDesktopChanged;
         Machitan.Start.StartMenuWindow.OpenChanged += OnStartMenuOpenChanged;
+        Machitan.Flyouts.TrayBoxWindow.OpenChanged += OnTrayBoxOpenChanged;
 
         _host.Tasks.Refresh();
         PrepareDragging();
@@ -187,6 +192,7 @@ public sealed partial class BarWindow : Window
         _host.Icons.Changed -= OnIconsChanged;
         _host.Desktop.Changed -= OnDesktopChanged;
         Machitan.Start.StartMenuWindow.OpenChanged -= OnStartMenuOpenChanged;
+        Machitan.Flyouts.TrayBoxWindow.OpenChanged -= OnTrayBoxOpenChanged;
         _host.Tasks.DetachShellHook();
 
         _appBar?.Release();
@@ -1231,7 +1237,18 @@ public sealed partial class BarWindow : Window
     private void OnRootPointerExited(object sender, PointerRoutedEventArgs e)
     {
         _barHovered = false;
+        _desktopNear = false;
         UpdateDesktopStrip();
+    }
+
+    private void OnRootPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        bool near = IsNearDesktopStrip(e);
+        if (near != _desktopNear)
+        {
+            _desktopNear = near;
+            UpdateDesktopStrip();
+        }
     }
 
     /// <summary>The bar's own right-click menu: filled when it opens.</summary>

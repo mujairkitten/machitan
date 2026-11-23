@@ -46,6 +46,12 @@ public sealed partial class BarWindow
     private const double DesktopLineHeightRatio = 0.38;
     private const double DesktopHitWidthDip = 12;
 
+    /// <summary>The faint Show Desktop line shows while the pointer is this close to it on the bar.</summary>
+    private const double DesktopNearDip = 96;
+
+    /// <summary>The tray box's ^ turns this long as the box opens and closes.</summary>
+    private const int ChevronTurnMs = 200;
+
     /// <summary>Peek at the desktop (Settings): the pointer rests this long on Show Desktop first.</summary>
     private const int DesktopPeekDelayMs = 500;
 
@@ -77,7 +83,9 @@ public sealed partial class BarWindow
     private Button? _desktopButton;
     private Border? _desktopLine;
     private bool _barHovered;
+    private bool _desktopNear;
     private bool _desktopHovered;
+    private bool _trayBoxOpen;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _desktopPeekTimer;
     private bool _desktopPeeking;
 
@@ -850,7 +858,10 @@ public sealed partial class BarWindow
         }
     }
 
-    /// <summary>The ^ button ("Show hidden icons"): opens the tray box above it (v and below for a top bar).</summary>
+    /// <summary>
+    /// The ^ button ("Show hidden icons"): opens the tray box above it (v and below for a top
+    /// bar). While the box is open it is turned upside down, as Windows' own is.
+    /// </summary>
     private Button TrayChevron()
     {
         bool top = _host.Settings.Current.DockEdge == DockEdge.Top;
@@ -859,6 +870,9 @@ public sealed partial class BarWindow
         {
             Button chevron = MakeBarButton(new Border(), Strings.ShowHiddenIcons);
             chevron.Width = Math.Max(28, _host.Settings.Current.IconSize + 4);
+
+            // Rounded for its own (narrower) width, so its hover background is not an oval.
+            chevron.CornerRadius = new CornerRadius(ButtonRadius(chevron.Height, chevron.Width));
             chevron.Click += (_, _) =>
             {
                 if (_host.Custom.IsOn)
@@ -874,15 +888,38 @@ public sealed partial class BarWindow
 
         if (_trayChevron.Content is not FontIcon { Glyph: string shown } || shown != ((char)glyph).ToString())
         {
-            _trayChevron.Content = new FontIcon
+            var arrow = new FontIcon
             {
                 Glyph = ((char)glyph).ToString(),
                 FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
                 FontSize = 12,
             };
+            _trayChevron.Content = arrow;
+            Motion.Turn(arrow, _trayBoxOpen ? 180f : 0f, 0, animate: false);
         }
 
         return _trayChevron;
+    }
+
+    /// <summary>The tray box opened or closed: the ^ turns over (back again when it closes).</summary>
+    private void OnTrayBoxOpenChanged(bool open)
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            DispatcherQueue.TryEnqueue(() => OnTrayBoxOpenChanged(open));
+            return;
+        }
+
+        if (_closing || open == _trayBoxOpen)
+        {
+            return;
+        }
+
+        _trayBoxOpen = open;
+        if (_trayChevron?.Content is FontIcon arrow)
+        {
+            Motion.Turn(arrow, open ? 180f : 0f, ChevronTurnMs, Motion.IsOn(_host.Settings.Current));
+        }
     }
 
     private Button TrayButtonFor(TrayIcon icon)
@@ -891,6 +928,7 @@ public sealed partial class BarWindow
         {
             button = MakeBarButton(new Border(), Strings.TrayIcon);
             button.Width = Math.Max(28, _host.Settings.Current.IconSize + 8);
+            button.CornerRadius = new CornerRadius(ButtonRadius(button.Height, button.Width));
             button.Tag = new TrayTileTag(icon);
             string key = icon.Key;
             button.Click += (_, _) => OnTrayButtonClick(key);
@@ -1099,9 +1137,9 @@ public sealed partial class BarWindow
     }
 
     /// <summary>
-    /// Hover-only: invisible at rest; shown while the bar or the strip is hovered, while the
-    /// desktop is shown, and always on touch devices. Translucent, brighter on hover, accent
-    /// while the desktop is shown.
+    /// Hover-only: invisible at rest; shown while the pointer is on the bar close to the strip
+    /// (DesktopNearDip) or on it, while the desktop is shown, and always on touch devices.
+    /// Translucent, brighter on hover, accent while the desktop is shown.
     /// </summary>
     private void UpdateDesktopStrip()
     {
@@ -1111,7 +1149,7 @@ public sealed partial class BarWindow
         }
 
         bool shown = _host.Desktop.IsDesktopShown;
-        _desktopButton.Opacity = shown || _barHovered || _desktopHovered || _hasTouch ? 1 : 0;
+        _desktopButton.Opacity = shown || (_barHovered && _desktopNear) || _desktopHovered || _hasTouch ? 1 : 0;
 
         bool dark = IsDarkTheme();
         Windows.UI.Color color;
@@ -1129,6 +1167,25 @@ public sealed partial class BarWindow
         }
 
         _desktopLine.Background = new SolidColorBrush(color);
+    }
+
+    /// <summary>
+    /// True when the pointer (moving on the bar) is within DesktopNearDip of the Show Desktop
+    /// button, measured from the button's edges.
+    /// </summary>
+    private bool IsNearDesktopStrip(PointerRoutedEventArgs e)
+    {
+        if (_desktopButton is not { IsLoaded: true } button || button.Visibility != Visibility.Visible)
+        {
+            return false;
+        }
+
+        Windows.Foundation.Point at = e.GetCurrentPoint(button).Position;
+        double width = button.ActualWidth;
+        double height = button.ActualHeight;
+        double dx = at.X < 0 ? -at.X : Math.Max(0, at.X - width);
+        double dy = at.Y < 0 ? -at.Y : Math.Max(0, at.Y - height);
+        return (dx * dx) + (dy * dy) <= DesktopNearDip * DesktopNearDip;
     }
 
     /// <summary>

@@ -163,6 +163,37 @@ internal static class Motion
     }
 
     /// <summary>
+    /// The element turns to <paramref name="degrees"/> around its centre (the tray box's ^
+    /// flipping as the box opens and closes), in <paramref name="ms"/>; with
+    /// <paramref name="animate"/> false it is simply put there.
+    /// </summary>
+    internal static void Turn(UIElement element, float degrees, int ms, bool animate)
+    {
+        try
+        {
+            Visual visual = Prepare(element);
+            KeepCentred(visual);
+            if (!animate)
+            {
+                visual.StopAnimation("RotationAngleInDegrees");
+                visual.RotationAngleInDegrees = degrees;
+                return;
+            }
+
+            // From wherever it is now, so a quick open and close turns back without a jump.
+            Compositor compositor = visual.Compositor;
+            ScalarKeyFrameAnimation turn = compositor.CreateScalarKeyFrameAnimation();
+            turn.InsertKeyFrame(1f, degrees, compositor.CreateCubicBezierEasingFunction(DecelerateIn, DecelerateOut));
+            turn.Duration = TimeSpan.FromMilliseconds(ms);
+            visual.StartAnimation("RotationAngleInDegrees", turn);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Motion: an element could not be turned.", ex);
+        }
+    }
+
+    /// <summary>
     /// The element just got wider or narrower (a running indicator): it stretches from
     /// <paramref name="fromRatio"/> of its new width to all of it, from its centre.
     /// </summary>

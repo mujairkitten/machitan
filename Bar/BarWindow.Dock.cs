@@ -480,6 +480,11 @@ public sealed partial class BarWindow
         {
             Launcher.Start(target);
         }
+
+        // Like Windows' own taskbar: picking an app on the bar closes Start. Closed after the
+        // app is switched to, so the app Start covered is not taken for the one in front (and
+        // minimised) when Start goes away first.
+        _host.StartMenu?.HideMenu();
     }
 
     /// <summary>

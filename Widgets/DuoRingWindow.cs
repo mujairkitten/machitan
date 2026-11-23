@@ -24,12 +24,15 @@ namespace Machitan.Widgets;
 /// The corner duo status ring, per the spec: a capsule like the info line (32 DIP tall, fully round: 16 DIP)
 /// with no background. Its rim is the battery: it runs up the left, across the top, down the
 /// right and in along the bottom from both corners, stopping short of the four volume dots in
-/// the middle of the bottom edge. The fill follows the rim (white, red under 20 %, green while
-/// charging) over a 22 % track. In the middle: the Wi-Fi arcs and the network's name (or
-/// "Connecting...", "No signal", the plane and "Plane mode"), with a bolt while charging.
+/// the middle of the bottom edge. The fill follows the rim (white, red under 20 % or the charge
+/// set in Settings, green while charging) over a 22 % track. In the middle: the Wi-Fi arcs and
+/// the network's name (or "Connecting...", "No signal", the plane and "Plane mode"), with a
+/// bolt while charging.
 /// The width follows the label, animated. A click sends Win+A to Windows: its own quick settings.
 /// The ink (white or near-black) follows the wallpaper behind the ring; where the wallpaper is
-/// too mixed for either, a soft backing in the opposite tone is shown behind it.
+/// too mixed for either, a soft backing in the opposite tone is shown behind it (Transparency:
+/// Auto, the default). With Transparency set to Manual the backing is always there, as
+/// see-through as Settings says (100 %: none at all).
 /// Everything shown is read from Windows; what Windows does not give is left out.
 /// </summary>
 public sealed partial class DuoRingWindow : CornerWidgetWindow
@@ -422,18 +425,24 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         _wiredIcon.Foreground = _litBrush;
         _bolt.Foreground = _litBrush;
 
-        // The backing is the opposite tone of the ink, soft enough to keep the wallpaper visible.
+        // The backing is the opposite tone of the ink, soft enough to keep the wallpaper visible
+        // (Auto), or as see-through as Settings says (Manual).
+        ShellSettings settings = Host.Settings.Current;
         bool darkInk = foreground.R < 0x80;
+        byte alpha = settings.DuoRingTransparencyAuto
+            ? (byte)(darkInk ? 0x8C : 0x59)
+            : (byte)Math.Round((100 - settings.DuoRingTransparency) * 255 / 100.0);
         _backingBrush.Color = darkInk
-            ? ColorHelper.FromArgb(0x8C, 0xFF, 0xFF, 0xFF)
-            : ColorHelper.FromArgb(0x59, 0x00, 0x00, 0x00);
-        Show(_backing, _wallpaperBacking);
+            ? ColorHelper.FromArgb(alpha, 0xFF, 0xFF, 0xFF)
+            : ColorHelper.FromArgb(alpha, 0x00, 0x00, 0x00);
+        Show(_backing, settings.DuoRingTransparencyAuto ? _wallpaperBacking : alpha > 0);
         ApplyBatteryColour();
     }
 
     private void ApplyBatteryColour()
     {
-        _fillBrush.Color = _charging ? Green : _batteryPercent is >= 0 and < 20 ? Red : Ink;
+        bool low = _batteryPercent >= 0 && _batteryPercent < Host.Settings.Current.DuoRingLowBattery;
+        _fillBrush.Color = _charging ? Green : low ? Red : Ink;
     }
 
     /// <summary>

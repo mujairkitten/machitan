@@ -30,4 +30,11 @@ internal static unsafe partial class Kernel32
     /// </summary>
     [LibraryImport("kernel32.dll")]
     internal static partial int GetPackageFullName(nint process, ref uint length, char* name);
+
+    /// <summary>
+    /// This process's package identity, the same way: 15700 when it has none, 122 (with
+    /// length set) when it has one and the buffer is too small.
+    /// </summary>
+    [LibraryImport("kernel32.dll")]
+    internal static partial int GetCurrentPackageFullName(ref uint length, nint name);
 }

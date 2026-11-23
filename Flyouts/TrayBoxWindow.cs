@@ -91,6 +91,9 @@ public sealed partial class TrayBoxWindow : FlyoutWindow
         };
     }
 
+    /// <summary>The box opened (true) or closed (false); the bar turns its ^ over meanwhile.</summary>
+    internal static event Action<bool>? OpenChanged;
+
     /// <summary>Opens the box by the ^ button (its place on screen, physical pixels), or closes it when open.</summary>
     internal void Toggle(RECT anchor)
     {
@@ -116,6 +119,11 @@ public sealed partial class TrayBoxWindow : FlyoutWindow
     }
 
     private protected override bool KeepOpenWhenDeactivated => _keptForMenu;
+
+    private protected override void OnOpenChanged(bool open)
+    {
+        OpenChanged?.Invoke(open);
+    }
 
     /// <summary>The box rises from the bar as it opens and fades back as it closes.</summary>
     private protected override UIElement? MotionTarget => _box;

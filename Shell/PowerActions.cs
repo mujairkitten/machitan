@@ -12,7 +12,8 @@ namespace Machitan.Shell;
 /// <param name="Label">What the menu says.</param>
 /// <param name="Ask">The question Start asks first, or null for no question (sleep, hibernate).</param>
 /// <param name="Run">Does it; gets Start's window handle.</param>
-internal sealed record PowerChoice(string Label, string? Ask, Action<nint> Run);
+/// <param name="Glyph">Its icon in Start's power menu (Segoe Fluent Icons), or 0 for none.</param>
+internal sealed record PowerChoice(string Label, string? Ask, Action<nint> Run, int Glyph = 0);
 
 /// <summary>
 /// Start's power menu: which entries this PC offers right now, and doing them.
@@ -23,6 +24,15 @@ internal sealed record PowerChoice(string Label, string? Ask, Action<nint> Run);
 /// </summary>
 internal static class PowerActions
 {
+    // Start's power menu icons, as Windows' own menu has them (Segoe Fluent Icons).
+    internal const int LockGlyph = 0xE72E;
+    internal const int SleepGlyph = 0xE708;
+    internal const int HibernateGlyph = 0xE769;
+    internal const int ShutDownGlyph = 0xE7E8;
+    internal const int RestartGlyph = 0xE777;
+    internal const int UpdateGlyph = 0xE895;
+    internal const int ExitGlyph = 0xE711;
+
     private const string OrchestratorKey = @"SOFTWARE\Microsoft\WindowsUpdate\Orchestrator";
     private const string FlyoutMenuKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings";
     private const string ExplorerPolicyKey = @"SOFTWARE\Policies\Microsoft\Windows\Explorer";
@@ -72,32 +82,32 @@ internal static class PowerActions
 
         if (settings.PowerSleep && sleep)
         {
-            choices.Add(new PowerChoice(Strings.PowerSleep, null, hwnd => Sleep(hwnd, modernStandby)));
+            choices.Add(new PowerChoice(Strings.PowerSleep, null, hwnd => Sleep(hwnd, modernStandby), SleepGlyph));
         }
 
         if (settings.PowerHibernate && hibernate)
         {
-            choices.Add(new PowerChoice(Strings.PowerHibernate, null, _ => RunShutdownTool("Hibernate", "/h")));
+            choices.Add(new PowerChoice(Strings.PowerHibernate, null, _ => RunShutdownTool("Hibernate", "/h"), HibernateGlyph));
         }
 
         if (settings.PowerUpdateShutDown && update)
         {
-            choices.Add(new PowerChoice(Strings.PowerUpdateShutDown, Strings.PowerUpdateShutDownAsk, _ => ShutDownWithUpdates(restart: false)));
+            choices.Add(new PowerChoice(Strings.PowerUpdateShutDown, Strings.PowerUpdateShutDownAsk, _ => ShutDownWithUpdates(restart: false), UpdateGlyph));
         }
 
         if (settings.PowerShutDown)
         {
-            choices.Add(new PowerChoice(Strings.PowerShutDown, Strings.PowerShutDownAsk, _ => RunShutdownTool("Shut down", "/s /t 0")));
+            choices.Add(new PowerChoice(Strings.PowerShutDown, Strings.PowerShutDownAsk, _ => RunShutdownTool("Shut down", "/s /t 0"), ShutDownGlyph));
         }
 
         if (settings.PowerUpdateRestart && update)
         {
-            choices.Add(new PowerChoice(Strings.PowerUpdateRestart, Strings.PowerUpdateRestartAsk, _ => ShutDownWithUpdates(restart: true)));
+            choices.Add(new PowerChoice(Strings.PowerUpdateRestart, Strings.PowerUpdateRestartAsk, _ => ShutDownWithUpdates(restart: true), UpdateGlyph));
         }
 
         if (settings.PowerRestart)
         {
-            choices.Add(new PowerChoice(Strings.PowerRestart, Strings.PowerRestartAsk, _ => RunShutdownTool("Restart", "/r /t 0")));
+            choices.Add(new PowerChoice(Strings.PowerRestart, Strings.PowerRestartAsk, _ => RunShutdownTool("Restart", "/r /t 0"), RestartGlyph));
         }
 
         return choices;

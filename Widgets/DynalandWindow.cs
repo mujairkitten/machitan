@@ -26,6 +26,8 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage.Streams;
 using Color = Windows.UI.Color;
 using Ellipse = Microsoft.UI.Xaml.Shapes.Ellipse;
+using Rectangle = Microsoft.UI.Xaml.Shapes.Rectangle;
+using ShapePath = Microsoft.UI.Xaml.Shapes.Path;
 
 namespace Machitan.Widgets;
 
@@ -39,10 +41,11 @@ namespace Machitan.Widgets;
 /// cover, title, artist, controls and position), a volume change (the level for 1.8 s), and
 /// camera or microphone use (a green camera dot and an orange mic dot on the pill in every
 /// state; for 4 seconds when a use starts, and on hover, an "In use now" view naming the
-/// apps). Never for notifications: Machitan cannot see them arrive.
+/// apps). Never for notifications: Machitan reads Windows' list but is not told when one arrives.
 /// Hovering opens Dynaland itself: with music playing, on the player first, with an arrow to
 /// the general page; otherwise straight on the general page ("In use now" for the camera and
-/// microphone, and a button for Windows' own notification centre), with an arrow back to the
+/// microphone, the tray, and Windows' own notifications as Windows' notification centre holds
+/// them, with a button for that centre), with an arrow back to the
 /// player while music plays. Moving away closes it.
 /// The window has one fixed size and never resizes: the pill is a Composition shape whose
 /// size, position and corner radius animate inside it, and the window is cut to the pill, so
@@ -66,7 +69,26 @@ public sealed partial class DynalandWindow : Window
     private const double TraySpacing = 4;
 
     /// <summary>The stage: room for the tallest view (the general page with two rows of tray icons).</summary>
-    private const double StageHeight = OpenHeight + TrayTitleHeight + (MaxTrayRows * TrayRowHeight);
+    // The notification tray on the general page (CHANGELOG Parts 24 and 25): Windows' own list,
+    // as tall as its rows up to MaxListHeight, then it scrolls. Rows are laid out as in
+    // Windows' own panel (icon, app and time; pictures; title and text). The title row is a
+    // little taller for "Clear all".
+    private const double NoteTitleExtra = 6;
+    private const double NoteSpacing = 4;
+    private const double NotesMargin = 4;
+    private const double MaxListHeight = 300;
+    private const double NoteLineHeight = 20;
+    private const double NoteMessageHeight = 36;
+    private const double NoteHeadHeight = 18;
+    private const double NoteIconSize = 16;
+    private const int NoteIconPixels = 32;
+    private const double NoteCloseRoom = 22;
+    private const double NoteLogoSize = 40;
+    private const double NoteHeroHeight = 96;
+    private const double NoteInlineHeight = 120;
+    private const double NotesMostHeight = NoteTitleExtra + NotesMargin + MaxListHeight;
+
+    private const double StageHeight = OpenHeight + TrayTitleHeight + (MaxTrayRows * TrayRowHeight) + NotesMostHeight;
     private const double CollapsedHeight = 32;
     private const double CollapsedRadius = 12;
     private const double MediaRadius = 22;
@@ -87,6 +109,22 @@ public sealed partial class DynalandWindow : Window
     /// top edge, like a laptop's notch. The window is this much wider on each side for them.
     /// </summary>
     private const double EarRadius = 10;
+
+    // Trapezoid notch (Settings), closed pill only: how far each slanted side reaches out at
+    // the screen's edge, the round bottom corners, and the curves into the screen's edge (DIP).
+    private const double TrapezoidSlant = 22;
+    private const double TrapezoidRadius = 8;
+    private const double TrapezoidFlare = 8;
+
+    /// <summary>The one-piece notch reaches this far past the screen's edge, so no soft edge shows there.</summary>
+    private const double SilhouetteBleed = 4;
+
+    // Dynaland's opening curve (a little past the end and back), for Windows' compositor and
+    // for the one-piece notch drawn frame by frame.
+    private const float EaseX1 = 0.2f;
+    private const float EaseY1 = 0.9f;
+    private const float EaseX2 = 0.25f;
+    private const float EaseY2 = 1.08f;
 
     /// <summary>Island shape: the gap between the screen's top edge and the floating pill.</summary>
     private const double IslandGap = 8;
@@ -188,6 +226,19 @@ public sealed partial class DynalandWindow : Window
 
     // General page, open.
     private readonly Grid _generalContent;
+
+    // The notification tray: Windows' own list (NotificationService), never kept.
+    private readonly NotificationService _notes;
+    private readonly StackPanel _noteRows;
+    private readonly ScrollViewer _noteScroll;
+    private readonly TextBlock _noteMessage;
+    private readonly Button _clearAll;
+    private readonly Dictionary<string, ImageSource> _noteIcons = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<NotificationEntry> _notesShown = Array.Empty<NotificationEntry>();
+    private int _picturesShown;
+    private double _trayExtra;
+    private double _notesExtra;
+    private double _noteMessageHeight;
     private readonly StackPanel _useRows;
     private readonly TextBlock _noUses;
     private readonly Button _toGeneral;
@@ -203,6 +254,24 @@ public sealed partial class DynalandWindow : Window
     private readonly CompositionSpriteShape _shape;
     private readonly ShapeVisual _shapeVisual;
     private readonly ContainerVisual _pillHost;
+
+    // The notch in one piece (see UpdateSilhouetteMode): a single XAML path in the stage, below
+    // the content, drawn again each frame while the pill animates. Used for the trapezoid and
+    // whenever Dynaland is see-through; otherwise the composition pill and curves as always.
+    private readonly Canvas _silhouetteLayer;
+    private readonly ShapePath _silhouette;
+    private readonly SolidColorBrush _silhouetteFill = new(Colors.Black);
+    private bool _silhouetteOn;
+    private bool _silhouetteFrames;
+    private SilhouetteShape _silhouetteNow;
+    private SilhouetteShape _silhouetteFrom;
+    private SilhouetteShape _silhouetteTo;
+    private long _silhouetteStart;
+    private bool _trapezoid;
+    private int _transparency;
+
+    /// <summary>The composition pill's black (see-through for the island when Dynaland is).</summary>
+    private readonly CompositionColorBrush _pillFill;
 
     // The notch's two outward curves; null when they could not be drawn (square corners then).
     private ShapeVisual? _leftEar;
@@ -266,7 +335,7 @@ public sealed partial class DynalandWindow : Window
     private bool _menuHolding;
     private long _menuHoldUntil;
 
-    /// <summary>The general page's height now: taller by the tray's rows while there are tray icons.</summary>
+    /// <summary>The general page's height now: taller by the tray's rows and the notification tray.</summary>
     private double _generalHeight = OpenHeight;
     private readonly VolumeService _volume = new();
     private readonly Dictionary<string, string> _names = new(StringComparer.OrdinalIgnoreCase);
@@ -356,6 +425,21 @@ public sealed partial class DynalandWindow : Window
 
         _pillLayer = new Grid { IsHitTestVisible = false };
         _stage.Children.Add(_pillLayer);
+
+        // The one-piece notch: in a canvas, so nothing clips its curves past the stage.
+        _silhouette = new ShapePath
+        {
+            Fill = _silhouetteFill,
+            Stroke = new SolidColorBrush(ColorHelper.FromArgb(0x24, 0xFF, 0xFF, 0xFF)),
+            StrokeThickness = 1,
+            IsHitTestVisible = false,
+        };
+        _silhouetteLayer = new Canvas { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
+        _silhouetteLayer.Children.Add(_silhouette);
+        _stage.Children.Add(_silhouetteLayer);
+        _silhouetteNow = new SilhouetteShape(_idleWidth, CollapsedHeight, CollapsedRadius, 0, EarRadius);
+        _silhouetteFrom = _silhouetteNow;
+        _silhouetteTo = _silhouetteNow;
 
         // Invisible outlines the window is cut to; they reach past the top so the cut is square there.
         _collapsedHit = MakeOutline(_idleWidth, CollapsedHeight);
@@ -636,6 +720,47 @@ public sealed partial class DynalandWindow : Window
 
         TextBlock notificationsTitle = Text(13, FontWeights.SemiBold, _whiteBrush);
         notificationsTitle.Text = Strings.DynNotifications;
+
+        // The notification tray: Windows' own list as it is now (see FillNotes).
+        _notes = new NotificationService(DispatcherQueue);
+        _clearAll = new Button
+        {
+            Content = Strings.DynClearAll,
+            Height = 24,
+            MinHeight = 0,
+            FontSize = 12,
+            Padding = new Thickness(8, 0, 8, 0),
+            Margin = new Thickness(0, 0, 6, 0),
+            CornerRadius = new CornerRadius(Radii.Small),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Colors.Transparent),
+            Foreground = _dimBrush,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Visibility = Visibility.Collapsed,
+        };
+        AutomationProperties.SetName(_clearAll, Strings.DynClearAll);
+        _clearAll.Click += (_, _) => _notes.ClearAll();
+        var notificationsTop = new Grid { Height = 24 };
+        notificationsTop.Children.Add(notificationsTitle);
+        notificationsTop.Children.Add(_clearAll);
+
+        _noteRows = new StackPanel { Spacing = NoteSpacing, Margin = new Thickness(0, 0, 6, 0) };
+        _noteRows.SizeChanged += (_, _) => UpdateNotesHeight();
+        _noteScroll = new ScrollViewer
+        {
+            Content = _noteRows,
+            MaxHeight = MaxListHeight,
+            Margin = new Thickness(0, NotesMargin, 0, 0),
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Visibility = Visibility.Collapsed,
+        };
+        _noteMessage = Text(12, FontWeights.Normal, _dimBrush);
+        _noteMessage.TextWrapping = TextWrapping.Wrap;
+        _noteMessage.MaxLines = 2;
+        _noteMessage.Margin = new Thickness(0, 2, 6, 0);
+        _noteMessage.Visibility = Visibility.Collapsed;
+
         var notifications = new Button
         {
             Content = Strings.DynOpenNotifications,
@@ -672,7 +797,9 @@ public sealed partial class DynalandWindow : Window
         _traySection.Children.Add(_trayArea);
 
         var notificationsPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
-        notificationsPanel.Children.Add(notificationsTitle);
+        notificationsPanel.Children.Add(notificationsTop);
+        notificationsPanel.Children.Add(_noteScroll);
+        notificationsPanel.Children.Add(_noteMessage);
         notificationsPanel.Children.Add(notifications);
 
         _generalContent = new Grid
@@ -710,7 +837,8 @@ public sealed partial class DynalandWindow : Window
         _geometry.Size = new Vector2((float)_idleWidth, (float)(CollapsedHeight + TopExtension));
         _geometry.Offset = new Vector2((float)((_stageWidth - _idleWidth) / 2), (float)-TopExtension);
         _shape = _compositor.CreateSpriteShape(_geometry);
-        _shape.FillBrush = _compositor.CreateColorBrush(Colors.Black);
+        _pillFill = _compositor.CreateColorBrush(Colors.Black);
+        _shape.FillBrush = _pillFill;
         _shape.StrokeBrush = _compositor.CreateColorBrush(ColorHelper.FromArgb(0x24, 0xFF, 0xFF, 0xFF));
         _shape.StrokeThickness = 1;
         _shapeVisual = _compositor.CreateShapeVisual();
@@ -797,6 +925,7 @@ public sealed partial class DynalandWindow : Window
         _media.Changed += ApplyMedia;
         _privacy = new PrivacyMonitor(DispatcherQueue);
         _privacy.Changed += OnPrivacyChanged;
+        _notes.Changed += FillNotes;
 
         _host.Settings.Changed += OnSettingsChanged;
         _host.FullScreenChanged += OnFullScreenChanged;
@@ -805,6 +934,7 @@ public sealed partial class DynalandWindow : Window
         {
             _host.Custom.Changed -= OnCustomChanged;
             _closed = true;
+            StopSilhouetteFrames();
             foreach (DispatcherQueueTimer timer in new[]
                      {
                          _heal, _tick, _hoverTimer, _leaveTimer, _cursorTimer, _regionTimer, _peekTimer, _volumeTimer, _volumePoll,
@@ -820,6 +950,8 @@ public sealed partial class DynalandWindow : Window
             _media.Dispose();
             _privacy.Changed -= OnPrivacyChanged;
             _privacy.Dispose();
+            _notes.Changed -= FillNotes;
+            _notes.Dispose();
             _tray.Changed -= FillTray;
             _host.BarLayout.Changed -= FillTray;
             _subclass?.Dispose();
@@ -828,7 +960,9 @@ public sealed partial class DynalandWindow : Window
 
         UpdateDots();
         FillUses();
+        FillNotes();
         ApplyLook(EffectiveStyle(), !_host.DynalandOnTop());
+        ApplyTransparency();
         ApplyMedia();
     }
 
@@ -1073,6 +1207,230 @@ public sealed partial class DynalandWindow : Window
     }
 
     /// <summary>
+    /// The transparency setting (0 to 50 %): only the black goes see-through; the text and
+    /// pictures on it stay solid. The notch is then drawn in one piece (no darker seams where its
+    /// parts would overlap); the island is one shape already.
+    /// </summary>
+    private void ApplyTransparency()
+    {
+        int wanted = Math.Clamp(_host.Settings.Current.DynalandTransparency, 0, ShellSettings.MaxDynalandTransparency);
+        if (wanted == _transparency)
+        {
+            return;
+        }
+
+        _transparency = wanted;
+        UpdateSilhouetteMode();
+        Log.Info("Dynaland: " + (wanted == 0 ? "solid black." : wanted.ToString(CultureInfo.InvariantCulture) + "% see-through."));
+    }
+
+    /// <summary>
+    /// Picks how the notch is drawn. The composition pill and its two curves (the default) are
+    /// separate pieces that overlap by 1 DIP, which only an opaque black hides; so for the
+    /// trapezoid, and whenever Dynaland is see-through, the notch is one XAML path instead
+    /// (DrawSilhouette): one fill, no overlaps, no seams. The island is always the composition
+    /// pill (one shape). Also sets the black's transparency on both.
+    /// </summary>
+    private void UpdateSilhouetteMode()
+    {
+        bool island = _style == DynalandStyle.Island;
+        bool on = !island && (_transparency > 0 || _trapezoid);
+        Color black = ColorHelper.FromArgb((byte)Math.Round(255 * (1 - (_transparency / 100.0))), 0, 0, 0);
+        _pillFill.Color = black;
+        _silhouetteFill.Color = black;
+
+        _shapeVisual.IsVisible = !on;
+        if (_leftEar is not null && _rightEar is not null)
+        {
+            _leftEar.IsVisible = !island && !on;
+            _rightEar.IsVisible = !island && !on;
+        }
+
+        Show(_earHit, !island && (on || _leftEar is not null));
+        Show(_silhouetteLayer, on);
+
+        // At the bottom edge the drawing is mirrored: the notch hangs from the screen's bottom edge.
+        _silhouette.RenderTransform = new ScaleTransform { ScaleY = _atBottom ? -1 : 1, CenterY = StageHeight / 2 };
+
+        _silhouetteOn = on;
+        (double w, double h, double r) = Dimensions(_pill, _collapsedWidth);
+        SetSilhouette(w, h, r, animate: false);
+    }
+
+    /// <summary>
+    /// The one-piece notch goes to this pill size, with the pill (the same 300 ms and curve as
+    /// Windows' compositor uses for it), or at once. Only the closed pill of the trapezoid has
+    /// slanted sides; the open views stay square-sided with the default curves.
+    /// </summary>
+    private void SetSilhouette(double width, double height, double radius, bool animate)
+    {
+        bool slanted = _trapezoid && height <= CollapsedHeight + 0.5;
+        var target = new SilhouetteShape(
+            width,
+            height,
+            slanted ? TrapezoidRadius : radius,
+            slanted ? TrapezoidSlant : 0,
+            slanted ? TrapezoidFlare : EarRadius);
+
+        if (!_silhouetteOn || !animate)
+        {
+            StopSilhouetteFrames();
+            _silhouetteNow = target;
+            _silhouetteTo = target;
+            DrawSilhouette();
+            return;
+        }
+
+        _silhouetteFrom = _silhouetteNow;
+        _silhouetteTo = target;
+        _silhouetteStart = Stopwatch.GetTimestamp();
+        if (!_silhouetteFrames)
+        {
+            _silhouetteFrames = true;
+            CompositionTarget.Rendering += OnSilhouetteFrame;
+        }
+    }
+
+    private void StopSilhouetteFrames()
+    {
+        if (_silhouetteFrames)
+        {
+            _silhouetteFrames = false;
+            CompositionTarget.Rendering -= OnSilhouetteFrame;
+        }
+    }
+
+    private void OnSilhouetteFrame(object? sender, object e)
+    {
+        if (_closed || !_silhouetteOn)
+        {
+            StopSilhouetteFrames();
+            return;
+        }
+
+        double t = Math.Clamp(Stopwatch.GetElapsedTime(_silhouetteStart).TotalMilliseconds / AnimateMs, 0, 1);
+        _silhouetteNow = t >= 1 ? _silhouetteTo : SilhouetteShape.Blend(_silhouetteFrom, _silhouetteTo, EaseAt(t));
+        DrawSilhouette();
+        if (t >= 1)
+        {
+            StopSilhouetteFrames();
+        }
+    }
+
+    /// <summary>Dynaland's opening curve at time <paramref name="t"/> (0 to 1), as Windows' compositor runs it.</summary>
+    private static double EaseAt(double t)
+    {
+        // The curve's x rises steadily from 0 to 1: find the point at time t, then its y.
+        double low = 0;
+        double high = 1;
+        double s = t;
+        for (int i = 0; i < 24; i++)
+        {
+            s = (low + high) / 2;
+            if (Bezier(s, EaseX1, EaseX2) < t)
+            {
+                low = s;
+            }
+            else
+            {
+                high = s;
+            }
+        }
+
+        return Bezier(s, EaseY1, EaseY2);
+    }
+
+    private static double Bezier(double s, double p1, double p2)
+    {
+        double u = 1 - s;
+        return (3 * u * u * s * p1) + (3 * u * s * s * p2) + (s * s * s);
+    }
+
+    /// <summary>
+    /// The notch as one outline, drawn for the top edge (mirrored at the bottom): the top runs
+    /// past the screen's edge; each side comes down from the edge with a curve into it (radius
+    /// Flare), straight (slanting out by Slant at the edge for the trapezoid, upright otherwise),
+    /// then turns into the bottom edge with a round corner (radius Radius), every curve meeting
+    /// its straight parts smoothly. The pill's width is its width at the bottom.
+    /// </summary>
+    private void DrawSilhouette()
+    {
+        if (!_silhouetteOn)
+        {
+            return;
+        }
+
+        double w = Math.Max(1, _silhouetteNow.Width);
+        double h = Math.Max(1, _silhouetteNow.Height);
+        double s = Math.Max(0, _silhouetteNow.Slant);
+
+        // Kept small enough that the curves never cross (each at most half the height or width).
+        double r = Math.Clamp(_silhouetteNow.Radius, 0, Math.Min(h / 2, w / 2));
+        double f = Math.Clamp(_silhouetteNow.Flare, 0, h / 2);
+
+        double left = (_stageWidth - w) / 2;
+        double right = left + w;
+        double length = Math.Sqrt((s * s) + (h * h));
+        double dx = s / length;
+        double dy = h / length;
+
+        // Along the left side from its top end (left - s, 0): where the curve into the edge meets
+        // it (at a), and where the bottom corner starts (at b).
+        double a = f * (length - s) / h;
+        double b = ((length * (h - r)) + (r * s)) / h;
+        double sideTopX = left - s;
+        double flareX = sideTopX + (a * dx) - (f * dy);
+        double flareSideX = sideTopX + (a * dx);
+        double flareSideY = a * dy;
+        double cornerSideX = sideTopX + (b * dx);
+        double cornerSideY = b * dy;
+        double bottomX = cornerSideX + (r * dy);
+
+        double Mirror(double x) => left + right - x;
+
+        var figure = new PathFigure
+        {
+            StartPoint = new Windows.Foundation.Point(flareX, -SilhouetteBleed),
+            IsClosed = true,
+            IsFilled = true,
+            Segments = new PathSegmentCollection(),
+        };
+        void Line(double x, double y) => figure.Segments.Add(new LineSegment { Point = new Windows.Foundation.Point(x, y) });
+        void Arc(double x, double y, double radius, SweepDirection sweep) => figure.Segments.Add(new ArcSegment
+        {
+            Point = new Windows.Foundation.Point(x, y),
+            Size = new Windows.Foundation.Size(radius, radius),
+            SweepDirection = sweep,
+        });
+
+        // Clockwise: along the top, down the right side, along the bottom, up the left side.
+        Line(Mirror(flareX), -SilhouetteBleed);
+        Line(Mirror(flareX), 0);
+        Arc(Mirror(flareSideX), flareSideY, f, SweepDirection.Counterclockwise);
+        Line(Mirror(cornerSideX), cornerSideY);
+        Arc(Mirror(bottomX), h, r, SweepDirection.Clockwise);
+        Line(bottomX, h);
+        Arc(cornerSideX, cornerSideY, r, SweepDirection.Clockwise);
+        Line(flareSideX, flareSideY);
+        Arc(flareX, 0, f, SweepDirection.Counterclockwise);
+
+        var geometry = new PathGeometry { Figures = new PathFigureCollection() };
+        geometry.Figures.Add(figure);
+        _silhouette.Data = geometry;
+    }
+
+    /// <summary>One shape of the one-piece notch (DIP): the bottom width, height, bottom corners, slant, and curves into the edge.</summary>
+    private readonly record struct SilhouetteShape(double Width, double Height, double Radius, double Slant, double Flare)
+    {
+        internal static SilhouetteShape Blend(SilhouetteShape from, SilhouetteShape to, double k) => new(
+            from.Width + ((to.Width - from.Width) * k),
+            from.Height + ((to.Height - from.Height) * k),
+            from.Radius + ((to.Radius - from.Radius) * k),
+            from.Slant + ((to.Slant - from.Slant) * k),
+            from.Flare + ((to.Flare - from.Flare) * k));
+    }
+
+    /// <summary>
     /// One curve, r + 1 wide and r tall: a thick ring (inner radius r) around the corner it
     /// bends towards fills everything outside the quarter circle; the visual clips the rest.
     /// A thin ring at radius r draws the pill's faint outline along the curve.
@@ -1174,7 +1532,7 @@ public sealed partial class DynalandWindow : Window
         try
         {
             // A little past the end and back: the springy feel of a notch opening.
-            return compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0.9f), new Vector2(0.25f, 1.08f));
+            return compositor.CreateCubicBezierEasingFunction(new Vector2(EaseX1, EaseY1), new Vector2(EaseX2, EaseY2));
         }
         catch (Exception)
         {
@@ -1321,6 +1679,9 @@ public sealed partial class DynalandWindow : Window
         }
 
         _shown = want;
+
+        // Windows' notifications are read only while Dynaland is on screen.
+        _notes.Active = want;
         if (want)
         {
             if (!_servicesStarted)
@@ -1374,6 +1735,7 @@ public sealed partial class DynalandWindow : Window
         ApplySize();
         ApplyWidth();
         ApplyLook(EffectiveStyle(), !_host.DynalandOnTop());
+        ApplyTransparency();
         UpdateVisibility();
         FillTray();
         UpdateDots();
@@ -1457,19 +1819,23 @@ public sealed partial class DynalandWindow : Window
 
     /// <summary>
     /// Notch (default): hanging from the top edge (the pill and the cut run past the edge), its
-    /// sides curving out into the edge at the top, round bottom corners. Island (iPhone-inspired): floating 8 DIP below the edge,
+    /// sides curving out into the edge at the top, round bottom corners; as a trapezoid, the
+    /// closed pill's sides slant out towards the edge (see DrawSilhouette). Island (iPhone-inspired): floating 8 DIP below the edge,
     /// round all around: a full capsule collapsed, large round corners open. Applied at once,
     /// without animating; the window keeps its size (it always has room for the gap).
     /// </summary>
     private void ApplyLook(DynalandStyle style, bool atBottom)
     {
-        if (style == _style && atBottom == _atBottom)
+        bool trapezoid = style == DynalandStyle.Notch
+            && _host.Settings.Current.DynalandNotchShape == DynalandNotchShape.Trapezoid;
+        if (style == _style && atBottom == _atBottom && trapezoid == _trapezoid)
         {
             return;
         }
 
         _style = style;
         _atBottom = atBottom;
+        _trapezoid = trapezoid;
         bool island = style == DynalandStyle.Island;
         _gap = island ? IslandGap : 0;
         _topExtension = island ? 0 : TopExtension;
@@ -1496,8 +1862,6 @@ public sealed partial class DynalandWindow : Window
         _generalContent.Padding = open;
         if (_leftEar is not null && _rightEar is not null && _leftEarFollow is not null && _rightEarFollow is not null)
         {
-            _leftEar.IsVisible = !island;
-            _rightEar.IsVisible = !island;
             float r = (float)EarRadius;
             foreach ((CompositionEllipseGeometry circle, bool leftEar) in _earCircles)
             {
@@ -1511,7 +1875,6 @@ public sealed partial class DynalandWindow : Window
             _rightEar.StartAnimation("Offset", _rightEarFollow);
         }
 
-        Show(_earHit, !island && _leftEar is not null);
         _earHit.VerticalAlignment = toEdge;
         Thickness reach = atBottom ? new Thickness(0, 0, 0, -_topExtension) : new Thickness(0, -_topExtension, 0, 0);
         _collapsedHit.VerticalAlignment = toEdge;
@@ -1529,9 +1892,10 @@ public sealed partial class DynalandWindow : Window
         _geometry.Size = new Vector2((float)w, (float)(h + _topExtension));
         _geometry.Offset = PillOffset(w, h);
         _geometry.CornerRadius = new Vector2((float)radius);
+        UpdateSilhouetteMode();
         SettleRegion();
         _cutter.Invalidate();
-        Log.Info("Dynaland: " + (island ? "island" : "notch") + " shape, " + (atBottom ? "bottom" : "top") + " edge.");
+        Log.Info("Dynaland: " + (island ? "island" : trapezoid ? "trapezoid notch" : "notch") + " shape, " + (atBottom ? "bottom" : "top") + " edge.");
     }
 
     /// <summary>
@@ -1664,6 +2028,9 @@ public sealed partial class DynalandWindow : Window
             AnimatePill(width, CollapsedHeight, _collapsedRadius);
         }
 
+        // Windows' notification list: every second while the page with it is open.
+        _notes.Fast = _pill == PillShape.General;
+
         if (_pill == PillShape.Media)
         {
             _tick.Start();
@@ -1713,11 +2080,17 @@ public sealed partial class DynalandWindow : Window
         _regionTimer.Start();
     }
 
-    /// <summary>The notch's top band: as wide as the widest outline, plus a curve on each side.</summary>
+    /// <summary>
+    /// The notch's top band: as wide as the widest outline, plus a curve on each side. For the
+    /// trapezoid it is as tall as the closed pill and reaches past its slanted sides.
+    /// </summary>
     private void UpdateEarHit()
     {
-        double widest = Math.Max(_collapsedHit.Width, _expandedHit.Visibility == Visibility.Visible ? _expandedHit.Width : 0);
-        _earHit.Width = widest + (2 * EarRadius);
+        bool expanded = _expandedHit.Visibility == Visibility.Visible;
+        double open = expanded ? _expandedHit.Width + (2 * EarRadius) : 0;
+        double closed = _collapsedHit.Width + (2 * (_trapezoid ? TrapezoidSlant + TrapezoidFlare : EarRadius));
+        _earHit.Width = Math.Max(open, closed);
+        _earHit.Height = _trapezoid ? CollapsedHeight : EarRadius;
     }
 
     /// <summary>After an animation: the window's outline matches the pill again.</summary>
@@ -1761,6 +2134,7 @@ public sealed partial class DynalandWindow : Window
         _geometry.Size = new Vector2((float)_collapsedWidth, (float)(CollapsedHeight + _topExtension));
         _geometry.Offset = PillOffset(_collapsedWidth, CollapsedHeight);
         _geometry.CornerRadius = new Vector2((float)_collapsedRadius);
+        SetSilhouette(_collapsedWidth, CollapsedHeight, _collapsedRadius, animate: false);
         foreach (Visual visual in new[] { _collapsedVisual, _mediaVisual, _privacyVisual, _generalVisual })
         {
             visual.StopAnimation("Opacity");
@@ -1846,6 +2220,7 @@ public sealed partial class DynalandWindow : Window
 
     private void AnimatePill(double width, double height, double radius)
     {
+        SetSilhouette(width, height, radius, animate: true);
         StartVector(_sizeAnimation, "Size", new Vector2((float)width, (float)(height + _topExtension)));
         StartVector(_offsetAnimation, "Offset", PillOffset(width, height));
         StartVector(_radiusAnimation, "CornerRadius", new Vector2((float)radius));
@@ -2064,7 +2439,8 @@ public sealed partial class DynalandWindow : Window
 
         int rows = _trayRows.Children.Count;
         Show(_traySection, rows > 0);
-        SetGeneralHeight(OpenHeight + (rows > 0 ? TrayTitleHeight + (rows * TrayRowHeight) : 0));
+        _trayExtra = rows > 0 ? TrayTitleHeight + (rows * TrayRowHeight) : 0;
+        SetGeneralHeight(OpenHeight + _trayExtra + _notesExtra);
     }
 
     private static bool SameKeys(List<string> a, List<string> b)
@@ -2423,6 +2799,347 @@ public sealed partial class DynalandWindow : Window
             HoldRegion(_collapsedWidth);
             (double w, double h, double r) = Dimensions(PillShape.General, _collapsedWidth);
             AnimatePill(w, h, r);
+        }
+    }
+
+    // ---------------------------------------------------------------- the notification tray
+
+    /// <summary>
+    /// The notification tray on the general page: Windows' own list as it is now, newest first
+    /// (nothing kept: what Windows no longer holds is gone here too). The list scrolls past
+    /// <see cref="MaxListHeight"/>. "Clear all" and each row's X act in Windows too. Rows are
+    /// drawn again when the list changes or a notification's pictures arrive.
+    /// </summary>
+    private void FillNotes()
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        NotificationAccess access = _notes.Access;
+        IReadOnlyList<NotificationEntry> entries = access == NotificationAccess.Allowed
+            ? _notes.Current
+            : Array.Empty<NotificationEntry>();
+
+        // Not read yet, or no reader at all: only the button to Windows' own centre.
+        string message = access switch
+        {
+            NotificationAccess.Allowed => entries.Count == 0 ? Strings.DynNoNotifications : string.Empty,
+            NotificationAccess.NotAllowed => Strings.DynNotificationsNotAllowed,
+            _ => string.Empty,
+        };
+        Set(_noteMessage, message);
+        Show(_noteMessage, message.Length > 0);
+        Show(_clearAll, entries.Count > 0);
+        _noteMessageHeight = message.Length == 0
+            ? 0
+            : access == NotificationAccess.NotAllowed ? NoteMessageHeight : NoteLineHeight;
+
+        if (!ReferenceEquals(entries, _notesShown) || _notes.PicturesVersion != _picturesShown)
+        {
+            _notesShown = entries;
+            _picturesShown = _notes.PicturesVersion;
+            _noteRows.Children.Clear();
+            foreach (NotificationEntry entry in entries)
+            {
+                _noteRows.Children.Add(NoteRow(entry));
+            }
+        }
+
+        Show(_noteScroll, entries.Count > 0);
+        UpdateNotesHeight();
+    }
+
+    /// <summary>
+    /// The page's height for the notification tray: the list as tall as its rows (they differ
+    /// with pictures and text), up to <see cref="MaxListHeight"/>. Called again whenever the
+    /// rows' height changes (a new row, a picture's place).
+    /// </summary>
+    private void UpdateNotesHeight()
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        bool list = _noteScroll.Visibility == Visibility.Visible;
+        double listHeight = list ? Math.Min(_noteRows.ActualHeight, MaxListHeight) : 0;
+        _notesExtra = NoteTitleExtra + (list ? NotesMargin + listHeight : 0) + _noteMessageHeight;
+        SetGeneralHeight(OpenHeight + _trayExtra + _notesExtra);
+    }
+
+    /// <summary>
+    /// One notification, as Windows' own panel lays it out: the app's small icon, its name and
+    /// the time on top; the big picture ("hero"), when there is one; the picture beside the
+    /// text (round when the notification asks), the title, the text and the small credit line;
+    /// then any pictures below the text. A click opens the app; the X dismisses it (in Windows
+    /// too).
+    /// </summary>
+    private Grid NoteRow(NotificationEntry entry)
+    {
+        NotificationPictureView? pictures = _notes.PicturesFor(entry.Id);
+        string attribution = pictures?.Attribution ?? string.Empty;
+
+        // The top line: the app's icon (as Start shows it), its name, the time.
+        FrameworkElement icon = NoteAppIcon(entry) is ImageSource iconSource
+            ? new Image { Source = iconSource, Width = NoteIconSize, Height = NoteIconSize, Stretch = Stretch.Uniform }
+            : Glyph(0xE7E7, 12, _dimBrush);
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        TextBlock app = Text(11, FontWeights.Normal, _dimBrush);
+        app.Text = entry.AppName;
+        TextBlock time = Text(11, FontWeights.Normal, _dimBrush);
+        time.Text = NoteTime(entry.Time);
+        time.Margin = new Thickness(0, 0, NoteCloseRoom, 0);
+        var head = new Grid { ColumnSpacing = 8, Height = NoteHeadHeight };
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(app, 1);
+        Grid.SetColumn(time, 2);
+        head.Children.Add(icon);
+        head.Children.Add(app);
+        head.Children.Add(time);
+
+        var content = new StackPanel { Spacing = 6 };
+        content.Children.Add(head);
+        if (pictures?.Hero is ImageSource hero)
+        {
+            content.Children.Add(PictureBox(hero, NoteHeroHeight));
+        }
+
+        // The words, with the picture beside them when there is one.
+        string body = BodyWithout(entry.Body, attribution);
+        var words = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        if (entry.Title.Length > 0)
+        {
+            TextBlock title = Text(12, FontWeights.SemiBold, _whiteBrush);
+            title.Text = entry.Title;
+            title.TextWrapping = TextWrapping.Wrap;
+            title.MaxLines = 2;
+            words.Children.Add(title);
+        }
+
+        if (body.Length > 0)
+        {
+            TextBlock text = Text(12, FontWeights.Normal, _dimBrush);
+            text.Text = body;
+            text.TextWrapping = TextWrapping.Wrap;
+            text.MaxLines = 3;
+            words.Children.Add(text);
+        }
+
+        if (attribution.Length > 0)
+        {
+            TextBlock credit = Text(11, FontWeights.Normal, _dimBrush);
+            credit.Text = attribution;
+            words.Children.Add(credit);
+        }
+
+        var middle = new Grid { ColumnSpacing = 10 };
+        middle.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        middle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        if (pictures is not null && pictures.Logo is ImageSource logo)
+        {
+            var fill = new ImageBrush { ImageSource = logo, Stretch = Stretch.UniformToFill };
+            FrameworkElement beside = pictures.LogoCircle
+                ? new Ellipse { Width = NoteLogoSize, Height = NoteLogoSize, Fill = fill }
+                : new Rectangle { Width = NoteLogoSize, Height = NoteLogoSize, RadiusX = 4, RadiusY = 4, Fill = fill };
+            beside.VerticalAlignment = VerticalAlignment.Top;
+            middle.Children.Add(beside);
+        }
+
+        Grid.SetColumn(words, 1);
+        middle.Children.Add(words);
+        if (words.Children.Count > 0 || middle.Children.Count > 1)
+        {
+            content.Children.Add(middle);
+        }
+
+        if (pictures is not null)
+        {
+            foreach (ImageSource picture in pictures.Inline)
+            {
+                content.Children.Add(PictureBox(picture, NoteInlineHeight));
+            }
+        }
+
+        var open = new Button
+        {
+            Content = content,
+            MinHeight = 0,
+            Padding = new Thickness(10, 8, 10, 10),
+            CornerRadius = new CornerRadius(Radii.Small),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(ColorHelper.FromArgb(0x1F, 0xFF, 0xFF, 0xFF)),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Top,
+        };
+        var said = new List<string>(4);
+        foreach (string part in new[] { entry.AppName, entry.Title, body, attribution })
+        {
+            if (part.Length > 0)
+            {
+                said.Add(part);
+            }
+        }
+
+        AutomationProperties.SetName(open, string.Join(", ", said));
+        string full = entry.Title.Length > 0 && body.Length > 0
+            ? entry.Title + "\n" + body
+            : entry.Title + body;
+        if (full.Length > 0)
+        {
+            ToolTipService.SetToolTip(open, full);
+        }
+
+        open.Click += (_, _) => OpenNoteApp(entry);
+
+        var dismiss = new Button
+        {
+            Content = Glyph(0xE711, 10, _whiteBrush),
+            Width = 24,
+            Height = 24,
+            MinWidth = 0,
+            MinHeight = 0,
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, 5, 4, 0),
+            CornerRadius = new CornerRadius(12),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Colors.Transparent),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        AutomationProperties.SetName(dismiss, entry.AppName.Length > 0 ? Fmt.F(Strings.DynDismissFrom, entry.AppName) : Strings.DynDismiss);
+        ToolTipService.SetToolTip(dismiss, Strings.DynDismiss);
+        uint id = entry.Id;
+        dismiss.Click += (_, _) => _notes.Dismiss(id);
+
+        var row = new Grid();
+        row.Children.Add(open);
+        row.Children.Add(dismiss);
+        return row;
+    }
+
+    /// <summary>A notification's picture across the row, cut to fill its box (rounded like Windows').</summary>
+    private static Rectangle PictureBox(ImageSource source, double height)
+    {
+        return new Rectangle
+        {
+            Height = height,
+            RadiusX = 6,
+            RadiusY = 6,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Fill = new ImageBrush { ImageSource = source, Stretch = Stretch.UniformToFill },
+        };
+    }
+
+    /// <summary>Windows' text may hold the credit line too; it shows once, below.</summary>
+    private static string BodyWithout(string body, string attribution)
+    {
+        var lines = new List<string>();
+        foreach (string line in body.Split('\n'))
+        {
+            string trimmed = line.Trim();
+            if (trimmed.Length > 0 && !string.Equals(trimmed, attribution, StringComparison.Ordinal))
+            {
+                lines.Add(trimmed);
+            }
+        }
+
+        return string.Join(" ", lines);
+    }
+
+    /// <summary>
+    /// The app's own icon, as Start shows it (a desktop app's shortcut icon, a store app's
+    /// unplated logo); else the picture Windows gives for the app; null when neither. Kept per
+    /// app (icons of apps, not of notifications).
+    /// </summary>
+    private ImageSource? NoteAppIcon(NotificationEntry entry)
+    {
+        if (entry.AppId.Length == 0)
+        {
+            return null;
+        }
+
+        if (_noteIcons.TryGetValue(entry.AppId, out ImageSource? known))
+        {
+            return known;
+        }
+
+        ImageSource? icon = null;
+        try
+        {
+            AppEntry? app = FindApp(entry.AppId);
+            if (app?.Icon is IconPixels pixels)
+            {
+                icon = StartMenuWindow.ToBitmap(pixels);
+            }
+            else if (app?.LogoBytes is byte[] bytes)
+            {
+                icon = NotificationService.BitmapFrom(bytes, NoteIconPixels);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Dynaland: an app icon for the notifications could not be made.", ex);
+        }
+
+        if (icon is not null)
+        {
+            _noteIcons[entry.AppId] = icon;
+            return icon;
+        }
+
+        // Start's list not ready yet, or an app it does not list: tried again next time.
+        return _notes.PictureFor(entry.AppId);
+    }
+
+    /// <summary>The app in Start's list with this app ID (a store app's, or a shortcut's own).</summary>
+    private AppEntry? FindApp(string appId)
+    {
+        foreach (AppEntry candidate in _host.Catalog.Apps)
+        {
+            if (string.Equals(candidate.AppUserModelId, appId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(candidate.ShortcutAppId, appId, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Today: the time; before: the date (Windows' language).</summary>
+    private static string NoteTime(DateTimeOffset time)
+    {
+        DateTime local = time.LocalDateTime;
+        return local.Date == DateTime.Today
+            ? local.ToString("t", CultureInfo.CurrentCulture)
+            : local.ToString("d", CultureInfo.CurrentCulture);
+    }
+
+    /// <summary>
+    /// A click on a notification opens its app when Start knows it (Windows gives only the app
+    /// itself the notification's own target). Otherwise Windows' notification centre opens,
+    /// where the notification itself can be clicked.
+    /// </summary>
+    private void OpenNoteApp(NotificationEntry entry)
+    {
+        AppEntry? app = entry.AppId.Length > 0 ? FindApp(entry.AppId) : null;
+        if (app is null)
+        {
+            Log.Info("Dynaland: a notification's app is not in Start's list; Windows' notification centre opens instead.");
+            OpenNotifications();
+            return;
+        }
+
+        _leaveTimer.Stop();
+        EndHover();
+        if (Launcher.Start(app.LaunchTarget))
+        {
+            Log.Info("Dynaland: a notification's app was opened.");
         }
     }
 

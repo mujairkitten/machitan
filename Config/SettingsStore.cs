@@ -147,6 +147,8 @@ internal sealed class SettingsStore
             _document["ShowPrivacyDots"] = s.ShowPrivacyDots;
             _document["DynalandStyle"] = s.DynalandStyle.ToString();
             _document["DynalandPosition"] = s.DynalandPosition.ToString();
+            _document["DynalandNotchShape"] = s.DynalandNotchShape.ToString();
+            _document["DynalandTransparency"] = s.DynalandTransparency;
             _document["TopStripCover"] = s.TopStripCover;
             _document["TopStripCoverColour"] = s.TopStripCoverColour.ToString();
             _document["TopStripCoverOpacity"] = s.TopStripCoverOpacity;
@@ -156,6 +158,9 @@ internal sealed class SettingsStore
             _document["DynalandSize"] = s.DynalandSize;
             _document["DynalandWidth"] = s.DynalandWidth;
             _document["DuoRingCorner"] = s.DuoRingCorner.ToString();
+            _document["DuoRingLowBattery"] = s.DuoRingLowBattery;
+            _document["DuoRingTransparencyAuto"] = s.DuoRingTransparencyAuto;
+            _document["DuoRingTransparency"] = s.DuoRingTransparency;
             _document["ReserveTopStrip"] = s.ReserveTopStrip;
             _document["CalendarShowSeconds"] = s.CalendarShowSeconds;
             _document["Language"] = s.Language;
@@ -168,6 +173,8 @@ internal sealed class SettingsStore
             }
 
             _document["FolderOrder"] = s.FolderOrder;
+            _document["StartMostUsed"] = s.StartMostUsed;
+            _document["StartMostUsedCollapsed"] = s.StartMostUsedCollapsed;
             _document["CustomStartButton"] = s.CustomStartButton;
             _document["StartButtonPicture"] = s.StartButtonPicture;
             _document["StartButtonPictureHover"] = s.StartButtonPictureHover;
@@ -486,6 +493,24 @@ internal sealed class SettingsStore
             NoteUnreadable(document, "DynalandPosition");
         }
 
+        if (TryEnum(document["DynalandNotchShape"], out DynalandNotchShape notchShape))
+        {
+            s.DynalandNotchShape = notchShape;
+        }
+        else
+        {
+            NoteUnreadable(document, "DynalandNotchShape");
+        }
+
+        if (TryInt(document["DynalandTransparency"], out int dynalandTransparency))
+        {
+            s.DynalandTransparency = dynalandTransparency;
+        }
+        else
+        {
+            NoteUnreadable(document, "DynalandTransparency");
+        }
+
         if (TryBool(document["TopStripCover"], out bool cover))
         {
             s.TopStripCover = cover;
@@ -565,6 +590,33 @@ internal sealed class SettingsStore
         else
         {
             NoteUnreadable(document, "DuoRingCorner");
+        }
+
+        if (TryInt(document["DuoRingLowBattery"], out int lowBattery))
+        {
+            s.DuoRingLowBattery = lowBattery;
+        }
+        else
+        {
+            NoteUnreadable(document, "DuoRingLowBattery");
+        }
+
+        if (TryBool(document["DuoRingTransparencyAuto"], out bool ringAuto))
+        {
+            s.DuoRingTransparencyAuto = ringAuto;
+        }
+        else
+        {
+            NoteUnreadable(document, "DuoRingTransparencyAuto");
+        }
+
+        if (TryInt(document["DuoRingTransparency"], out int ringTransparency))
+        {
+            s.DuoRingTransparency = ringTransparency;
+        }
+        else
+        {
+            NoteUnreadable(document, "DuoRingTransparency");
         }
 
         if (TryBool(document["InfoLineShowSeconds"], out bool infoSeconds))
@@ -739,6 +791,24 @@ internal sealed class SettingsStore
         else
         {
             NoteUnreadable(document, "PeekAtDesktop");
+        }
+
+        if (TryBool(document["StartMostUsed"], out bool mostUsed))
+        {
+            s.StartMostUsed = mostUsed;
+        }
+        else
+        {
+            NoteUnreadable(document, "StartMostUsed");
+        }
+
+        if (TryBool(document["StartMostUsedCollapsed"], out bool mostUsedCollapsed))
+        {
+            s.StartMostUsedCollapsed = mostUsedCollapsed;
+        }
+        else
+        {
+            NoteUnreadable(document, "StartMostUsedCollapsed");
         }
 
         if (TryBool(document["CustomStartButton"], out bool ownStartPictures))

@@ -71,6 +71,16 @@ public enum DynalandStyle
     Island = 1,
 }
 
+/// <summary>The notch's sides (Dynaland's notch shape only).</summary>
+public enum DynalandNotchShape
+{
+    /// <summary>Straight sides that curve out into the screen's edge at the top (the default).</summary>
+    Default = 0,
+
+    /// <summary>Sides that slant out towards the screen's edge: wider at the edge than at the bottom.</summary>
+    Trapezoid = 1,
+}
+
 /// <summary>Which screen edge Dynaland sits on.</summary>
 public enum DynalandPosition
 {
@@ -211,6 +221,17 @@ public sealed record ShellSettings
     /// <summary>Dynaland's edge: Auto (opposite the bar, the default), Top or Bottom.</summary>
     public DynalandPosition DynalandPosition { get; set; } = global::Machitan.Config.DynalandPosition.Auto;
 
+    /// <summary>The notch's sides: Default (curving out at the top) or Trapezoid (slanting). Notch shape only.</summary>
+    public DynalandNotchShape DynalandNotchShape { get; set; } = global::Machitan.Config.DynalandNotchShape.Default;
+
+    public const int MaxDynalandTransparency = 50;
+
+    /// <summary>
+    /// How see-through Dynaland's black is, in percent: 0 (solid, the default) to 50, so its
+    /// white text stays easy to read. The text and pictures on it stay solid.
+    /// </summary>
+    public int DynalandTransparency { get; set; }
+
     /// <summary>A colour over the top strip (only while the strip is kept). Off by default.</summary>
     public bool TopStripCover { get; set; }
 
@@ -223,6 +244,22 @@ public sealed record ShellSettings
     public double TopStripCoverOpacity { get; set; } = 0.6;
 
     public ScreenCorner DuoRingCorner { get; set; } = ScreenCorner.TopRight;
+
+    public const int MinRingLowBattery = 5;
+    public const int MaxRingLowBattery = 50;
+
+    /// <summary>The status ring's battery rim turns red below this charge, in percent (20 by default).</summary>
+    public int DuoRingLowBattery { get; set; } = 20;
+
+    /// <summary>
+    /// The status ring's soft background, Auto (the default): only where the wallpaper behind it
+    /// is too mixed for the ink alone, at the ring's own strength. Off: Manual, always shown, as
+    /// see-through as <see cref="DuoRingTransparency"/>.
+    /// </summary>
+    public bool DuoRingTransparencyAuto { get; set; } = true;
+
+    /// <summary>Manual transparency of the status ring's background, in percent: 0 (solid) to 100 (none).</summary>
+    public int DuoRingTransparency { get; set; } = 60;
 
     /// <summary>Machitan's accent colour: from the wallpaper (spec) or Windows' own.</summary>
     public AccentSource AccentSource { get; set; } = AccentSource.Wallpaper;
@@ -321,6 +358,15 @@ public sealed record ShellSettings
 
     /// <summary>A button for Machitan's own settings.</summary>
     public bool FolderMachitan { get; set; }
+
+    /// <summary>
+    /// Start's All apps begins with the apps opened most from Start, counted by Machitan on this
+    /// PC (see AppUsage). Off by default; turning it off deletes the counts.
+    /// </summary>
+    public bool StartMostUsed { get; set; }
+
+    /// <summary>Start's Most used list is folded away (set from Start itself).</summary>
+    public bool StartMostUsedCollapsed { get; set; }
 
     /// <summary>The Start button shows the user's own pictures instead of Machitan's logo. Off by default.</summary>
     public bool CustomStartButton { get; set; }
@@ -447,6 +493,11 @@ public sealed record ShellSettings
             DynalandPosition = global::Machitan.Config.DynalandPosition.Auto;
         }
 
+        if (!Enum.IsDefined(DynalandNotchShape))
+        {
+            DynalandNotchShape = global::Machitan.Config.DynalandNotchShape.Default;
+        }
+
         if (!Enum.IsDefined(TopStripCoverColour))
         {
             TopStripCoverColour = StripCoverColour.Dark;
@@ -468,6 +519,9 @@ public sealed record ShellSettings
         DuoRingSize = Math.Clamp(DuoRingSize, MinWidgetSize, MaxWidgetSize);
         DynalandSize = Math.Clamp(DynalandSize, MinWidgetSize, MaxWidgetSize);
         DynalandWidth = Math.Clamp(DynalandWidth, MinDynalandWidth, MaxDynalandWidth);
+        DynalandTransparency = Math.Clamp(DynalandTransparency, 0, MaxDynalandTransparency);
+        DuoRingLowBattery = Math.Clamp(DuoRingLowBattery, MinRingLowBattery, MaxRingLowBattery);
+        DuoRingTransparency = Math.Clamp(DuoRingTransparency, 0, 100);
 
         StartButtonPicture = CleanPicturePath(StartButtonPicture);
         StartButtonPictureHover = CleanPicturePath(StartButtonPictureHover);

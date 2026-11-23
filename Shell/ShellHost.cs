@@ -120,8 +120,11 @@ internal sealed class ShellHost
     /// <summary>Apps pinned to the bar ("Pin to taskbar").</summary>
     internal PinStore Pins { get; } = new(AppPaths.PinsFile, "Pins");
 
-    /// <summary>Apps pinned to Start's Pinned box ("Pin to Start"); first a copy of the bar's list.</summary>
-    internal PinStore StartPins { get; } = new(AppPaths.StartPinsFile, "Start pins", AppPaths.PinsFile);
+    /// <summary>Apps pinned to Start's Pinned box ("Pin to Start"), in categories; first a copy of the bar's list.</summary>
+    internal PinStore StartPins { get; } = new(AppPaths.StartPinsFile, "Start pins", AppPaths.PinsFile, grouped: true);
+
+    /// <summary>How often each app was opened from Start, for its Most used list (only while that is on).</summary>
+    internal AppUsage Usage { get; } = new();
 
     /// <summary>The bar's bubbles and which apps sit where.</summary>
     internal BarLayoutStore BarLayout { get; } = new();
@@ -187,6 +190,15 @@ internal sealed class ShellHost
     /// <summary>Win+N: the calendar flyout. Made on first use.</summary>
     internal void ToggleCalendar()
     {
+        ToggleCalendarFrom(null);
+    }
+
+    /// <summary>
+    /// The calendar flyout, opened or closed by a click on <paramref name="opener"/> (the info
+    /// line's place on screen, physical pixels), or by Win+N when null.
+    /// </summary>
+    internal void ToggleCalendarFrom(RECT? opener)
+    {
         if (_shuttingDown)
         {
             return;
@@ -197,6 +209,12 @@ internal sealed class ShellHost
             _calendar ??= new CalendarFlyout(this);
             if (!_calendar.IsOpen)
             {
+                if (opener is RECT clicked && _calendar.TakeClosingClick(clicked))
+                {
+                    // The press took the focus first, which closed the calendar: this click means "close".
+                    return;
+                }
+
                 CloseOtherPopups(_calendar);
             }
 
@@ -416,6 +434,12 @@ internal sealed class ShellHost
         return true;
     }
 
+    /// <summary>The info line's shape on screen (physical pixels), or null while it is not shown.</summary>
+    internal RECT? InfoLineRect() => _infoLine?.ShapeScreenRect();
+
+    /// <summary>The status ring's shape on screen (physical pixels), or null while it is not shown.</summary>
+    internal RECT? StatusRingRect() => _duoRing?.ShapeScreenRect();
+
     /// <summary>The bar's ^ button: opens or closes the tray box by it (its place on screen, physical pixels).</summary>
     internal void ToggleTrayBox(RECT anchor)
     {
@@ -429,6 +453,12 @@ internal sealed class ShellHost
             _trayBox ??= new TrayBoxWindow(this);
             if (!_trayBox.IsOpen)
             {
+                if (_trayBox.TakeClosingClick(anchor))
+                {
+                    // Pressing ^ took the focus first, which closed the box: this click means "close".
+                    return;
+                }
+
                 CloseOtherPopups(_trayBox);
             }
 
@@ -809,6 +839,7 @@ internal sealed class ShellHost
         Settings.StartWatching(queue);
         Pins.Load();
         StartPins.Load();
+        Usage.Load(Settings.Current.StartMostUsed);
         BarLayout.Load();
 
         Accent.Start(Settings.Current.AccentSource);

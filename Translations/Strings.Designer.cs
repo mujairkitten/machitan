@@ -754,6 +754,33 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Clear all.
+        /// </summary>
+        internal static string DynClearAll {
+            get {
+                return ResourceManager.GetString("DynClearAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Dismiss.
+        /// </summary>
+        internal static string DynDismiss {
+            get {
+                return ResourceManager.GetString("DynDismiss", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Dismiss the notification from {0}.
+        /// </summary>
+        internal static string DynDismissFrom {
+            get {
+                return ResourceManager.GetString("DynDismissFrom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to In use now.
         /// </summary>
         internal static string DynInUseNow {
@@ -817,6 +844,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to No notifications.
+        /// </summary>
+        internal static string DynNoNotifications {
+            get {
+                return ResourceManager.GetString("DynNoNotifications", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Nothing is using the camera or the microphone..
         /// </summary>
         internal static string DynNothingInUse {
@@ -831,6 +867,15 @@ namespace Machitan {
         internal static string DynNotifications {
             get {
                 return ResourceManager.GetString("DynNotifications", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows doesn&apos;t let Machitan read notifications (Settings &gt; Privacy &amp; security &gt; Notifications)..
+        /// </summary>
+        internal static string DynNotificationsNotAllowed {
+            get {
+                return ResourceManager.GetString("DynNotificationsNotAllowed", resourceCulture);
             }
         }
         
@@ -1357,6 +1402,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Lock.
+        /// </summary>
+        internal static string PowerLock {
+            get {
+                return ResourceManager.GetString("PowerLock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Restart.
         /// </summary>
         internal static string PowerRestart {
@@ -1861,11 +1915,29 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Always in the menu..
+        /// </summary>
+        internal static string SetAlwaysInPowerMenuLock {
+            get {
+                return ResourceManager.GetString("SetAlwaysInPowerMenuLock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to App names.
         /// </summary>
         internal static string SetAppNames {
             get {
                 return ResourceManager.GetString("SetAppNames", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Auto.
+        /// </summary>
+        internal static string SetAuto {
+            get {
+                return ResourceManager.GetString("SetAuto", resourceCulture);
             }
         }
         
@@ -2041,6 +2113,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Default.
+        /// </summary>
+        internal static string SetDefault {
+            get {
+                return ResourceManager.GetString("SetDefault", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Diagnostics log.
         /// </summary>
         internal static string SetDiagnosticsLog {
@@ -2064,6 +2145,15 @@ namespace Machitan {
         internal static string SetDragTip {
             get {
                 return ResourceManager.GetString("SetDragTip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Up to 50%, so the text stays easy to read..
+        /// </summary>
+        internal static string SetDynalandTransparencyNote {
+            get {
+                return ResourceManager.GetString("SetDynalandTransparencyNote", resourceCulture);
             }
         }
         
@@ -2293,6 +2383,51 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Low battery.
+        /// </summary>
+        internal static string SetLowBattery {
+            get {
+                return ResourceManager.GetString("SetLowBattery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The battery rim turns red below this charge..
+        /// </summary>
+        internal static string SetLowBatteryNote {
+            get {
+                return ResourceManager.GetString("SetLowBatteryNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Manual.
+        /// </summary>
+        internal static string SetManual {
+            get {
+                return ResourceManager.GetString("SetManual", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Manual transparency.
+        /// </summary>
+        internal static string SetManualTransparency {
+            get {
+                return ResourceManager.GetString("SetManualTransparency", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to For Manual: how see-through the background is. 100% shows none..
+        /// </summary>
+        internal static string SetManualTransparencyNote {
+            get {
+                return ResourceManager.GetString("SetManualTransparencyNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Mode.
         /// </summary>
         internal static string SetMode {
@@ -2347,6 +2482,24 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Most used apps.
+        /// </summary>
+        internal static string SetMostUsed {
+            get {
+                return ResourceManager.GetString("SetMostUsed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to At the top of All apps: the apps you open most from Start, counted by Machitan on this PC. Turning it off deletes the counts..
+        /// </summary>
+        internal static string SetMostUsedNote {
+            get {
+                return ResourceManager.GetString("SetMostUsedNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Move {0}.
         /// </summary>
         internal static string SetMoveName {
@@ -2388,6 +2541,24 @@ namespace Machitan {
         internal static string SetNotch {
             get {
                 return ResourceManager.GetString("SetNotch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Notch shape.
+        /// </summary>
+        internal static string SetNotchShape {
+            get {
+                return ResourceManager.GetString("SetNotchShape", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to For the notch shape only..
+        /// </summary>
+        internal static string SetNotchShapeNote {
+            get {
+                return ResourceManager.GetString("SetNotchShapeNote", resourceCulture);
             }
         }
         
@@ -2761,6 +2932,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Auto: a soft background only where the wallpaper makes the ring hard to read..
+        /// </summary>
+        internal static string SetRingTransparencyNote {
+            get {
+                return ResourceManager.GetString("SetRingTransparencyNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Run at startup.
         /// </summary>
         internal static string SetRunAtStartup {
@@ -2847,6 +3027,15 @@ namespace Machitan {
         internal static string SetStartButton {
             get {
                 return ResourceManager.GetString("SetStartButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Start menu.
+        /// </summary>
+        internal static string SetStartMenu {
+            get {
+                return ResourceManager.GetString("SetStartMenu", resourceCulture);
             }
         }
         
@@ -2946,6 +3135,24 @@ namespace Machitan {
         internal static string SetTopRight {
             get {
                 return ResourceManager.GetString("SetTopRight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Transparency.
+        /// </summary>
+        internal static string SetTransparency {
+            get {
+                return ResourceManager.GetString("SetTransparency", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Trapezoid.
+        /// </summary>
+        internal static string SetTrapezoid {
+            get {
+                return ResourceManager.GetString("SetTrapezoid", resourceCulture);
             }
         }
         
@@ -3067,11 +3274,173 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Apps under {0}.
+        /// </summary>
+        internal static string StartAppsWithLetter {
+            get {
+                return ResourceManager.GetString("StartAppsWithLetter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Category name.
+        /// </summary>
+        internal static string StartCategoryName {
+            get {
+                return ResourceManager.GetString("StartCategoryName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Options for {0}.
+        /// </summary>
+        internal static string StartCategoryOptions {
+            get {
+                return ResourceManager.GetString("StartCategoryOptions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Collapse.
+        /// </summary>
+        internal static string StartCollapse {
+            get {
+                return ResourceManager.GetString("StartCollapse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No apps here yet. Right-click a pinned app and choose Move to..
+        /// </summary>
+        internal static string StartEmptyCategory {
+            get {
+                return ResourceManager.GetString("StartEmptyCategory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Expand.
+        /// </summary>
+        internal static string StartExpand {
+            get {
+                return ResourceManager.GetString("StartExpand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Type at least two letters after files: to search your Desktop, Documents, Downloads, Pictures, Music and Videos..
         /// </summary>
         internal static string StartFilesHint {
             get {
                 return ResourceManager.GetString("StartFilesHint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Good afternoon, {0}.
+        /// </summary>
+        internal static string StartGreetAfternoon {
+            get {
+                return ResourceManager.GetString("StartGreetAfternoon", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Good evening, {0}.
+        /// </summary>
+        internal static string StartGreetEvening {
+            get {
+                return ResourceManager.GetString("StartGreetEvening", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Good day, {0}.
+        /// </summary>
+        internal static string StartGreetMidday {
+            get {
+                return ResourceManager.GetString("StartGreetMidday", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Good morning, {0}.
+        /// </summary>
+        internal static string StartGreetMorning {
+            get {
+                return ResourceManager.GetString("StartGreetMorning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Jump to a letter.
+        /// </summary>
+        internal static string StartJumpToLetter {
+            get {
+                return ResourceManager.GetString("StartJumpToLetter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0}, jump to another letter.
+        /// </summary>
+        internal static string StartLetterName {
+            get {
+                return ResourceManager.GetString("StartLetterName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Most used.
+        /// </summary>
+        internal static string StartMostUsed {
+            get {
+                return ResourceManager.GetString("StartMostUsed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The apps you open most from Start show here..
+        /// </summary>
+        internal static string StartMostUsedEmpty {
+            get {
+                return ResourceManager.GetString("StartMostUsedEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Move down.
+        /// </summary>
+        internal static string StartMoveDown {
+            get {
+                return ResourceManager.GetString("StartMoveDown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Move to.
+        /// </summary>
+        internal static string StartMoveTo {
+            get {
+                return ResourceManager.GetString("StartMoveTo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Move up.
+        /// </summary>
+        internal static string StartMoveUp {
+            get {
+                return ResourceManager.GetString("StartMoveUp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New category.
+        /// </summary>
+        internal static string StartNewCategory {
+            get {
+                return ResourceManager.GetString("StartNewCategory", resourceCulture);
             }
         }
         
@@ -3126,6 +3495,24 @@ namespace Machitan {
         internal static string StartPowerNothing {
             get {
                 return ResourceManager.GetString("StartPowerNothing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove category.
+        /// </summary>
+        internal static string StartRemoveCategory {
+            get {
+                return ResourceManager.GetString("StartRemoveCategory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Rename.
+        /// </summary>
+        internal static string StartRenameCategory {
+            get {
+                return ResourceManager.GetString("StartRenameCategory", resourceCulture);
             }
         }
         

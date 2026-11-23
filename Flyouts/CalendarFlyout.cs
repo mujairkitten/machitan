@@ -19,10 +19,11 @@ using Windows.Globalization.DateTimeFormatting;
 namespace Machitan.Flyouts;
 
 /// <summary>
-/// Win+N: the time, today's date and a month calendar (Windows' own CalendarView), lined up
-/// with the bar like Start. The calendar folds away with the arrow button (remembered in
-/// settings), and the clock can show seconds (Settings, off by default). There is no
-/// notification list: Machitan keeps no notification history and shows none.
+/// Win+N (and a click on the info line): the time, today's date and a month calendar
+/// (Windows' own CalendarView), next to the info line while it is shown (below it, in a top
+/// corner), else lined up with the bar like Start. The calendar folds away with the arrow
+/// button (remembered in settings), and the clock can show seconds (Settings, off by default).
+/// There is no notification list: Machitan keeps no notification history and shows none.
 /// </summary>
 public sealed partial class CalendarFlyout : FlyoutWindow
 {
@@ -170,6 +171,9 @@ public sealed partial class CalendarFlyout : FlyoutWindow
     {
         _clock.Stop();
     }
+
+    /// <summary>Opens by the info line while it is shown.</summary>
+    private protected override Machitan.Interop.RECT? WidgetAnchor => Host.InfoLineRect();
 
     /// <summary>Follows the seconds and fold settings, also when settings.json is edited by hand.</summary>
     private protected override void OnSettingsApplied(ShellSettings settings)

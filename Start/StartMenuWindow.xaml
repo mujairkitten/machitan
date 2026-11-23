@@ -9,6 +9,8 @@
         Floating boxes on a see-through window: the gaps between the boxes show the wallpaper.
         Each box gets its fill (acrylic or translucent colour) inserted in code, behind its content.
         The 4 DIP padding keeps the window's edge outside the cut, like the bar.
+        Top: the user's box (greeting, folders, power). Left: search over the pinned
+        categories. Right: All apps (Most used, then A to Z under clickable letters).
     -->
     <Grid
         x:Name="Root"
@@ -17,108 +19,17 @@
         KeyDown="OnRootKeyDown">
         <Grid x:Name="Layout" ColumnSpacing="8" RowSpacing="8">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" />
-                <ColumnDefinition Width="340" />
+                <ColumnDefinition Width="376" />
+                <ColumnDefinition Width="276" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
+                <RowDefinition Height="56" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="44" />
             </Grid.RowDefinitions>
 
-            <!--  Left column: search over Pinned  -->
-            <Grid Grid.Column="0" RowSpacing="8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="40" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <Grid x:Name="SearchBox" Grid.Row="0">
-                    <TextBox
-                        x:Name="SearchInput"
-                        Margin="6,0,6,0"
-                        VerticalAlignment="Center"
-                        AutomationProperties.Name="Search apps, or type files: to search files"
-                        KeyDown="OnSearchKeyDown"
-                        PlaceholderText="Search apps (files: for files)"
-                        TextChanged="OnSearchTextChanged" />
-                </Grid>
-
-                <!--  Pinned apps; while searching files, the file's preview takes its place.  -->
-                <Grid x:Name="PinnedBox" Grid.Row="1">
-                    <Grid
-                        x:Name="PinnedContent"
-                        Padding="12,10,12,12"
-                        RowSpacing="6">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <TextBlock x:Name="PinnedHeader" FontWeight="SemiBold" Text="Pinned" />
-                        <ScrollViewer
-                            Grid.Row="1"
-                            HorizontalScrollBarVisibility="Disabled"
-                            HorizontalScrollMode="Disabled"
-                            VerticalScrollBarVisibility="Auto">
-                            <VariableSizedWrapGrid
-                                x:Name="PinnedPanel"
-                                ItemHeight="76"
-                                ItemWidth="68"
-                                MaximumRowsOrColumns="4"
-                                Orientation="Horizontal" />
-                        </ScrollViewer>
-                        <TextBlock
-                            x:Name="PinnedEmpty"
-                            Grid.Row="1"
-                            Opacity="0.7"
-                            TextWrapping="Wrap"
-                            Visibility="Collapsed" />
-                    </Grid>
-                    <Grid x:Name="PreviewHost" Visibility="Collapsed" />
-                </Grid>
-            </Grid>
-
-            <!--  Right column: All apps, or file results  -->
-            <Grid x:Name="AppsBox" Grid.Column="1">
-                <Grid Padding="8,10,8,8" RowSpacing="6">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <TextBlock
-                        x:Name="AppsHeader"
-                        Margin="4,0,0,0"
-                        FontWeight="SemiBold"
-                        Text="All apps" />
-                    <ScrollViewer
-                        x:Name="AppsScroller"
-                        Grid.Row="1"
-                        HorizontalScrollBarVisibility="Disabled"
-                        HorizontalScrollMode="Disabled"
-                        VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                            <StackPanel x:Name="AppsPanel" Spacing="2" />
-                            <StackPanel
-                                x:Name="FilesPanel"
-                                Spacing="2"
-                                Visibility="Collapsed" />
-                        </StackPanel>
-                    </ScrollViewer>
-                    <TextBlock
-                        x:Name="AppsEmpty"
-                        Grid.Row="1"
-                        Margin="4,0,4,0"
-                        Opacity="0.7"
-                        TextWrapping="Wrap"
-                        Visibility="Collapsed" />
-                </Grid>
-            </Grid>
-
-            <!--  Slim user strip  -->
-            <Grid
-                x:Name="UserStrip"
-                Grid.Row="1"
-                Grid.ColumnSpan="2">
-                <Grid Padding="4,0,6,0" ColumnSpacing="8">
+            <!--  The user's box: picture and greeting, the folder buttons, power  -->
+            <Grid x:Name="UserStrip" Grid.ColumnSpan="2">
+                <Grid Padding="8,0,10,0" ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -127,20 +38,25 @@
                     <!--  Opens Windows' Settings at Accounts > Your info.  -->
                     <Button
                         x:Name="UserButton"
-                        Padding="6,4,10,4"
+                        Padding="6,4,12,4"
                         VerticalAlignment="Center"
                         AutomationProperties.Name="Account settings"
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnUserClicked"
-                        CornerRadius="8"
+                        CornerRadius="10"
                         ToolTipService.ToolTip="Account settings">
-                        <StackPanel Orientation="Horizontal" Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
                             <PersonPicture
                                 x:Name="Avatar"
-                                Width="28"
-                                Height="28" />
-                            <TextBlock x:Name="UserName" VerticalAlignment="Center" />
+                                Width="32"
+                                Height="32" />
+                            <TextBlock
+                                x:Name="UserName"
+                                VerticalAlignment="Center"
+                                FontSize="18"
+                                FontWeight="SemiBold"
+                                TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Button>
                     <!--  Folder buttons chosen in Settings > Start, as in Windows' Start > Folders.  -->
@@ -178,6 +94,142 @@
                     </Button>
                 </Grid>
             </Grid>
+
+            <!--  Left column: search over the pinned categories  -->
+            <Grid
+                Grid.Row="1"
+                Grid.Column="0"
+                RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid x:Name="SearchBox" Grid.Row="0">
+                    <Grid Padding="14,0,6,0" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon
+                            VerticalAlignment="Center"
+                            AutomationProperties.AccessibilityView="Raw"
+                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                            FontSize="14"
+                            Glyph="&#xE721;"
+                            Opacity="0.7" />
+                        <TextBox
+                            x:Name="SearchInput"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Search apps, or type files: to search files"
+                            KeyDown="OnSearchKeyDown"
+                            PlaceholderText="Search apps (files: for files)"
+                            TextChanged="OnSearchTextChanged" />
+                    </Grid>
+                </Grid>
+
+                <!--  Pinned apps in their categories; while searching files, the file's preview takes its place.  -->
+                <Grid x:Name="PinnedBox" Grid.Row="1">
+                    <Grid
+                        x:Name="PinnedContent"
+                        Padding="12,12,12,12"
+                        RowSpacing="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <!--  Shown only while searching: the matching pins, best first, without categories.  -->
+                        <TextBlock
+                            x:Name="PinnedHeader"
+                            Margin="4,0,0,0"
+                            CharacterSpacing="60"
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Opacity="0.75"
+                            Text="PINNED"
+                            Visibility="Collapsed" />
+                        <ScrollViewer
+                            x:Name="PinnedScroller"
+                            Grid.Row="1"
+                            HorizontalScrollBarVisibility="Disabled"
+                            HorizontalScrollMode="Disabled"
+                            VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <StackPanel x:Name="PinnedGroups" Spacing="10" />
+                                <VariableSizedWrapGrid
+                                    x:Name="PinnedPanel"
+                                    ItemHeight="92"
+                                    ItemWidth="88"
+                                    MaximumRowsOrColumns="4"
+                                    Orientation="Horizontal"
+                                    Visibility="Collapsed" />
+                            </StackPanel>
+                        </ScrollViewer>
+                        <TextBlock
+                            x:Name="PinnedEmpty"
+                            Grid.Row="1"
+                            Margin="4,0,4,0"
+                            Opacity="0.7"
+                            TextWrapping="Wrap"
+                            Visibility="Collapsed" />
+                    </Grid>
+                    <Grid x:Name="PreviewHost" Visibility="Collapsed" />
+                </Grid>
+            </Grid>
+
+            <!--  Right column: All apps (or file results); the letters' grid takes the list's place when a letter is clicked  -->
+            <Grid
+                x:Name="AppsBox"
+                Grid.Row="1"
+                Grid.Column="1">
+                <Grid Padding="8,12,8,8" RowSpacing="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        x:Name="AppsHeader"
+                        Margin="8,0,0,0"
+                        CharacterSpacing="60"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        Opacity="0.75"
+                        Text="ALL APPS" />
+                    <ScrollViewer
+                        x:Name="AppsScroller"
+                        Grid.Row="1"
+                        HorizontalScrollBarVisibility="Disabled"
+                        HorizontalScrollMode="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <StackPanel x:Name="MostUsedHost" Visibility="Collapsed" />
+                            <StackPanel x:Name="AppsPanel" Spacing="2" />
+                            <StackPanel
+                                x:Name="FilesPanel"
+                                Spacing="2"
+                                Visibility="Collapsed" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Grid
+                        x:Name="LetterGrid"
+                        Grid.Row="1"
+                        Padding="4"
+                        ColumnSpacing="4"
+                        RowSpacing="4"
+                        Visibility="Collapsed" />
+                    <TextBlock
+                        x:Name="AppsEmpty"
+                        Grid.Row="1"
+                        Margin="8,0,4,0"
+                        Opacity="0.7"
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
+                </Grid>
+            </Grid>
         </Grid>
+
+        <!--  While an app is dragged: its copy under the pointer, and the line where it would go.  -->
+        <Canvas x:Name="DragCanvas" IsHitTestVisible="False" />
     </Grid>
 </Window>

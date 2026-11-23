@@ -357,8 +357,13 @@ public sealed partial class SettingsWindow : Window
     {
         var (sleep, _, hibernate) = PowerActions.Capabilities();
 
+        AddSection(Strings.SetStartMenu);
+        AddCard(
+            ToggleRow(Strings.SetMostUsed, Strings.SetMostUsedNote, s => s.StartMostUsed, (s, on) => s.StartMostUsed = on));
+
         AddSection(Strings.SetPowerMenu);
         AddCard(
+            AlwaysOnRow(Strings.PowerLock, Strings.SetAlwaysInPowerMenuLock),
             OfferedToggleRow(Strings.PowerSleep, sleep, Strings.SetCannotSleep, s => s.PowerSleep, (s, on) => s.PowerSleep = on),
             OfferedToggleRow(Strings.PowerHibernate, hibernate, Strings.SetHibernationOff, s => s.PowerHibernate, (s, on) => s.PowerHibernate = on),
             ToggleRow(Strings.PowerShutDown, string.Empty, s => s.PowerShutDown, (s, on) => s.PowerShutDown = on),
@@ -876,7 +881,33 @@ public sealed partial class SettingsWindow : Window
                 5,
                 s => s.DuoRingSize,
                 (s, v) => s.DuoRingSize = (int)Math.Round(v),
-                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"));
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"),
+            SliderRow(
+                Strings.SetLowBattery,
+                Strings.SetLowBatteryNote,
+                ShellSettings.MinRingLowBattery,
+                ShellSettings.MaxRingLowBattery,
+                5,
+                s => s.DuoRingLowBattery,
+                (s, v) => s.DuoRingLowBattery = (int)Math.Round(v),
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"),
+            ComboRow(
+                Strings.SetTransparency,
+                Strings.SetRingTransparencyNote,
+                new[] { Strings.SetAuto, Strings.SetManual },
+                s => s.DuoRingTransparencyAuto ? 0 : 1,
+                (s, i) => s.DuoRingTransparencyAuto = i == 0),
+            EnabledWhen(
+                SliderRow(
+                    Strings.SetManualTransparency,
+                    Strings.SetManualTransparencyNote,
+                    0,
+                    100,
+                    5,
+                    s => s.DuoRingTransparency,
+                    (s, v) => s.DuoRingTransparency = (int)Math.Round(v),
+                    v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"),
+                s => !s.DuoRingTransparencyAuto));
     }
 
     private void BuildDynalandPage()
@@ -899,6 +930,23 @@ public sealed partial class SettingsWindow : Window
                 new[] { Strings.SetNotch, Strings.SetIsland },
                 s => (int)s.DynalandStyle,
                 (s, i) => s.DynalandStyle = (DynalandStyle)i),
+            EnabledWhen(
+                ComboRow(
+                    Strings.SetNotchShape,
+                    Strings.SetNotchShapeNote,
+                    new[] { Strings.SetDefault, Strings.SetTrapezoid },
+                    s => (int)s.DynalandNotchShape,
+                    (s, i) => s.DynalandNotchShape = (DynalandNotchShape)i),
+                s => s.DynalandStyle == DynalandStyle.Notch),
+            SliderRow(
+                Strings.SetTransparency,
+                Strings.SetDynalandTransparencyNote,
+                0,
+                ShellSettings.MaxDynalandTransparency,
+                5,
+                s => s.DynalandTransparency,
+                (s, v) => s.DynalandTransparency = (int)Math.Round(v),
+                v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture) + "%"),
             SliderRow(
                 Strings.SetWidth,
                 string.Empty,
@@ -1151,6 +1199,39 @@ public sealed partial class SettingsWindow : Window
         };
 
         return Row(label, description, toggle);
+    }
+
+    /// <summary>A row whose control is greyed while <paramref name="enabled"/> is false (kept in step with the settings).</summary>
+    private Grid EnabledWhen(Grid row, Func<ShellSettings, bool> enabled)
+    {
+        if (row.Children.Count > 1 && row.Children[1] is FrameworkElement control)
+        {
+            void Refresh()
+            {
+                bool on = enabled(_host.Settings.Current);
+                if (control is Control single)
+                {
+                    single.IsEnabled = on;
+                }
+                else if (control is Panel panel)
+                {
+                    foreach (UIElement child in panel.Children)
+                    {
+                        if (child is Control part)
+                        {
+                            part.IsEnabled = on;
+                        }
+                    }
+
+                    panel.Opacity = on ? 1 : 0.6;
+                }
+            }
+
+            Refresh();
+            _refreshers.Add(Refresh);
+        }
+
+        return row;
     }
 
     /// <summary>An entry that is always there: its toggle shows On, greyed, and the note says why.</summary>

@@ -13,9 +13,10 @@ namespace Machitan.Flyouts;
 
 /// <summary>
 /// Win+A: volume (Windows' default speakers, through Core Audio) and screen brightness
-/// (the laptop's own screen through WMI, external monitors over DDC/CI), lined up with the bar
-/// like Start. Each control is there only when Windows can really do it: no speakers, no
-/// volume; no screen whose brightness can be set, no brightness.
+/// (the laptop's own screen through WMI, external monitors over DDC/CI), next to the status
+/// ring while it is shown (below it, in a top corner), else lined up with the bar like Start.
+/// Each control is there only when Windows can really do it: no speakers, no volume; no screen
+/// whose brightness can be set, no brightness.
 /// </summary>
 public sealed partial class QuickSettingsFlyout : FlyoutWindow
 {
@@ -90,6 +91,9 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
         ShowSized();
         _ = CheckScreensAsync();
     }
+
+    /// <summary>Opens by the status ring while it is shown (the ring's own click still goes to Windows).</summary>
+    private protected override Machitan.Interop.RECT? WidgetAnchor => Host.StatusRingRect();
 
     private protected override void OnHiding()
     {

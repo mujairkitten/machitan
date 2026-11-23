@@ -1,12 +1,30 @@
 # Changelog
 
-What changed in each Machitan release, in short. The full working notes are in `CHANGELOG-i1.md`.
-
-## 0.9.1 (not released yet)
+## 0.9.1 (2026-11-23)
 
 ### Added
 
 - **Notifications in Dynaland.** Dynaland's general page lists Windows' own notifications, newest first, laid out like Windows' notification panel: the app's icon and name, the time, the title and the text, and the notification's pictures. Click one to open its app, dismiss one with its X, or clear them all (in Windows too). Machitan keeps no copy: a notification Windows no longer holds is gone from Dynaland too.
+- **Lock** in Start's power menu.
+- **Status ring options:** the battery level where the ring turns red, and its background: Auto (as before) or Manual, with a transparency slider.
+- **Dynaland options:** a transparency slider (up to 50%, so the text stays easy to read) and a trapezoid notch shape.
+- **Start: pinned categories.** Name them, add, move and remove them; move apps between them with Move to.
+- **Start: Most used** (optional, off by default): the apps you open most from Start, at the top of All apps; it folds away. Counted by Machitan on your PC; turning it off deletes the counts.
+- **Start: letters in All apps.** Click a letter to jump to another, as in Windows' Start.
+- **Start: drag and drop.** Drag pinned apps to any place in any category; drag an app from All apps into Pinned to pin it there.
+- Icons in Start's power menu.
+
+### Changed
+
+- **Start's new layout:** your picture and a greeting at the top with the folders and power, search over the pinned apps on the left, All apps on the right.
+- Win+N's calendar opens below the info line, and clicking the info line opens it (instead of Windows' notification centre). Win+A's volume and brightness open below the status ring. Without those widgets, both open by the bar as before.
+
+### Fixed
+
+- Show desktop's thin line shows only when the pointer is close to it, not anywhere on the bar.
+- Clicking an app on the bar closes Start.
+- The tray's ^ button closes the box when it is open, and turns over while the box is open.
+- The hover background of the tray's ^ button and tray icons is rounded like the other bar buttons, not an oval.
 
 ### Known limits
 

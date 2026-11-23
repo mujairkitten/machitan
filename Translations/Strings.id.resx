@@ -293,6 +293,15 @@
     <value>Kamera: {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="DynClearAll" xml:space="preserve">
+    <value>Hapus semua</value>
+  </data>
+  <data name="DynDismiss" xml:space="preserve">
+    <value>Tutup</value>
+  </data>
+  <data name="DynDismissFrom" xml:space="preserve">
+    <value>Tutup pemberitahuan dari {0}</value>
+  </data>
   <data name="DynInUseNow" xml:space="preserve">
     <value>Sedang dipakai</value>
   </data>
@@ -317,11 +326,17 @@
   <data name="DynNext" xml:space="preserve">
     <value>Lagu berikutnya</value>
   </data>
+  <data name="DynNoNotifications" xml:space="preserve">
+    <value>Tidak ada pemberitahuan</value>
+  </data>
   <data name="DynNothingInUse" xml:space="preserve">
     <value>Tidak ada yang memakai kamera atau mikrofon.</value>
   </data>
   <data name="DynNotifications" xml:space="preserve">
     <value>Pemberitahuan</value>
+  </data>
+  <data name="DynNotificationsNotAllowed" xml:space="preserve">
+    <value>Windows tidak mengizinkan Machitan membaca pemberitahuan (Pengaturan &gt; Privasi &amp; keamanan &gt; Pemberitahuan).</value>
   </data>
   <data name="DynOpenNotifications" xml:space="preserve">
     <value>Buka pusat pemberitahuan Windows</value>
@@ -510,6 +525,9 @@
   <data name="PowerHibernate" xml:space="preserve">
     <value>Hibernasi</value>
   </data>
+  <data name="PowerLock" xml:space="preserve">
+    <value>Kunci</value>
+  </data>
   <data name="PowerRestart" xml:space="preserve">
     <value>Mulai ulang</value>
   </data>
@@ -690,8 +708,14 @@
   <data name="SetAlwaysInPowerMenu" xml:space="preserve">
     <value>Selalu ada di menu, agar Machitan selalu bisa ditutup dari Mulai.</value>
   </data>
+  <data name="SetAlwaysInPowerMenuLock" xml:space="preserve">
+    <value>Selalu ada di menu.</value>
+  </data>
   <data name="SetAppNames" xml:space="preserve">
     <value>Nama aplikasi</value>
+  </data>
+  <data name="SetAuto" xml:space="preserve">
+    <value>Otomatis</value>
   </data>
   <data name="SetAutoHide" xml:space="preserve">
     <value>Sembunyikan otomatis</value>
@@ -751,6 +775,9 @@
   <data name="SetDate" xml:space="preserve">
     <value>Tanggal</value>
   </data>
+  <data name="SetDefault" xml:space="preserve">
+    <value>Bawaan</value>
+  </data>
   <data name="SetDiagnosticsLog" xml:space="preserve">
     <value>Log diagnostik</value>
   </data>
@@ -759,6 +786,9 @@
   </data>
   <data name="SetDragTip" xml:space="preserve">
     <value>Seret untuk memindahkan (Alt+Atas, Alt+Bawah)</value>
+  </data>
+  <data name="SetDynalandTransparencyNote" xml:space="preserve">
+    <value>Paling banyak 50%, agar teksnya tetap mudah dibaca.</value>
   </data>
   <data name="SetEdgeNote" xml:space="preserve">
     <value>Tepi layar yang berseberangan dengan bilah.</value>
@@ -838,6 +868,21 @@
     <value>Mencari "{0}"...</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="SetLowBattery" xml:space="preserve">
+    <value>Baterai lemah</value>
+  </data>
+  <data name="SetLowBatteryNote" xml:space="preserve">
+    <value>Lingkar baterai jadi merah di bawah daya ini.</value>
+  </data>
+  <data name="SetManual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="SetManualTransparency" xml:space="preserve">
+    <value>Transparansi manual</value>
+  </data>
+  <data name="SetManualTransparencyNote" xml:space="preserve">
+    <value>Untuk Manual: seberapa tembus pandang latarnya. 100% berarti tanpa latar.</value>
+  </data>
   <data name="SetMode" xml:space="preserve">
     <value>Mode</value>
   </data>
@@ -856,6 +901,12 @@
   <data name="SetModeSegmented" xml:space="preserve">
     <value>Tersegmen</value>
   </data>
+  <data name="SetMostUsed" xml:space="preserve">
+    <value>Aplikasi paling sering dipakai</value>
+  </data>
+  <data name="SetMostUsedNote" xml:space="preserve">
+    <value>Di atas Semua aplikasi: aplikasi yang paling sering Anda buka dari Mulai, dihitung Machitan di PC ini. Mematikannya menghapus hitungannya.</value>
+  </data>
   <data name="SetMoveName" xml:space="preserve">
     <value>Pindahkan {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
@@ -872,6 +923,12 @@
   </data>
   <data name="SetNotch" xml:space="preserve">
     <value>Takik</value>
+  </data>
+  <data name="SetNotchShape" xml:space="preserve">
+    <value>Bentuk takik</value>
+  </data>
+  <data name="SetNotchShapeNote" xml:space="preserve">
+    <value>Hanya untuk bentuk takik.</value>
   </data>
   <data name="SetOpacity" xml:space="preserve">
     <value>Opasitas</value>
@@ -999,6 +1056,9 @@
   <data name="SetRight" xml:space="preserve">
     <value>Kanan</value>
   </data>
+  <data name="SetRingTransparencyNote" xml:space="preserve">
+    <value>Otomatis: latar lembut hanya bila wallpaper membuat cincin sulit dibaca.</value>
+  </data>
   <data name="SetRunAtStartup" xml:space="preserve">
     <value>Jalankan saat Windows dimulai</value>
   </data>
@@ -1028,6 +1088,9 @@
   </data>
   <data name="SetStartButton" xml:space="preserve">
     <value>Tombol Mulai</value>
+  </data>
+  <data name="SetStartMenu" xml:space="preserve">
+    <value>Menu Mulai</value>
   </data>
   <data name="SetStartup" xml:space="preserve">
     <value>Saat Windows dimulai</value>
@@ -1061,6 +1124,12 @@
   </data>
   <data name="SetTopRight" xml:space="preserve">
     <value>Kanan atas</value>
+  </data>
+  <data name="SetTransparency" xml:space="preserve">
+    <value>Transparansi</value>
+  </data>
+  <data name="SetTrapezoid" xml:space="preserve">
+    <value>Trapesium</value>
   </data>
   <data name="SetTrayOnBar" xml:space="preserve">
     <value>Baki di bilah</value>
@@ -1101,8 +1170,62 @@
   <data name="StartAllApps" xml:space="preserve">
     <value>Semua aplikasi</value>
   </data>
+  <data name="StartAppsWithLetter" xml:space="preserve">
+    <value>Aplikasi di bawah {0}</value>
+  </data>
+  <data name="StartCategoryName" xml:space="preserve">
+    <value>Nama kategori</value>
+  </data>
+  <data name="StartCategoryOptions" xml:space="preserve">
+    <value>Pilihan untuk {0}</value>
+  </data>
+  <data name="StartCollapse" xml:space="preserve">
+    <value>Ciutkan</value>
+  </data>
+  <data name="StartEmptyCategory" xml:space="preserve">
+    <value>Belum ada aplikasi di sini. Klik kanan aplikasi yang disematkan, lalu pilih Pindahkan ke.</value>
+  </data>
+  <data name="StartExpand" xml:space="preserve">
+    <value>Bentangkan</value>
+  </data>
   <data name="StartFilesHint" xml:space="preserve">
     <value>Ketik minimal dua huruf setelah files: untuk mencari di Desktop, Dokumen, Unduhan, Gambar, Musik, dan Video.</value>
+  </data>
+  <data name="StartGreetAfternoon" xml:space="preserve">
+    <value>Selamat sore, {0}</value>
+  </data>
+  <data name="StartGreetEvening" xml:space="preserve">
+    <value>Selamat malam, {0}</value>
+  </data>
+  <data name="StartGreetMidday" xml:space="preserve">
+    <value>Selamat siang, {0}</value>
+  </data>
+  <data name="StartGreetMorning" xml:space="preserve">
+    <value>Selamat pagi, {0}</value>
+  </data>
+  <data name="StartJumpToLetter" xml:space="preserve">
+    <value>Lompat ke huruf</value>
+  </data>
+  <data name="StartLetterName" xml:space="preserve">
+    <value>{0}, lompat ke huruf lain</value>
+  </data>
+  <data name="StartMostUsed" xml:space="preserve">
+    <value>Paling sering dipakai</value>
+  </data>
+  <data name="StartMostUsedEmpty" xml:space="preserve">
+    <value>Aplikasi yang paling sering Anda buka dari Mulai muncul di sini.</value>
+  </data>
+  <data name="StartMoveDown" xml:space="preserve">
+    <value>Pindah ke bawah</value>
+  </data>
+  <data name="StartMoveTo" xml:space="preserve">
+    <value>Pindahkan ke</value>
+  </data>
+  <data name="StartMoveUp" xml:space="preserve">
+    <value>Pindah ke atas</value>
+  </data>
+  <data name="StartNewCategory" xml:space="preserve">
+    <value>Kategori baru</value>
   </data>
   <data name="StartNoApps" xml:space="preserve">
     <value>Tidak ada aplikasi.</value>
@@ -1121,6 +1244,12 @@
   </data>
   <data name="StartPowerNothing" xml:space="preserve">
     <value>Belum ada yang dipilih di Pengaturan &gt; Mulai</value>
+  </data>
+  <data name="StartRemoveCategory" xml:space="preserve">
+    <value>Hapus kategori</value>
+  </data>
+  <data name="StartRenameCategory" xml:space="preserve">
+    <value>Ganti nama</value>
   </data>
   <data name="StartResults" xml:space="preserve">
     <value>Hasil</value>

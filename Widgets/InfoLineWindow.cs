@@ -19,8 +19,8 @@ namespace Machitan.Widgets;
 /// <summary>
 /// The corner info line: one capsule with the date, the time (seconds optional) and the
 /// weather (each can be turned off; the line hides when nothing is left). Same fill as the
-/// bar. The weather is for Windows' location or a place chosen in Settings. A click sends
-/// Win+N to Windows, which opens the system's own notification centre.
+/// bar. The weather is for Windows' location or a place chosen in Settings. A click opens
+/// Machitan's own Win+N flyout (the calendar) next to the line, and closes it again.
 /// </summary>
 public sealed partial class InfoLineWindow : CornerWidgetWindow
 {
@@ -300,20 +300,13 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
 
     private void OnClicked()
     {
-        // Windows' own notification centre: Win+N, marked so Machitan's keyboard hook lets it
-        // through to Windows instead of opening Machitan's calendar.
-        bool sent = KeyChord.SendWin('N');
-        if (!_clickedOnce || !sent)
+        // Machitan's own Win+N flyout, by the line (see CalendarFlyout.WidgetAnchor).
+        if (!_clickedOnce)
         {
             _clickedOnce = true;
-            if (sent)
-            {
-                Log.Info("Info line clicked: Win+N sent to Windows (its notification centre).");
-            }
-            else
-            {
-                Log.Warn("Info line clicked, but Windows did not take the Win+N key press.");
-            }
+            Log.Info("Info line clicked: Machitan's Win+N flyout (the calendar) opens or closes by it.");
         }
+
+        Host.ToggleCalendarFrom(ShapeScreenRect());
     }
 }

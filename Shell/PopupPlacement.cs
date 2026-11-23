@@ -62,6 +62,29 @@ internal static class PopupPlacement
         return Clamp(screen, left, y, width, height);
     }
 
+    /// <summary>
+    /// Next to a corner widget (its shape on screen): below it when it sits in the top half of
+    /// its screen, above it otherwise, with "gap" between, and lined up with the widget's outer
+    /// edge (its left edge for a widget on the left half, its right edge otherwise).
+    /// </summary>
+    internal static RectInt32 NextToWidget(RECT widget, int width, int height, int pad, int gap)
+    {
+        RectInt32 screen = ScreenOf(widget);
+        bool left = (widget.Left + widget.Right) / 2 < screen.X + (screen.Width / 2);
+        int x = left ? widget.Left - pad : widget.Right + pad - width;
+        int y = IsInTopHalf(widget)
+            ? widget.Bottom + gap - pad
+            : widget.Top - gap - height + pad;
+        return Clamp(screen, x, y, width, height);
+    }
+
+    /// <summary>True when the widget sits in the top half of its screen (a pop-up by it opens below it).</summary>
+    internal static bool IsInTopHalf(RECT widget)
+    {
+        RectInt32 screen = ScreenOf(widget);
+        return (widget.Top + widget.Bottom) / 2 < screen.Y + (screen.Height / 2);
+    }
+
     /// <summary>In the middle of the screen.</summary>
     internal static RectInt32 ScreenCentre(int width, int height)
     {
@@ -69,6 +92,12 @@ internal static class PopupPlacement
         int x = screen.X + ((screen.Width - width) / 2);
         int y = screen.Y + ((screen.Height - height) / 2);
         return Clamp(screen, x, y, width, height);
+    }
+
+    private static RectInt32 ScreenOf(RECT rect)
+    {
+        var probe = new RectInt32(rect.Left, rect.Top, Math.Max(1, rect.Width), Math.Max(1, rect.Height));
+        return DisplayArea.GetFromRect(probe, DisplayAreaFallback.Primary).OuterBounds;
     }
 
     private static RectInt32 Clamp(RectInt32 screen, int x, int y, int width, int height)

@@ -1,34 +1,34 @@
 # Changelog
 
-## 0.9.2 (in progress)
+## 0.9.2 (2026-11-25)
 
 ### Added
 
-- **Volume in Dynaland's player:** a mute button and a volume bar right below the music controls, as wide as they are. Click or drag the bar, or use the mouse wheel over it. It is Windows' own volume, the same as in Win+A.
-- **Search actions:** Start's search and the bar's search box also list a calculator (type `2+2`: the answer shows on top; Enter or a click copies it) and actions: Machitan's settings, Windows Settings pages (Display, Sound, Bluetooth, Wi-Fi, Windows Update and more), Windows tools from the Win+X menu, Show desktop, Lock, the power menu's choices (with the same questions), Sign out (with a question) and Exit Machitan. `apps:` lists apps only.
-- **Machitan's settings pages in search:** Start's search and the bar's search box list Machitan's Settings pages by any part of their names ("bar" finds Taskbar; Start, Corner widgets, Dynaland and the rest); choosing one opens Settings at that page. Settings itself has a search box above its pages that finds them the same way. When nothing fits, search says "Nothing matches." ("No app matches." with `apps:`).
-- **Action center in Win+A:** switches for Wi-Fi, Bluetooth, airplane mode, mobile hotspot and live captions, as Windows has them on your PC, plus Project and Cast.
-- **Split taskbar** (optional, off by default): pinned apps on top and open apps below, as two rows in one bar or as two stacked bars (Settings > Taskbar).
-- **Windows on Arm:** Machitan builds for ARM64 too, with its own installers (Full and Trimmed).
+- **File shelf in Dynaland.** Drag files or folders onto Dynaland to park them; it opens on its shelf while you drag. Click one to open it, drag it out into a folder or a chat (Windows' usual rules: moved on the same drive, copied to another; Ctrl copies, Shift moves), or take it off with its X. Ctrl or Shift + click picks several, to drag out or take off together; "Clear all" empties the shelf. Machitan keeps only where the files are (shelf.json, next to pins.json), so the shelf stays after a restart and copies nothing; a file moved or deleted since says "Not found". Up to 50 items. Also reached from the shelf button on Dynaland's camera and notifications page.
+- **In-app update.** Settings > About > Updates checks Machitan's releases on GitHub: with its button, and at start and once a day (on by default). A newer version shows there and as "Update: x.y.z" in Start's top row. "Download and install" downloads the installer for your PC (x64 or ARM64, Full or Trimmed), checks it against the SHA-256 GitHub gives for it, and starts Setup, which closes Machitan first and can start it again at the end. Nothing is downloaded or installed without that click, and a check that could not run says so. "Also offer pre-releases" (on for now) includes every version before 1.0 and versions marked as pre-release on GitHub.
+- **Calculator and actions in search.** Start's search and the bar's search box answer sums (type `2+2`; Enter or a click copies the answer) and list things to do: Windows Settings pages (Display, Sound, Bluetooth, Wi-Fi, Windows Update and more), Windows tools from the Win+X menu, Show desktop, Lock, the power menu's choices (with the same questions), Sign out (with a question), Exit Machitan, and Machitan's own Settings pages ("bar" finds Taskbar). `apps:` lists apps only.
+- **A search box in Settings**, above its pages: it finds them by name.
+- **Volume in Dynaland's player.** A mute button and a volume bar right below the music controls. Click or drag the bar, or use the mouse wheel over it. It is Windows' own volume, the same as in Win+A.
+- **Action center in Win+A.** Switches for Wi-Fi, Bluetooth, airplane mode, mobile hotspot and live captions, as Windows has them on your PC, plus Project and Cast.
+- **Split taskbar** (optional, off by default). Pinned apps on top and open apps below, as two rows in one bar or as two stacked bars (Settings > Taskbar).
+- **Windows on Arm.** Machitan builds for ARM64 too, with its own installers (Full and Trimmed).
 
 ### Changed
 
+- **Shortcuts in apps running as administrator** are set up by the installer (a ticked box), with no extra Windows question: on after installing. Turned off in Settings > Shortcuts, it stays off through later updates. Only a small helper runs as administrator; Machitan itself keeps normal rights.
 - New apps show in Start and search a few seconds after they are installed (and go when removed), without waiting for Start to open.
+- Settings > Privacy says what the shelf keeps and what GitHub sees when updates are checked.
 
 ### Fixed
 
 - The bar's search icon closes Start before Windows' search opens.
 
-### Checked so far
-
-- Everything above the search actions builds (2026-11-25).
-- Volume in Dynaland's player: checked by Sam after its second look (2026-11-25).
-- Search actions: checked by Sam (2026-11-25).
-- The rest has not been run yet.
-
-### Left out
+### Known limits
 
 - Win+A has no Night light, Energy saver or Do not disturb switch: Windows has no public way for other apps to switch them.
+- Windows does not let File Explorer drop files on an app running as administrator. If Machitan was started as administrator (for example from an app running as administrator), the shelf takes no drops; started normally, it does.
+- Shortcuts in apps running as administrator work for one copy of Machitan.exe at a time: the installed one, after Setup.
+- An update installs into the folder Setup installed Machitan in, not over a copy run from elsewhere. Machitan installs an update itself only when the release has the installer for your PC under its usual name and GitHub gives its SHA-256; otherwise Settings > About opens the release page.
 
 ## 0.9.1 (2026-11-23)
 

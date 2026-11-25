@@ -137,6 +137,9 @@ public sealed partial class StartMenuWindow : Window
 
     /// <summary>"apps:" was typed: apps only, no actions.</summary>
     private bool _appsOnly;
+
+    /// <summary>"Update: 0.9.3", first in the top row's folder buttons, while a newer Machitan is known.</summary>
+    private Button? _updateBadge;
     private string _query = string.Empty;
     private string _folderLook = string.Empty;
     private int _popupsOpen;
@@ -208,14 +211,17 @@ public sealed partial class StartMenuWindow : Window
         {
             _subclass?.Dispose();
             _subclass = null;
+            _host.Updates.Changed -= ShowUpdateBadge;
         };
 
         _host.Catalog.Changed += OnCatalogChanged;
         _host.StartPins.Changed += OnPinsChanged;
         _host.Settings.Changed += OnSettingsChanged;
+        _host.Updates.Changed += ShowUpdateBadge;
 
         ApplyLook();
         BuildFolders();
+        BuildUpdateBadge();
         LoadUser();
         RebuildApps();
     }
@@ -779,6 +785,12 @@ public sealed partial class StartMenuWindow : Window
 
         _folderLook = look.ToString();
         FolderPanel.Children.Clear();
+
+        // The update button stays first (see BuildUpdateBadge).
+        if (_updateBadge is not null)
+        {
+            FolderPanel.Children.Add(_updateBadge);
+        }
         foreach (StartFolder folder in folders)
         {
             if (!folder.On(settings))
@@ -837,6 +849,57 @@ public sealed partial class StartMenuWindow : Window
         {
             Log.Error("Start: could not open " + target, ex);
         }
+    }
+
+    /// <summary>
+    /// The top row's update button: "Update: 0.9.3" in the accent colour, first before the folder
+    /// buttons, only while a newer Machitan is known (UpdateService: the check at start and once a
+    /// day, or Settings > About's). It opens Settings > About, where it is installed after a yes;
+    /// nothing else of the update is done from Start.
+    /// </summary>
+    private void BuildUpdateBadge()
+    {
+        var badge = new Button
+        {
+            Height = 28,
+            MinHeight = 0,
+            Padding = new Thickness(10, 0, 10, 0),
+            Margin = new Thickness(0, 0, 6, 0),
+            FontSize = 12,
+            CornerRadius = new CornerRadius(14),
+            BorderThickness = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed,
+        };
+        badge.Click += (_, _) =>
+        {
+            HideMenu();
+            _host.OpenSettings(SettingsUi.SettingsPages.About);
+        };
+        _updateBadge = badge;
+        FolderPanel.Children.Insert(0, badge);
+        ShowUpdateBadge();
+    }
+
+    private void ShowUpdateBadge()
+    {
+        if (_updateBadge is not Button badge)
+        {
+            return;
+        }
+
+        UpdateService updates = _host.Updates;
+        bool show = updates.NewerKnown;
+        if (show)
+        {
+            string name = Fmt.F(Strings.UpdStartBadgeName, updates.LatestText);
+            badge.Content = Fmt.F(Strings.UpdStartBadge, updates.LatestText);
+            AutomationProperties.SetName(badge, name);
+            ToolTipService.SetToolTip(badge, name);
+            ResultActions.PaintAccent(badge, _host.Accent.Current);
+        }
+
+        badge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static Button MakeTextButton(string text, Action onClick)

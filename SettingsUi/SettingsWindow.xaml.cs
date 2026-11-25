@@ -42,6 +42,9 @@ public sealed partial class SettingsWindow : Window
     private bool _refreshing;
     private bool _builtDark;
 
+    /// <summary>Redraws About's update row; set while the About page shows.</summary>
+    private Action? _updateRefresh;
+
     internal SettingsWindow(ShellHost host)
     {
         _host = host;
@@ -64,10 +67,12 @@ public sealed partial class SettingsWindow : Window
         ResizeToDip();
 
         _host.Settings.Changed += OnSettingsChanged;
+        _host.Updates.Changed += OnUpdatesChanged;
         Closed += (_, _) =>
         {
             FlushSlider();
             _host.Settings.Changed -= OnSettingsChanged;
+            _host.Updates.Changed -= OnUpdatesChanged;
         };
     }
 
@@ -232,6 +237,7 @@ public sealed partial class SettingsWindow : Window
         _builtDark = IsDark();
         Sections.Children.Clear();
         _refreshers.Clear();
+        _updateRefresh = null;
         _statusText = null;
 
         if (SettingsPages.Named(key) is SettingsPage shown)
@@ -1152,6 +1158,12 @@ public sealed partial class SettingsWindow : Window
                 Strings.SetStatusRing,
                 Strings.SetPrivacyRing),
             TextRow(
+                Strings.SetShelf,
+                Fmt.F(Strings.SetPrivacyShelf, AppPaths.ShelfFile)),
+            TextRow(
+                Strings.SetUpdates,
+                Strings.SetPrivacyUpdates),
+            TextRow(
                 Strings.SetDiagnosticsLog,
                 Fmt.F(Strings.SetPrivacyLog, AppPaths.LogFile)),
             ButtonRow(Strings.SetOpenFolder, string.Empty, OpenDataFolder));
@@ -1162,6 +1174,34 @@ public sealed partial class SettingsWindow : Window
         AddCard(TextRow(
             "Machitan " + typeof(SettingsWindow).Assembly.GetName().Version,
             Fmt.F(Strings.SetAboutText, Environment.OSVersion.Version.Build.ToString(CultureInfo.InvariantCulture))));
+
+        AddSection(Strings.SetUpdates);
+        AddCard(
+            UpdateRow(),
+            ToggleRow(
+                Strings.SetCheckForUpdates,
+                Strings.SetCheckForUpdatesNote,
+                s => s.CheckForUpdates,
+                (s, on) => s.CheckForUpdates = on),
+            ToggleRow(
+                Strings.SetOfferPreReleases,
+                Strings.SetOfferPreReleasesNote,
+                s => s.OfferPreReleasesNow,
+                (s, on) =>
+                {
+                    s.OfferPreReleases = on;
+                    s.OfferPreReleasesChosen = true;
+                }));
+        UpdateService updates = _host.Updates;
+        if (!updates.IsSetupCopy)
+        {
+            string target = updates.SetupFolder
+                ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Machitan");
+            AddNote(Fmt.F(
+                Strings.UpdNotSetupCopy,
+                System.IO.Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory),
+                System.IO.Path.TrimEndingDirectorySeparator(target)));
+        }
 
         AddSection(Strings.SetPlanned);
         AddNote(Strings.SetNotBuiltYet);
@@ -1574,6 +1614,159 @@ public sealed partial class SettingsWindow : Window
             settings.WeatherPlaceName,
             settings.WeatherLatitude!.Value.ToString("0.00", CultureInfo.InvariantCulture),
             settings.WeatherLongitude!.Value.ToString("0.00", CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>
+    /// About's update row: where the update stands (UpdateService), in words, with what can be
+    /// done now (check, download and install, cancel, start Setup again, the release's page).
+    /// Redrawn whenever the update moves on, while the page shows.
+    /// </summary>
+    private Grid UpdateRow()
+    {
+        var title = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        var detail = new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
+        var bar = new ProgressBar { Minimum = 0, Maximum = 100, Margin = new Thickness(0, 6, 0, 0), Visibility = Visibility.Collapsed };
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2 };
+        text.Children.Add(title);
+        text.Children.Add(detail);
+        text.Children.Add(bar);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        var grid = new Grid { Padding = new Thickness(0, 12, 0, 12), ColumnSpacing = 24 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(buttons, 1);
+        grid.Children.Add(text);
+        grid.Children.Add(buttons);
+
+        UpdateService updates = _host.Updates;
+
+        void AddButton(string label, Action onClick, bool accent = false)
+        {
+            var button = new Button { Content = label, CornerRadius = new CornerRadius(Radii.Small) };
+            AutomationProperties.SetName(button, label);
+            if (accent)
+            {
+                Start.ResultActions.PaintAccent(button, _host.Accent.Current);
+            }
+
+            button.Click += (_, _) => onClick();
+            buttons.Children.Add(button);
+        }
+
+        void Check() => _ = updates.CheckAsync();
+        void Install() => _ = updates.DownloadAndInstallAsync();
+        void OpenPage() => Launcher.Start(updates.ReleaseUrl);
+
+        void Refresh()
+        {
+            string thisCopy = Fmt.F(Strings.UpdThisCopy, updates.InstalledText, updates.ThisPc);
+            string checkedAt = updates.CheckedAt is DateTime at ? Fmt.F(Strings.UpdCheckedAt, at.ToString("t", CultureInfo.CurrentCulture)) : string.Empty;
+            buttons.Children.Clear();
+            bar.Visibility = Visibility.Collapsed;
+            bar.IsIndeterminate = false;
+            switch (updates.State)
+            {
+                case UpdateState.Checking:
+                    title.Text = Strings.UpdChecking;
+                    detail.Text = thisCopy;
+                    bar.IsIndeterminate = true;
+                    bar.Visibility = Visibility.Visible;
+                    break;
+                case UpdateState.UpToDate:
+                    title.Text = Fmt.F(Strings.UpdUpToDate, updates.InstalledText);
+                    detail.Text = thisCopy + " " + checkedAt;
+                    AddButton(Strings.UpdCheckAgain, Check);
+                    break;
+                case UpdateState.CheckFailed when updates.Problem == UpdateProblem.NoFinalRelease:
+                    // The check worked: there are only pre-releases, and they are not offered.
+                    title.Text = Strings.UpdNoOffer;
+                    detail.Text = ProblemText(updates.Problem) + " " + checkedAt;
+                    AddButton(Strings.UpdCheckAgain, Check);
+                    break;
+                case UpdateState.CheckFailed:
+                    title.Text = Strings.UpdCheckFailed;
+                    detail.Text = ProblemText(updates.Problem) + " " + Strings.UpdNothingKnown + " " + checkedAt;
+                    AddButton(Strings.UpdTryAgain, Check);
+                    break;
+                case UpdateState.Available:
+                    title.Text = Fmt.F(updates.LatestIsPreRelease ? Strings.UpdAvailablePre : Strings.UpdAvailable, updates.LatestText);
+                    if (updates.CanInstall)
+                    {
+                        string megabytes = (updates.AssetSize / 1048576.0).ToString("0.0", CultureInfo.CurrentCulture);
+                        detail.Text = Fmt.F(Strings.UpdAvailableNote, updates.AssetName, megabytes);
+                        AddButton(Strings.UpdDownloadInstall, Install, accent: true);
+                        AddButton(Strings.UpdWhatsNew, OpenPage);
+                    }
+                    else
+                    {
+                        detail.Text = updates.Problem == UpdateProblem.NoInstaller
+                            ? Fmt.F(Strings.UpdNoInstaller, updates.ThisPc)
+                            : Strings.UpdNoDigest;
+                        AddButton(Strings.UpdReleasePage, OpenPage, accent: true);
+                    }
+
+                    break;
+                case UpdateState.Downloading:
+                    int percent = (int)Math.Round(updates.Progress * 100);
+                    title.Text = Fmt.F(Strings.UpdDownloading, updates.LatestText, percent);
+                    detail.Text = updates.AssetName;
+                    bar.Value = percent;
+                    bar.Visibility = Visibility.Visible;
+                    AddButton(Strings.Cancel, updates.CancelDownload);
+                    break;
+                case UpdateState.DownloadFailed:
+                    title.Text = Strings.UpdDownloadFailed;
+                    detail.Text = ProblemText(updates.Problem);
+                    AddButton(Strings.UpdTryAgain, Install, accent: true);
+                    AddButton(Strings.UpdReleasePage, OpenPage);
+                    break;
+                case UpdateState.SetupStarted:
+                    title.Text = Strings.UpdSetupOpen;
+                    detail.Text = Fmt.F(Strings.UpdSetupOpenNote, updates.LatestText);
+                    AddButton(Strings.UpdStartSetup, () => _ = updates.StartSetupAgainAsync());
+                    break;
+                case UpdateState.SetupFailed:
+                    title.Text = Strings.UpdSetupFailed;
+                    detail.Text = ProblemText(updates.Problem);
+                    AddButton(Strings.UpdTryAgain, () => _ = updates.StartSetupAgainAsync(), accent: true);
+                    AddButton(Strings.UpdReleasePage, OpenPage);
+                    break;
+                default:
+                    title.Text = Strings.UpdNotChecked;
+                    detail.Text = thisCopy;
+                    AddButton(Strings.UpdCheck, Check, accent: true);
+                    break;
+            }
+
+            detail.Visibility = detail.Text.Trim().Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            AutomationProperties.SetName(grid, title.Text);
+        }
+
+        Refresh();
+        _updateRefresh = Refresh;
+        return grid;
+    }
+
+    /// <summary>Why an update step did not happen, in words.</summary>
+    private static string ProblemText(UpdateProblem problem) => problem switch
+    {
+        UpdateProblem.NoConnection => Strings.UpdNoConnection,
+        UpdateProblem.Refused => Strings.UpdRefused,
+        UpdateProblem.NoRelease => Strings.UpdNoRelease,
+        UpdateProblem.NoFinalRelease => Strings.UpdNoFinalRelease,
+        UpdateProblem.BadAnswer => Strings.UpdBadAnswer,
+        UpdateProblem.NoDigest => Strings.UpdNoDigest,
+        UpdateProblem.Broken => Strings.UpdBroken,
+        UpdateProblem.Cancelled => Strings.UpdCancelled,
+        UpdateProblem.CannotSave => Strings.UpdCannotSave,
+        UpdateProblem.SetupDeclined => Strings.UpdSetupDeclined,
+        UpdateProblem.SetupDidNotStart => Strings.UpdSetupDidNotStart,
+        _ => Strings.UpdOther,
+    };
+
+    private void OnUpdatesChanged()
+    {
+        _updateRefresh?.Invoke();
     }
 
     private static Grid TextRow(string label, string description)

@@ -15,6 +15,8 @@ namespace Machitan;
 /// Order:
 ///   1. "--guardian &lt;pid&gt;": this process is the guardian. It never starts any UI.
 ///      "--adminkeys": the admin-keys helper (see AdminKeys). It never starts any UI either.
+///      "--setup-adminkeys": the installer's step that turns the admin keys on (see
+///      AdminKeys.SetUpForInstaller). No UI; it leaves at once.
 ///   2. "--exit": ask the running shell to close, then leave.
 ///   3. Otherwise run the shell: single-instance check, start the guardian, run (the shell hides
 ///      Explorer's taskbar once its own bar is up), and restore the taskbar in a finally block
@@ -36,6 +38,12 @@ internal static class EntryPoint
             {
                 // Started as administrator by its scheduled task; no UI at all.
                 return AdminKeysHelper.Run();
+            }
+
+            if (args.Length > 0 && string.Equals(args[0], AdminKeys.SetupArgument, StringComparison.OrdinalIgnoreCase))
+            {
+                // Run by the installer, as administrator; no UI at all.
+                return AdminKeys.SetUpForInstaller();
             }
 
             if (HasArgument(args, ExitSignal.Argument))

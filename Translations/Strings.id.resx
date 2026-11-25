@@ -283,6 +283,9 @@
   <data name="DynAnApp" xml:space="preserve">
     <value>sebuah aplikasi</value>
   </data>
+  <data name="DynBackToGeneral" xml:space="preserve">
+    <value>Kembali ke kamera, mikrofon, dan pemberitahuan</value>
+  </data>
   <data name="DynBackToMusic" xml:space="preserve">
     <value>Kembali ke musik</value>
   </data>
@@ -361,12 +364,60 @@
   <data name="DynPrevious" xml:space="preserve">
     <value>Lagu sebelumnya</value>
   </data>
+  <data name="DynShelf" xml:space="preserve">
+    <value>Rak</value>
+  </data>
+  <data name="DynShelfAdd" xml:space="preserve">
+    <value>Tambahkan ke rak</value>
+  </data>
+  <data name="DynShelfClearAll" xml:space="preserve">
+    <value>Kosongkan rak (file tetap di tempatnya)</value>
+  </data>
+  <data name="DynShelfCount" xml:space="preserve">
+    <value>{0} dipilih</value>
+  </data>
+  <data name="DynShelfDrop" xml:space="preserve">
+    <value>Lepaskan untuk menambahkan ke rak</value>
+  </data>
+  <data name="DynShelfEmpty" xml:space="preserve">
+    <value>Letakkan file atau folder di Dynaland untuk menyimpannya di sini. Hanya lokasinya yang diingat: tidak ada yang disalin.</value>
+  </data>
+  <data name="DynShelfFull" xml:space="preserve">
+    <value>Rak penuh (paling banyak {0}): {1} tidak ditambahkan.</value>
+  </data>
+  <data name="DynShelfIsSelected" xml:space="preserve">
+    <value>Dipilih</value>
+  </data>
+  <data name="DynShelfMissing" xml:space="preserve">
+    <value>Tidak ditemukan: dipindahkan atau dihapus</value>
+  </data>
+  <data name="DynShelfNoPath" xml:space="preserve">
+    <value>{0} tidak ditambahkan: bukan file atau folder di PC ini.</value>
+  </data>
+  <data name="DynShelfNotSaved" xml:space="preserve">
+    <value>shelf.json tidak bisa dibaca, jadi perubahan pada rak tidak disimpan kali ini.</value>
+  </data>
+  <data name="DynShelfRemove" xml:space="preserve">
+    <value>Hapus {0} dari rak</value>
+  </data>
+  <data name="DynShelfRemoveSelected" xml:space="preserve">
+    <value>Hapus yang dipilih dari rak</value>
+  </data>
+  <data name="DynShelfSelectAll" xml:space="preserve">
+    <value>Pilih semua</value>
+  </data>
+  <data name="DynShelfSelectNone" xml:space="preserve">
+    <value>Batalkan pilihan</value>
+  </data>
   <data name="DynTitleBy" xml:space="preserve">
     <value>{0} oleh {1}</value>
     <comment>Keep {0}, {1}: Machitan fills them in.</comment>
   </data>
   <data name="DynToGeneral" xml:space="preserve">
     <value>Tampilkan kamera, mikrofon, dan pemberitahuan</value>
+  </data>
+  <data name="DynToShelf" xml:space="preserve">
+    <value>Buka rak</value>
   </data>
   <data name="DynTray" xml:space="preserve">
     <value>Baki</value>
@@ -819,6 +870,12 @@
   <data name="SetCenter" xml:space="preserve">
     <value>Tengah</value>
   </data>
+  <data name="SetCheckForUpdates" xml:space="preserve">
+    <value>Periksa pembaruan saat mulai dan sekali sehari</value>
+  </data>
+  <data name="SetCheckForUpdatesNote" xml:space="preserve">
+    <value>Machitan menanyakan rilis terbarunya ke GitHub. Tidak ada yang diunduh atau dipasang sampai Anda setuju.</value>
+  </data>
   <data name="SetChoosePicture" xml:space="preserve">
     <value>Pilih gambar</value>
   </data>
@@ -1005,6 +1062,12 @@
   <data name="SetNotchShapeNote" xml:space="preserve">
     <value>Hanya untuk bentuk takik.</value>
   </data>
+  <data name="SetOfferPreReleases" xml:space="preserve">
+    <value>Tawarkan juga pra-rilis</value>
+  </data>
+  <data name="SetOfferPreReleasesNote" xml:space="preserve">
+    <value>Semua versi sebelum 1.0, dan versi yang ditandai pra-rilis di GitHub.</value>
+  </data>
   <data name="SetOpacity" xml:space="preserve">
     <value>Opasitas</value>
   </data>
@@ -1118,6 +1181,12 @@
   <data name="SetPrivacyRing" xml:space="preserve">
     <value>Baterai, jaringan, dan volume berasal dari Windows di PC ini. Nama Wi-Fi berasal dari daftar jaringan Windows, jadi izin lokasi tidak diperlukan.</value>
   </data>
+  <data name="SetPrivacyShelf" xml:space="preserve">
+    <value>Jalur file dan folder yang Anda taruh di rak Dynaland, di {0}. Hanya jalurnya: tidak ada yang disalin, dan tidak ada yang keluar dari PC ini.</value>
+  </data>
+  <data name="SetPrivacyUpdates" xml:space="preserve">
+    <value>Saat pembaruan diperiksa (saat mulai dan sekali sehari selama opsi itu aktif, dan saat Anda memeriksa), Machitan menanyakan rilis terbarunya ke GitHub (api.github.com), sehingga GitHub melihat alamat internet PC ini dan versi Machitan. Pembaruan hanya diunduh dari GitHub saat Anda setuju.</value>
+  </data>
   <data name="SetPrivacyWeather" xml:space="preserve">
     <value>Saat cuaca aktif, Machitan meminta lokasi PC ini kepada Windows paling banyak sekali sejam, membulatkannya hingga sekitar 1 km, lalu mengirimkannya ke Open-Meteo (open-meteo.com) setiap 15 menit. Jika Windows memblokir lokasi untuk aplikasi desktop, cuaca tetap tersembunyi. Dengan tempat yang Anda pilih, koordinat bulatnya yang dikirim, dan pencarian tempat mengirim nama yang Anda ketik ke Open-Meteo. Tidak ada hal lain yang keluar dari PC ini.</value>
   </data>
@@ -1160,6 +1229,9 @@
   </data>
   <data name="SetShape" xml:space="preserve">
     <value>Bentuk</value>
+  </data>
+  <data name="SetShelf" xml:space="preserve">
+    <value>Rak file</value>
   </data>
   <data name="SetShowsWhileUpdate" xml:space="preserve">
     <value>Tampil saat ada pembaruan yang menunggu.</value>
@@ -1235,6 +1307,9 @@
   </data>
   <data name="SetTurnOffAnimationsNote" xml:space="preserve">
     <value>Mulai, ikon tersembunyi (^), dan bilah langsung muncul dan hilang tanpa gerakan. Mematikan Efek animasi di Windows (Aksesibilitas &gt; Efek visual) juga sama.</value>
+  </data>
+  <data name="SetUpdates" xml:space="preserve">
+    <value>Pembaruan</value>
   </data>
   <data name="SetWeather" xml:space="preserve">
     <value>Cuaca</value>
@@ -1405,6 +1480,123 @@
   <data name="UnpinXFromStart" xml:space="preserve">
     <value>Lepas sematan {0} dari Mulai</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="UpdAvailable" xml:space="preserve">
+    <value>Machitan {0} tersedia</value>
+  </data>
+  <data name="UpdAvailableNote" xml:space="preserve">
+    <value>Penginstalnya untuk PC ini adalah {0} ({1} MB). Machitan mengunduhnya dari GitHub, mencocokkannya dengan SHA-256 dari GitHub, lalu menjalankannya; Setup menutup Machitan lebih dulu dan bisa menjalankannya lagi di akhir.</value>
+  </data>
+  <data name="UpdAvailablePre" xml:space="preserve">
+    <value>Machitan {0} (pra-rilis) tersedia</value>
+  </data>
+  <data name="UpdBadAnswer" xml:space="preserve">
+    <value>Jawaban GitHub tidak dapat dibaca.</value>
+  </data>
+  <data name="UpdBroken" xml:space="preserve">
+    <value>Unduhan tidak cocok dengan SHA-256 dari GitHub, jadi dihapus.</value>
+  </data>
+  <data name="UpdCancelled" xml:space="preserve">
+    <value>Unduhan dibatalkan.</value>
+  </data>
+  <data name="UpdCannotSave" xml:space="preserve">
+    <value>Penginstal tidak dapat disimpan di folder sementara.</value>
+  </data>
+  <data name="UpdCheck" xml:space="preserve">
+    <value>Periksa pembaruan</value>
+  </data>
+  <data name="UpdCheckAgain" xml:space="preserve">
+    <value>Periksa lagi</value>
+  </data>
+  <data name="UpdCheckFailed" xml:space="preserve">
+    <value>Pemeriksaan gagal</value>
+  </data>
+  <data name="UpdCheckedAt" xml:space="preserve">
+    <value>Diperiksa pukul {0}.</value>
+  </data>
+  <data name="UpdChecking" xml:space="preserve">
+    <value>Menanyakan ke GitHub...</value>
+  </data>
+  <data name="UpdDownloadFailed" xml:space="preserve">
+    <value>Unduhan gagal</value>
+  </data>
+  <data name="UpdDownloadInstall" xml:space="preserve">
+    <value>Unduh dan pasang</value>
+  </data>
+  <data name="UpdDownloading" xml:space="preserve">
+    <value>Mengunduh Machitan {0}: {1}%</value>
+  </data>
+  <data name="UpdNoConnection" xml:space="preserve">
+    <value>GitHub tidak dapat dihubungi (tidak ada koneksi internet?).</value>
+  </data>
+  <data name="UpdNoDigest" xml:space="preserve">
+    <value>GitHub tidak memberikan SHA-256 untuk penginstalnya, jadi Machitan tidak memasangnya sendiri.</value>
+  </data>
+  <data name="UpdNoFinalRelease" xml:space="preserve">
+    <value>GitHub tidak punya rilis Machitan selain pra-rilis, yang hanya ditawarkan dengan sakelar di bawah.</value>
+  </data>
+  <data name="UpdNoInstaller" xml:space="preserve">
+    <value>Rilis ini tidak punya penginstal untuk PC ini ({0}), jadi hanya bisa diambil dari halamannya.</value>
+  </data>
+  <data name="UpdNoOffer" xml:space="preserve">
+    <value>Tidak ada rilis untuk ditawarkan</value>
+  </data>
+  <data name="UpdNoRelease" xml:space="preserve">
+    <value>GitHub tidak punya rilis Machitan.</value>
+  </data>
+  <data name="UpdNotChecked" xml:space="preserve">
+    <value>Belum diperiksa</value>
+  </data>
+  <data name="UpdNotSetupCopy" xml:space="preserve">
+    <value>Salinan Machitan ini ({0}) bukan yang dipasang Setup: pembaruan memasang versi baru di {1}.</value>
+  </data>
+  <data name="UpdNothingKnown" xml:space="preserve">
+    <value>Belum diketahui apakah ada versi yang lebih baru.</value>
+  </data>
+  <data name="UpdOther" xml:space="preserve">
+    <value>Ada yang salah; diagnostics.log menjelaskannya.</value>
+  </data>
+  <data name="UpdRefused" xml:space="preserve">
+    <value>GitHub menolak permintaan untuk sementara (terlalu banyak dari jaringan ini); coba lagi nanti.</value>
+  </data>
+  <data name="UpdReleasePage" xml:space="preserve">
+    <value>Buka halaman rilis</value>
+  </data>
+  <data name="UpdSetupDeclined" xml:space="preserve">
+    <value>Pertanyaan Windows dijawab tidak.</value>
+  </data>
+  <data name="UpdSetupDidNotStart" xml:space="preserve">
+    <value>Windows tidak menjalankannya; diagnostics.log menjelaskan sebabnya.</value>
+  </data>
+  <data name="UpdSetupFailed" xml:space="preserve">
+    <value>Setup tidak berjalan</value>
+  </data>
+  <data name="UpdSetupOpen" xml:space="preserve">
+    <value>Setup sudah dijalankan</value>
+  </data>
+  <data name="UpdSetupOpenNote" xml:space="preserve">
+    <value>Setup meminta hak administrator ke Windows, menutup Machitan, memasang {0}, dan bisa menjalankan Machitan lagi di akhir. Jika Setup ditutup, jalankan lagi di sini.</value>
+  </data>
+  <data name="UpdStartBadge" xml:space="preserve">
+    <value>Pembaruan: {0}</value>
+  </data>
+  <data name="UpdStartBadgeName" xml:space="preserve">
+    <value>Machitan {0} tersedia: buka Pengaturan &gt; Tentang untuk memasangnya</value>
+  </data>
+  <data name="UpdStartSetup" xml:space="preserve">
+    <value>Jalankan Setup lagi</value>
+  </data>
+  <data name="UpdThisCopy" xml:space="preserve">
+    <value>Ini Machitan {0} ({1}).</value>
+  </data>
+  <data name="UpdTryAgain" xml:space="preserve">
+    <value>Coba lagi</value>
+  </data>
+  <data name="UpdUpToDate" xml:space="preserve">
+    <value>Machitan {0} adalah versi terbaru</value>
+  </data>
+  <data name="UpdWhatsNew" xml:space="preserve">
+    <value>Yang baru</value>
   </data>
   <data name="WinXComputerManagement" xml:space="preserve">
     <value>Manajemen Kompute&amp;r</value>

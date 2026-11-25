@@ -175,6 +175,12 @@ internal sealed class ShellHost
     /// <summary>How often each app was opened from Start, for its Most used list (only while that is on).</summary>
     internal AppUsage Usage { get; } = new();
 
+    /// <summary>In-app update from Machitan's GitHub releases (Settings > About, and Start's update button).</summary>
+    internal UpdateService Updates { get; } = new();
+
+    /// <summary>Dynaland's file shelf: files and folders parked by dropping them on Dynaland (paths only).</summary>
+    internal ShelfStore Shelf { get; } = new(AppPaths.ShelfFile);
+
     /// <summary>The bar's bubbles and which apps sit where.</summary>
     internal BarLayoutStore BarLayout { get; } = new();
 
@@ -485,6 +491,7 @@ internal sealed class ShellHost
             {
                 s.AdminAppShortcuts = true;
                 s.AdminAppShortcutsFor = exe;
+                s.AdminAppShortcutsChosen = true;
             });
             StartAdminKeysIfOn();
             return true;
@@ -494,6 +501,7 @@ internal sealed class ShellHost
         {
             s.AdminAppShortcuts = false;
             s.AdminAppShortcutsFor = string.Empty;
+            s.AdminAppShortcutsChosen = true;
         });
         AdminKeys.Current?.Dispose();
         await AdminKeys.RemoveTaskAsync();
@@ -905,6 +913,7 @@ internal sealed class ShellHost
         Settings.StartWatching(queue);
         Pins.Load();
         StartPins.Load();
+        Shelf.Load();
         Usage.Load(Settings.Current.StartMostUsed);
         BarLayout.Load();
 
@@ -968,6 +977,9 @@ internal sealed class ShellHost
         StartAppWatcher(queue);
         StartCornerWidgets();
 
+        // 30 seconds from now, then once a day, while Settings > About's option is on.
+        Updates.Start(queue, () => Settings.Current.CheckForUpdates, () => Settings.Current.OfferPreReleasesNow);
+
         // The listener keeps itself alive on its own background thread.
         _ = new ExitSignal(queue, Shutdown);
         Log.Info("Shell started.");
@@ -1030,6 +1042,7 @@ internal sealed class ShellHost
         _shuttingDown = true;
         Log.Info("Shutdown requested.");
         Accent.Dispose();
+        Updates.Stop();
 
         try
         {

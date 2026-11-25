@@ -25,7 +25,9 @@ namespace Machitan.Shell;
 /// rights), made once when the option is turned on: Windows asks then (one prompt), and not
 /// again at each start. Turning the option off ends the helper and removes the task (Windows
 /// asks again). The task names this copy of Machitan.exe; another copy needs the option
-/// turned on again.
+/// turned on again. The installer, which runs as administrator already, makes the task for
+/// the copy it installs with its ticked box (Machitan.exe --setup-adminkeys, see
+/// <see cref="SetUpForInstaller"/>): on after installing, without a prompt.
 ///
 /// This side lives in the shell (UI thread): a message-only window the helper finds, tells
 /// itself to, and posts the caught keys to. The helper's side is <see cref="AdminKeysHelper"/>.
@@ -33,6 +35,9 @@ namespace Machitan.Shell;
 internal sealed class AdminKeys : IDisposable
 {
     internal const string Argument = "--adminkeys";
+
+    /// <summary>The installer's step: make the task and turn the option on (see <see cref="SetUpForInstaller"/>).</summary>
+    internal const string SetupArgument = "--setup-adminkeys";
     internal const string HostClass = "MachitanAdminKeysHost";
     internal const string HelperClass = "MachitanAdminKeysHelper";
     internal const string TaskName = @"Machitan\AdminKeys";
@@ -113,8 +118,12 @@ internal sealed class AdminKeys : IDisposable
 
     // ---------------------------------------------------------------- the scheduled task
 
-    /// <summary>Makes (or remakes) the task for this copy of Machitan.exe. Windows asks first. True when it was made.</summary>
-    internal static async Task<bool> RegisterTaskAsync()
+    /// <summary>
+    /// Makes (or remakes) the task for this copy of Machitan.exe. Windows asks first, unless
+    /// <paramref name="askWindows"/> is false (the installer: already administrator). True
+    /// when it was made.
+    /// </summary>
+    internal static async Task<bool> RegisterTaskAsync(bool askWindows = true)
     {
         string? exe = Environment.ProcessPath;
         if (exe is null)
@@ -129,7 +138,7 @@ internal sealed class AdminKeys : IDisposable
         {
             Directory.CreateDirectory(folder);
             File.WriteAllText(xmlPath, TaskXml(exe), Encoding.Unicode);
-            int code = await RunSchtasksAsync("/create /tn \"" + TaskName + "\" /xml \"" + xmlPath + "\" /f", elevated: true);
+            int code = await RunSchtasksAsync("/create /tn \"" + TaskName + "\" /xml \"" + xmlPath + "\" /f", elevated: askWindows);
             if (code == 0)
             {
                 Log.Info("Admin keys: the task was made (it starts " + exe + " " + Argument + ").");
@@ -157,6 +166,50 @@ internal sealed class AdminKeys : IDisposable
                 Log.Warn("Admin keys: the task's temporary file stayed behind.", ex);
             }
         }
+    }
+
+    /// <summary>
+    /// Machitan.exe --setup-adminkeys: run by the installer (as administrator, with the user's
+    /// settings) when its "shortcuts in apps running as administrator" box is ticked. Makes the
+    /// task for this copy, with no prompt, and turns the option on for it. Leaves everything
+    /// as it is when the option was turned off in Settings (so an update does not turn it on
+    /// again), or when settings.json exists but cannot be read (it is never written over then).
+    /// No UI. Returns 0, or 1 when the task could not be made.
+    /// </summary>
+    internal static int SetUpForInstaller()
+    {
+        var settings = new Config.SettingsStore();
+        settings.Load();
+        if (settings.ReadFailed)
+        {
+            Log.Warn("Admin keys (installer): settings.json could not be read; nothing was changed.");
+            return 0;
+        }
+
+        Config.ShellSettings current = settings.Current;
+        if (current.AdminAppShortcutsChosen && !current.AdminAppShortcuts)
+        {
+            Log.Info("Admin keys (installer): left off, as it was turned off in Settings.");
+            return 0;
+        }
+
+        string? exe = Environment.ProcessPath;
+        if (exe is null || !RegisterTaskAsync(askWindows: false).GetAwaiter().GetResult())
+        {
+            Log.Warn("Admin keys (installer): the task was not made; the option stays as it was.");
+            return 1;
+        }
+
+        settings.Update(
+            s =>
+            {
+                s.AdminAppShortcuts = true;
+                s.AdminAppShortcutsFor = exe;
+                s.AdminAppShortcutsChosen = true;
+            },
+            "the installer");
+        Log.Info("Admin keys (installer): on for " + exe + ".");
+        return 0;
     }
 
     /// <summary>Removes the task (Windows asks first). True when it is gone.</summary>

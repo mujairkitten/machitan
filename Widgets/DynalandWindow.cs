@@ -25,9 +25,17 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage.Streams;
 using Color = Windows.UI.Color;
+using DataPackageOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation;
 using Ellipse = Microsoft.UI.Xaml.Shapes.Ellipse;
 using Rectangle = Microsoft.UI.Xaml.Shapes.Rectangle;
 using ShapePath = Microsoft.UI.Xaml.Shapes.Path;
+using StandardDataFormats = Windows.ApplicationModel.DataTransfer.StandardDataFormats;
+using IStorageItem = Windows.Storage.IStorageItem;
+using StorageFile = Windows.Storage.StorageFile;
+using StorageFolder = Windows.Storage.StorageFolder;
+using StorageItemThumbnail = Windows.Storage.FileProperties.StorageItemThumbnail;
+using ThumbnailMode = Windows.Storage.FileProperties.ThumbnailMode;
+using ThumbnailOptions = Windows.Storage.FileProperties.ThumbnailOptions;
 
 namespace Machitan.Widgets;
 
@@ -46,7 +54,11 @@ namespace Machitan.Widgets;
 /// the general page; otherwise straight on the general page ("In use now" for the camera and
 /// microphone, the tray, and Windows' own notifications as Windows' notification centre holds
 /// them, with a button for that centre), with an arrow back to the
-/// player while music plays. Moving away closes it.
+/// player while music plays, and a button to the file shelf. Moving away closes it.
+/// The file shelf (ShelfStore): files and folders dragged onto the pill are parked there (it
+/// opens on the shelf while they are dragged over); a click opens one, a drag takes it out, the
+/// X takes it off; Ctrl or Shift + click picks several (as in File Explorer), to drag out or
+/// take off together. Only their paths are kept; one moved or deleted since says so.
 /// The window has one fixed size and never resizes: the pill is a Composition shape whose
 /// size, position and corner radius animate inside it, and the window is cut to the pill, so
 /// everything outside the pill lets clicks through. Never takes focus; steps aside for
@@ -94,6 +106,20 @@ public sealed partial class DynalandWindow : Window
     private const double NoteHeroHeight = 96;
     private const double NoteInlineHeight = 120;
     private const double NotesMostHeight = NoteTitleExtra + NotesMargin + MaxListHeight;
+
+    // The file shelf's page.
+    private const double ShelfTopHeight = 28;
+    private const double ShelfGap = 4;
+    private const double ShelfRowHeight = 40;
+    private const double ShelfRowSpacing = 2;
+    private const double ShelfIconDip = 24;
+    private const double ShelfEmptyHeight = 54;
+
+    /// <summary>The open pages' padding, top and bottom together (every look: see ApplyLook).</summary>
+    private const double ShelfPadding = 20;
+
+    /// <summary>After a drag leaves the pill (or only crosses from one part of it to another), how long before the shelf closes.</summary>
+    private const int DropLeaveMs = 150;
 
     private const double StageHeight = OpenHeight + TrayTitleHeight + (MaxTrayRows * TrayRowHeight) + NotesMostHeight;
     private const double CollapsedHeight = 32;
@@ -268,6 +294,47 @@ public sealed partial class DynalandWindow : Window
     private readonly Button _toGeneral;
     private readonly Button _toMedia;
 
+    // The file shelf, open (from the general page, or while files are dragged onto the pill).
+    private readonly Grid _shelfContent;
+    private readonly StackPanel _shelfRows;
+    private readonly ScrollViewer _shelfScroll;
+    private readonly TextBlock _shelfEmpty;
+    private readonly TextBlock _shelfNote;
+    private readonly Border _shelfDropHint;
+    private readonly Dictionary<string, ImageSource> _shelfIcons = new(StringComparer.OrdinalIgnoreCase);
+    private double _shelfHeight = OpenHeight;
+    private string _shelfShown = string.Empty;
+    private string _shelfMessage = string.Empty;
+    private int _shelfVersion;
+    private bool _onShelfPage;
+
+    /// <summary>Files are being dragged over the pill: it is open on the shelf, ready for the drop.</summary>
+    private bool _dropping;
+
+    /// <summary>
+    /// Rows picked with Ctrl or Shift + click, as in File Explorer: a drag of one of them takes
+    /// all the picked ones that are still there; the title row's button takes them off the
+    /// shelf. Forgotten when Dynaland closes.
+    /// </summary>
+    private readonly HashSet<string> _shelfPicked = new(StringComparer.OrdinalIgnoreCase);
+    private string? _shelfAnchor;
+    private string? _shelfHovered;
+
+    /// <summary>The rows shown now, by path, with what each is.</summary>
+    private readonly Dictionary<string, (Grid Row, ShelfKind Kind)> _shelfRowOf = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>What the drag out under way takes, for after it.</summary>
+    private List<string>? _shelfDragged;
+    private readonly TextBlock _shelfCount;
+    private readonly Button _shelfSelectAll;
+    private readonly FontIcon _shelfSelectAllIcon;
+    private readonly Button _shelfRemovePicked;
+    private readonly Button _shelfClearAll;
+    private readonly SolidColorBrush _shelfHoverBrush = new(ColorHelper.FromArgb(0x1F, 0xFF, 0xFF, 0xFF));
+    private readonly SolidColorBrush _shelfPickedBrush = new(ColorHelper.FromArgb(0x38, 0xFF, 0xFF, 0xFF));
+    private readonly SolidColorBrush _shelfPickedHoverBrush = new(ColorHelper.FromArgb(0x4A, 0xFF, 0xFF, 0xFF));
+    private readonly SolidColorBrush _shelfStillBrush = new(Colors.Transparent);
+
     private readonly SolidColorBrush _accentBrush = new(Neutral);
     private readonly SolidColorBrush _whiteBrush = new(Colors.White);
     private readonly SolidColorBrush _dimBrush = new(Dim);
@@ -314,6 +381,8 @@ public sealed partial class DynalandWindow : Window
     private readonly ScalarKeyFrameAnimation _mediaFade;
     private readonly ScalarKeyFrameAnimation _privacyFade;
     private readonly ScalarKeyFrameAnimation _generalFade;
+    private readonly Visual _shelfVisual;
+    private readonly ScalarKeyFrameAnimation _shelfFade;
 
     private readonly DispatcherQueueTimer _heal;
     private readonly DispatcherQueueTimer _tick;
@@ -324,6 +393,7 @@ public sealed partial class DynalandWindow : Window
     private readonly DispatcherQueueTimer _peekTimer;
     private readonly DispatcherQueueTimer _volumeTimer;
     private readonly DispatcherQueueTimer _volumePoll;
+    private readonly DispatcherQueueTimer _dropLeaveTimer;
     private readonly MediaService _media;
     private readonly PrivacyMonitor _privacy;
     /// <summary>The tray icons: Machitan's one receiver, kept by the shell (Dynaland or the bar shows them).</summary>
@@ -836,10 +906,20 @@ public sealed partial class DynalandWindow : Window
         usesTitle.Text = Strings.DynInUseNow;
         _toMedia = MakeControl(0xE76B, Strings.DynBackToMusic, () => ShowPage(general: false), out FontIcon toMediaIcon);
         SmallArrow(_toMedia, toMediaIcon);
-        _toMedia.HorizontalAlignment = HorizontalAlignment.Right;
+        Button toShelf = MakeControl(0xE8F1, Strings.DynToShelf, ShowShelf, out FontIcon toShelfIcon);
+        SmallArrow(toShelf, toShelfIcon);
+        var generalButtons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        generalButtons.Children.Add(toShelf);
+        generalButtons.Children.Add(_toMedia);
         var generalTop = new Grid { Height = 28 };
         generalTop.Children.Add(usesTitle);
-        generalTop.Children.Add(_toMedia);
+        generalTop.Children.Add(generalButtons);
 
         _useRows = new StackPanel { Spacing = 4, Margin = new Thickness(0, 2, 0, 0) };
         _noUses = Text(12, FontWeights.Normal, _dimBrush);
@@ -954,11 +1034,141 @@ public sealed partial class DynalandWindow : Window
         _generalContent.Children.Add(notificationsPanel);
         _stage.Children.Add(_generalContent);
 
+        // ---- the file shelf, open
+        TextBlock shelfTitle = Text(13, FontWeights.SemiBold, _whiteBrush);
+        shelfTitle.Text = Strings.DynShelf;
+        _shelfCount = Text(12, FontWeights.Normal, _dimBrush);
+        _shelfCount.Visibility = Visibility.Collapsed;
+        var shelfTitles = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        shelfTitles.Children.Add(shelfTitle);
+        shelfTitles.Children.Add(_shelfCount);
+
+        // Clear all (while there is something), take the picked ones off (while some are picked),
+        // select all or none (two rows or more), back.
+        _shelfClearAll = new Button
+        {
+            Content = Strings.DynClearAll,
+            Height = 24,
+            MinHeight = 0,
+            FontSize = 12,
+            Padding = new Thickness(8, 0, 8, 0),
+            CornerRadius = new CornerRadius(Radii.Small),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Colors.Transparent),
+            Foreground = _dimBrush,
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed,
+        };
+        AutomationProperties.SetName(_shelfClearAll, Strings.DynShelfClearAll);
+        _shelfClearAll.Click += (_, _) => ClearShelf();
+        _shelfRemovePicked = MakeControl(0xE894, Strings.DynShelfRemoveSelected, RemovePicked, out FontIcon removePickedIcon);
+        SmallArrow(_shelfRemovePicked, removePickedIcon);
+        _shelfRemovePicked.Visibility = Visibility.Collapsed;
+        _shelfSelectAll = MakeControl(0xE8B3, Strings.DynShelfSelectAll, ToggleSelectAll, out _shelfSelectAllIcon);
+        SmallArrow(_shelfSelectAll, _shelfSelectAllIcon);
+        _shelfSelectAll.Visibility = Visibility.Collapsed;
+        Button shelfBack = MakeControl(0xE76B, Strings.DynBackToGeneral, () => ShowPage(general: true), out FontIcon shelfBackIcon);
+        SmallArrow(shelfBack, shelfBackIcon);
+        var shelfButtons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        shelfButtons.Children.Add(_shelfClearAll);
+        shelfButtons.Children.Add(_shelfRemovePicked);
+        shelfButtons.Children.Add(_shelfSelectAll);
+        shelfButtons.Children.Add(shelfBack);
+        var shelfTop = new Grid { Height = ShelfTopHeight };
+        shelfTop.Children.Add(shelfTitles);
+        shelfTop.Children.Add(shelfButtons);
+
+        // A full shelf, a drop without files, or a shelf file that could not be read: said here.
+        _shelfNote = Text(12, FontWeights.Normal, _dimBrush);
+        _shelfNote.TextWrapping = TextWrapping.Wrap;
+        _shelfNote.MaxLines = 2;
+        _shelfNote.Margin = new Thickness(0, 2, 6, 0);
+        _shelfNote.Visibility = Visibility.Collapsed;
+
+        _shelfEmpty = Text(12, FontWeights.Normal, _dimBrush);
+        _shelfEmpty.Text = Strings.DynShelfEmpty;
+        _shelfEmpty.TextWrapping = TextWrapping.Wrap;
+        _shelfEmpty.MaxLines = 3;
+        _shelfEmpty.VerticalAlignment = VerticalAlignment.Top;
+        _shelfEmpty.Margin = new Thickness(0, 2, 6, 0);
+
+        _shelfRows = new StackPanel { Spacing = ShelfRowSpacing, Margin = new Thickness(0, 0, 6, 0) };
+        _shelfScroll = new ScrollViewer
+        {
+            Content = _shelfRows,
+            MaxHeight = MaxListHeight,
+            VerticalAlignment = VerticalAlignment.Top,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Visibility = Visibility.Collapsed,
+        };
+
+        // While files are dragged over: where to let go.
+        FontIcon dropGlyph = Glyph(0xE896, 20, _whiteBrush);
+        dropGlyph.HorizontalAlignment = HorizontalAlignment.Center;
+        TextBlock dropText = Text(13, FontWeights.SemiBold, _whiteBrush);
+        dropText.Text = Strings.DynShelfDrop;
+        dropText.HorizontalAlignment = HorizontalAlignment.Center;
+        var dropStack = new StackPanel
+        {
+            Spacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        dropStack.Children.Add(dropGlyph);
+        dropStack.Children.Add(dropText);
+        _shelfDropHint = new Border
+        {
+            Child = dropStack,
+            CornerRadius = new CornerRadius(Radii.Medium),
+            BorderThickness = new Thickness(1.5),
+            BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(0x99, 0xFF, 0xFF, 0xFF)),
+            Background = new SolidColorBrush(ColorHelper.FromArgb(0xF0, 0x16, 0x16, 0x16)),
+            Margin = new Thickness(0, 0, 6, 0),
+            Visibility = Visibility.Collapsed,
+        };
+
+        var shelfBody = new Grid { Margin = new Thickness(0, ShelfGap, 0, 0) };
+        shelfBody.Children.Add(_shelfEmpty);
+        shelfBody.Children.Add(_shelfScroll);
+        shelfBody.Children.Add(_shelfDropHint);
+
+        _shelfContent = new Grid
+        {
+            Width = _stageWidth,
+            Height = OpenHeight,
+            Padding = new Thickness(18, 6, 12, 14),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            IsHitTestVisible = false,
+        };
+        _shelfContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        _shelfContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        _shelfContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        Grid.SetRow(_shelfNote, 1);
+        Grid.SetRow(shelfBody, 2);
+        _shelfContent.Children.Add(shelfTop);
+        _shelfContent.Children.Add(_shelfNote);
+        _shelfContent.Children.Add(shelfBody);
+        _stage.Children.Add(_shelfContent);
+
         // ---- the pill (Composition)
         _collapsedVisual = ElementCompositionPreview.GetElementVisual(_collapsedContent);
         _mediaVisual = ElementCompositionPreview.GetElementVisual(_mediaContent);
         _privacyVisual = ElementCompositionPreview.GetElementVisual(_privacyContent);
         _generalVisual = ElementCompositionPreview.GetElementVisual(_generalContent);
+        _shelfVisual = ElementCompositionPreview.GetElementVisual(_shelfContent);
         _compositor = _collapsedVisual.Compositor;
         _geometry = _compositor.CreateRoundedRectangleGeometry();
         _geometry.CornerRadius = new Vector2((float)CollapsedRadius);
@@ -985,9 +1195,11 @@ public sealed partial class DynalandWindow : Window
         _mediaFade = _compositor.CreateScalarKeyFrameAnimation();
         _privacyFade = _compositor.CreateScalarKeyFrameAnimation();
         _generalFade = _compositor.CreateScalarKeyFrameAnimation();
+        _shelfFade = _compositor.CreateScalarKeyFrameAnimation();
         _mediaVisual.Opacity = 0;
         _privacyVisual.Opacity = 0;
         _generalVisual.Opacity = 0;
+        _shelfVisual.Opacity = 0;
 
         _cutter = new WindowCutter(_hwnd, _canvas);
         ApplySize();
@@ -1026,6 +1238,22 @@ public sealed partial class DynalandWindow : Window
             }
         };
 
+        // Files dragged onto the pill: it opens on the shelf, and letting go parks them there.
+        // The drag also "leaves" when it only crosses from one part of the pill to another, so
+        // the shelf closes only a moment after the last leave without a new move over it.
+        _root.AllowDrop = true;
+        _root.DragEnter += OnShelfDragOver;
+        _root.DragOver += OnShelfDragOver;
+        _root.DragLeave += (_, _) =>
+        {
+            if (_dropping)
+            {
+                _dropLeaveTimer!.Stop();
+                _dropLeaveTimer.Start();
+            }
+        };
+        _root.Drop += OnShelfDrop;
+
         _heal = MakeTimer(TimeSpan.FromSeconds(2), repeating: true, Heal);
         _tick = MakeTimer(TimeSpan.FromMilliseconds(500), repeating: true, UpdateTimeline);
         _hoverTimer = MakeTimer(TimeSpan.FromMilliseconds(140), repeating: false, StartHover);
@@ -1039,6 +1267,7 @@ public sealed partial class DynalandWindow : Window
         });
         _volumeTimer = MakeTimer(TimeSpan.FromMilliseconds(VolumeShowMs + 20), repeating: false, Refresh);
         _volumePoll = MakeTimer(TimeSpan.FromMilliseconds(250), repeating: true, PollVolume);
+        _dropLeaveTimer = MakeTimer(TimeSpan.FromMilliseconds(DropLeaveMs), repeating: false, EndDrop);
 
         // The tray icons arrive from their apps (TrayIconService), live; started with Dynaland.
         _tray.Changed += FillTray;
@@ -1054,6 +1283,7 @@ public sealed partial class DynalandWindow : Window
         _privacy = new PrivacyMonitor(DispatcherQueue);
         _privacy.Changed += OnPrivacyChanged;
         _notes.Changed += FillNotes;
+        _host.Shelf.Changed += FillShelf;
 
         _host.Settings.Changed += OnSettingsChanged;
         _host.FullScreenChanged += OnFullScreenChanged;
@@ -1066,7 +1296,7 @@ public sealed partial class DynalandWindow : Window
             foreach (DispatcherQueueTimer timer in new[]
                      {
                          _heal, _tick, _hoverTimer, _leaveTimer, _cursorTimer, _regionTimer, _peekTimer, _volumeTimer, _volumePoll,
-                         _trayCloseTimer,
+                         _trayCloseTimer, _dropLeaveTimer,
                      })
             {
                 timer.Stop();
@@ -1080,6 +1310,7 @@ public sealed partial class DynalandWindow : Window
             _privacy.Dispose();
             _notes.Changed -= FillNotes;
             _notes.Dispose();
+            _host.Shelf.Changed -= FillShelf;
             _tray.Changed -= FillTray;
             _host.BarLayout.Changed -= FillTray;
             _subclass?.Dispose();
@@ -1089,6 +1320,7 @@ public sealed partial class DynalandWindow : Window
         UpdateDots();
         FillUses();
         FillNotes();
+        FillShelf();
         ApplyLook(EffectiveStyle(), !_host.DynalandOnTop());
         ApplyTransparency();
         ApplyMedia();
@@ -1100,6 +1332,7 @@ public sealed partial class DynalandWindow : Window
         Media,
         Privacy,
         General,
+        Shelf,
     }
 
     private enum CollapsedForm
@@ -1706,6 +1939,7 @@ public sealed partial class DynalandWindow : Window
         {
             PillShape.Media => (_stageWidth, OpenHeight, _openRadius),
             PillShape.General => (_stageWidth, _generalHeight, _openRadius),
+            PillShape.Shelf => (_stageWidth, _shelfHeight, _openRadius),
             PillShape.Privacy => (PrivacyWidth, PrivacyHeight, _privacyRadius),
             _ => (collapsedWidth, CollapsedHeight, _collapsedRadius),
         };
@@ -1919,6 +2153,7 @@ public sealed partial class DynalandWindow : Window
         _expandedHit.Width = width;
         _mediaContent.Width = width;
         _generalContent.Width = width;
+        _shelfContent.Width = width;
         _shapeVisual.Size = new Vector2((float)width, (float)StageHeight);
 
         // The tray rows hold as many tiles as fit the new width.
@@ -1980,6 +2215,7 @@ public sealed partial class DynalandWindow : Window
         _privacyContent.VerticalAlignment = toEdge;
         _mediaContent.VerticalAlignment = toEdge;
         _generalContent.VerticalAlignment = toEdge;
+        _shelfContent.VerticalAlignment = toEdge;
 
         // The island's corners are all round, so the open views keep their rows clear of them;
         // the notch's square side is at the screen's edge, so less room is needed there.
@@ -1988,6 +2224,7 @@ public sealed partial class DynalandWindow : Window
             : atBottom ? new Thickness(18, 14, 12, 6) : new Thickness(18, 6, 12, 14);
         _mediaContent.Padding = open;
         _generalContent.Padding = open;
+        _shelfContent.Padding = open;
         if (_leftEar is not null && _rightEar is not null && _leftEarFollow is not null && _rightEarFollow is not null)
         {
             float r = (float)EarRadius;
@@ -2065,9 +2302,10 @@ public sealed partial class DynalandWindow : Window
     private bool PrivacyShown => _host.Settings.Current.ShowPrivacyDots && _privacy.Current.Any;
 
     /// <summary>
-    /// Hovered: open, on the player while music plays (unless the arrow went to the general
-    /// page), else on the general page. Not hovered: open only for a moment for live things
-    /// (a new track, a new camera / microphone use).
+    /// Files dragged over it: open on the shelf. Hovered: open, on the player while music plays
+    /// (unless the arrow went to the general page), else on the general page, or on the shelf
+    /// when its button was used. Not hovered: open only for a moment for live things (a new
+    /// track, a new camera / microphone use).
     /// </summary>
     private PillShape DesiredShape()
     {
@@ -2076,10 +2314,20 @@ public sealed partial class DynalandWindow : Window
             return PillShape.Collapsed;
         }
 
+        if (_dropping)
+        {
+            return PillShape.Shelf;
+        }
+
         bool media = _media.Current.HasMedia;
         bool privacy = PrivacyShown;
         if (_hovering)
         {
+            if (_onShelfPage)
+            {
+                return PillShape.Shelf;
+            }
+
             return media && !_onGeneralPage ? PillShape.Media : PillShape.General;
         }
 
@@ -2137,6 +2385,12 @@ public sealed partial class DynalandWindow : Window
         PillShape old = _pill;
         if (shape != old)
         {
+            if (shape == PillShape.Shelf)
+            {
+                // The shelf as it is now: its height first (the pill opens to it), its rows a moment later.
+                FillShelf();
+            }
+
             _pill = shape;
             HoldRegion(oldWidth);
             (double w, double h, double r) = Dimensions(shape, width);
@@ -2145,6 +2399,7 @@ public sealed partial class DynalandWindow : Window
             Fade(VisualOf(shape), FadeOf(shape), 1f, 90, 200);
             _mediaContent.IsHitTestVisible = shape == PillShape.Media;
             _generalContent.IsHitTestVisible = shape == PillShape.General;
+            _shelfContent.IsHitTestVisible = shape == PillShape.Shelf;
             if (shape == PillShape.Media)
             {
                 UpdateTimeline();
@@ -2179,6 +2434,7 @@ public sealed partial class DynalandWindow : Window
         PillShape.Media => _mediaVisual,
         PillShape.Privacy => _privacyVisual,
         PillShape.General => _generalVisual,
+        PillShape.Shelf => _shelfVisual,
         _ => _collapsedVisual,
     };
 
@@ -2187,6 +2443,7 @@ public sealed partial class DynalandWindow : Window
         PillShape.Media => _mediaFade,
         PillShape.Privacy => _privacyFade,
         PillShape.General => _generalFade,
+        PillShape.Shelf => _shelfFade,
         _ => _collapsedFade,
     };
 
@@ -2242,7 +2499,7 @@ public sealed partial class DynalandWindow : Window
     /// <summary>Back to collapsed without animating (when hiding).</summary>
     private void CollapseNow()
     {
-        foreach (DispatcherQueueTimer timer in new[] { _hoverTimer, _leaveTimer, _cursorTimer, _regionTimer, _peekTimer, _tick })
+        foreach (DispatcherQueueTimer timer in new[] { _hoverTimer, _leaveTimer, _cursorTimer, _regionTimer, _peekTimer, _tick, _dropLeaveTimer })
         {
             timer.Stop();
         }
@@ -2252,8 +2509,15 @@ public sealed partial class DynalandWindow : Window
         _peek = PillShape.Collapsed;
         _pill = PillShape.Collapsed;
         _onGeneralPage = false;
+        _onShelfPage = false;
+        _dropping = false;
+        _shelfMessage = string.Empty;
+        _shelfPicked.Clear();
+        _shelfAnchor = null;
+        Show(_shelfDropHint, false);
         _mediaContent.IsHitTestVisible = false;
         _generalContent.IsHitTestVisible = false;
+        _shelfContent.IsHitTestVisible = false;
         foreach (string property in new[] { "Size", "Offset", "CornerRadius" })
         {
             _geometry.StopAnimation(property);
@@ -2263,7 +2527,7 @@ public sealed partial class DynalandWindow : Window
         _geometry.Offset = PillOffset(_collapsedWidth, CollapsedHeight);
         _geometry.CornerRadius = new Vector2((float)_collapsedRadius);
         SetSilhouette(_collapsedWidth, CollapsedHeight, _collapsedRadius, animate: false);
-        foreach (Visual visual in new[] { _collapsedVisual, _mediaVisual, _privacyVisual, _generalVisual })
+        foreach (Visual visual in new[] { _collapsedVisual, _mediaVisual, _privacyVisual, _generalVisual, _shelfVisual })
         {
             visual.StopAnimation("Opacity");
         }
@@ -2272,6 +2536,7 @@ public sealed partial class DynalandWindow : Window
         _mediaVisual.Opacity = 0;
         _privacyVisual.Opacity = 0;
         _generalVisual.Opacity = 0;
+        _shelfVisual.Opacity = 0;
         SettleRegion();
     }
 
@@ -2382,6 +2647,7 @@ public sealed partial class DynalandWindow : Window
 
         _hovering = true;
         _onGeneralPage = false;
+        _onShelfPage = false;
         _leaveTimer.Stop();
         _cursorTimer.Start();
         UpdateArrows();
@@ -2394,14 +2660,29 @@ public sealed partial class DynalandWindow : Window
         _menuHolding = false;
         _hovering = false;
         _onGeneralPage = false;
+        _onShelfPage = false;
+
+        // A note about the last drop, and the picked rows, are for that visit only.
+        _shelfMessage = string.Empty;
+        _shelfPicked.Clear();
+        _shelfAnchor = null;
         Refresh();
     }
 
-    /// <summary>The arrows: player to general page and back.</summary>
+    /// <summary>The arrows: player to general page and back; the shelf back to the general page.</summary>
     private Task<bool> ShowPage(bool general)
     {
+        _onShelfPage = false;
         _onGeneralPage = general;
         UpdateArrows();
+        Refresh();
+        return Task.FromResult(true);
+    }
+
+    /// <summary>The general page's shelf button.</summary>
+    private Task<bool> ShowShelf()
+    {
+        _onShelfPage = true;
         Refresh();
         return Task.FromResult(true);
     }
@@ -3279,6 +3560,702 @@ public sealed partial class DynalandWindow : Window
         if (!KeyChord.SendWin('N'))
         {
             Log.Warn("Dynaland: Windows did not take the Win+N key press.");
+        }
+    }
+
+    // ---------------------------------------------------------------- the file shelf
+
+    /// <summary>True when a drag over Dynaland carries files or folders it can park.</summary>
+    private bool CanTakeDrop(DragEventArgs e)
+    {
+        return _shown && !_closed && !_host.Custom.IsOn && e.DataView.Contains(StandardDataFormats.StorageItems);
+    }
+
+    /// <summary>
+    /// What parking tells the app the files come from: a copy when it allows one, else a
+    /// link. Either way nothing is copied (only the paths are kept) and nothing is moved.
+    /// </summary>
+    private static DataPackageOperation DropOperation(DragEventArgs e)
+    {
+        if ((e.AllowedOperations & DataPackageOperation.Copy) != 0)
+        {
+            return DataPackageOperation.Copy;
+        }
+
+        return (e.AllowedOperations & DataPackageOperation.Link) != 0 ? DataPackageOperation.Link : DataPackageOperation.None;
+    }
+
+    /// <summary>Files dragged over the pill: open on the shelf, ready for the drop.</summary>
+    private void OnShelfDragOver(object sender, DragEventArgs e)
+    {
+        DataPackageOperation operation = CanTakeDrop(e) ? DropOperation(e) : DataPackageOperation.None;
+        e.AcceptedOperation = operation;
+        e.Handled = true;
+        if (operation == DataPackageOperation.None)
+        {
+            return;
+        }
+
+        e.DragUIOverride.Caption = Strings.DynShelfAdd;
+        _dropLeaveTimer.Stop();
+        if (!_dropping)
+        {
+            _dropping = true;
+            UpdateShelfLook();
+            Refresh();
+        }
+    }
+
+    /// <summary>The drag left the pill (or was cancelled) without a drop: back to what it showed before.</summary>
+    private void EndDrop()
+    {
+        if (!_dropping)
+        {
+            return;
+        }
+
+        _dropping = false;
+        UpdateShelfLook();
+        Refresh();
+    }
+
+    /// <summary>
+    /// The drop: the files' and folders' paths go on the shelf (items without a path on this
+    /// PC, such as a file still inside an archive, and those past a full shelf are said so),
+    /// and the shelf stays open as when hovered, until the pointer leaves.
+    /// </summary>
+    private async void OnShelfDrop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            _dropLeaveTimer.Stop();
+            e.Handled = true;
+            if (!CanTakeDrop(e))
+            {
+                EndDrop();
+                return;
+            }
+
+            e.AcceptedOperation = DropOperation(e);
+            var paths = new List<string>();
+            int noPath = 0;
+            DragOperationDeferral deferral = e.GetDeferral();
+            try
+            {
+                IReadOnlyList<IStorageItem> items = await e.DataView.GetStorageItemsAsync();
+                foreach (IStorageItem item in items)
+                {
+                    if (string.IsNullOrEmpty(item.Path))
+                    {
+                        noPath++;
+                    }
+                    else
+                    {
+                        paths.Add(item.Path);
+                    }
+                }
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+
+            if (_closed)
+            {
+                return;
+            }
+
+            ShelfAdded result = _host.Shelf.Add(paths);
+            _shelfMessage = result.Full > 0 ? Fmt.F(Strings.DynShelfFull, ShelfStore.MaxItems, result.Full)
+                : noPath > 0 ? Fmt.F(Strings.DynShelfNoPath, noPath)
+                : string.Empty;
+            Log.Info("Dynaland: " + result.Added.ToString(CultureInfo.InvariantCulture) + " item(s) parked on the shelf"
+                + (result.Full > 0 ? ", " + result.Full.ToString(CultureInfo.InvariantCulture) + " turned away (the shelf is full)" : string.Empty)
+                + (noPath > 0 ? ", " + noPath.ToString(CultureInfo.InvariantCulture) + " without a path on this PC" : string.Empty) + ".");
+
+            // Open on the shelf, as when hovered, until the pointer leaves.
+            _dropping = false;
+            _hovering = true;
+            _onShelfPage = true;
+            _onGeneralPage = false;
+            _leaveTimer.Stop();
+            _cursorTimer.Start();
+            UpdateArrows();
+            FillShelf();
+            Refresh();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Dynaland: the dropped files could not be parked.", ex);
+            EndDrop();
+        }
+    }
+
+    /// <summary>
+    /// The shelf page as it is now: its height at once (from how many are parked), its rows a
+    /// moment later, once Windows said which files are still there (looked at off the UI
+    /// thread: a file on a network drive that is gone can take a while to answer).
+    /// </summary>
+    private void FillShelf()
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        UpdateShelfLook();
+        UpdateShelfPicks();
+        _ = FillShelfRowsAsync();
+    }
+
+    /// <summary>The kind of each parked path now: a file, a folder, or gone.</summary>
+    private enum ShelfKind
+    {
+        Gone,
+        File,
+        Folder,
+    }
+
+    private async Task FillShelfRowsAsync()
+    {
+        try
+        {
+            int version = ++_shelfVersion;
+            string[] paths = new List<string>(_host.Shelf.Paths).ToArray();
+            ShelfKind[] kinds = await Task.Run(() =>
+            {
+                var found = new ShelfKind[paths.Length];
+                for (int i = 0; i < paths.Length; i++)
+                {
+                    found[i] = File.Exists(paths[i]) ? ShelfKind.File
+                        : Directory.Exists(paths[i]) ? ShelfKind.Folder
+                        : ShelfKind.Gone;
+                }
+
+                return found;
+            });
+
+            if (_closed || version != _shelfVersion)
+            {
+                return;
+            }
+
+            // Drawn again only when the list or a file's presence changed.
+            var signature = new System.Text.StringBuilder();
+            for (int i = 0; i < paths.Length; i++)
+            {
+                signature.Append((int)kinds[i]).Append(paths[i]).Append('\n');
+            }
+
+            string shown = signature.ToString();
+            if (shown == _shelfShown)
+            {
+                return;
+            }
+
+            _shelfShown = shown;
+            _shelfRows.Children.Clear();
+            _shelfRowOf.Clear();
+            _shelfHovered = null;
+            for (int i = 0; i < paths.Length; i++)
+            {
+                _shelfRows.Children.Add(ShelfRow(paths[i], kinds[i]));
+            }
+
+            // Picks of what left the shelf are let go.
+            _shelfPicked.IntersectWith(paths);
+            if (_shelfAnchor is not null && !_shelfPicked.Contains(_shelfAnchor) && !_shelfRowOf.ContainsKey(_shelfAnchor))
+            {
+                _shelfAnchor = null;
+            }
+
+            UpdateShelfPicks();
+
+            // The icons of what left the shelf are let go.
+            var kept = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
+            foreach (string key in new List<string>(_shelfIcons.Keys))
+            {
+                if (!kept.Contains(key))
+                {
+                    _shelfIcons.Remove(key);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Dynaland: the shelf could not be shown.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Around the rows: the drop hint while files are dragged over, the empty shelf's text, a
+    /// note (a full shelf, a drop without files, a shelf file that could not be read); and the
+    /// page's height: as tall as its rows, up to <see cref="MaxListHeight"/> (then they scroll),
+    /// and never smaller than the other pages.
+    /// </summary>
+    private void UpdateShelfLook()
+    {
+        int count = _host.Shelf.Paths.Count;
+        string note = _host.Shelf.IsReadOnlyBecauseOfBadFile ? Strings.DynShelfNotSaved : _shelfMessage;
+        Set(_shelfNote, note);
+        Show(_shelfNote, note.Length > 0);
+        Show(_shelfDropHint, _dropping);
+        Show(_shelfEmpty, count == 0 && !_dropping);
+        Show(_shelfScroll, count > 0);
+        Show(_shelfClearAll, count > 0);
+
+        double list = count == 0
+            ? ShelfEmptyHeight
+            : Math.Min((count * ShelfRowHeight) + ((count - 1) * ShelfRowSpacing), MaxListHeight);
+        double height = ShelfPadding + ShelfTopHeight + (note.Length > 0 ? NoteMessageHeight : 0) + ShelfGap + list;
+        SetShelfHeight(Math.Max(OpenHeight, height));
+    }
+
+    /// <summary>The shelf page's height; while it is open, the pill follows.</summary>
+    private void SetShelfHeight(double height)
+    {
+        if (Math.Abs(height - _shelfHeight) < 0.5)
+        {
+            return;
+        }
+
+        _shelfHeight = height;
+        _shelfContent.Height = height;
+        if (_pill == PillShape.Shelf)
+        {
+            HoldRegion(_collapsedWidth);
+            (double w, double h, double r) = Dimensions(PillShape.Shelf, _collapsedWidth);
+            AnimatePill(w, h, r);
+        }
+    }
+
+    /// <summary>
+    /// One parked file or folder: its icon as Windows shows it, its name, and its folder. A
+    /// click opens it; a drag takes it out (into a folder, a chat, any app that takes files) by
+    /// Windows' own rules, as from File Explorer: moved on the same drive, copied to another
+    /// (Ctrl copies, Shift moves), together with the other picked ones when it is picked; the X
+    /// takes it off the shelf (the file stays where it is). Ctrl or Shift + click picks it.
+    /// One that was moved or deleted since says so and can only be picked or taken off.
+    /// </summary>
+    private Grid ShelfRow(string path, ShelfKind kind)
+    {
+        bool present = kind != ShelfKind.Gone;
+        bool folder = kind == ShelfKind.Folder;
+        string name = ShelfName(path);
+        string place = present ? Path.GetDirectoryName(path) ?? string.Empty : Strings.DynShelfMissing;
+
+        // The type's glyph until Windows' own icon (or picture) is there.
+        FontIcon glyph = Glyph(folder ? 0xE8B7 : 0xE8A5, 18, _dimBrush);
+        glyph.HorizontalAlignment = HorizontalAlignment.Center;
+        var picture = new Image
+        {
+            Width = ShelfIconDip,
+            Height = ShelfIconDip,
+            Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var icon = new Grid { Width = ShelfIconDip, Height = ShelfIconDip, VerticalAlignment = VerticalAlignment.Center };
+        icon.Children.Add(glyph);
+        icon.Children.Add(picture);
+        if (present)
+        {
+            _ = LoadShelfIconAsync(path, folder, picture, glyph);
+        }
+
+        TextBlock title = Text(13, FontWeights.Normal, present ? _whiteBrush : _dimBrush);
+        title.Text = name;
+        TextBlock detail = Text(11, FontWeights.Normal, _dimBrush);
+        detail.Text = place;
+        var words = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
+        words.Children.Add(title);
+        words.Children.Add(detail);
+
+        Button remove = MakeControl(0xE711, Fmt.F(Strings.DynShelfRemove, name), () => Task.FromResult(_host.Shelf.Remove(path)), out FontIcon removeIcon);
+        SmallArrow(remove, removeIcon);
+        remove.VerticalAlignment = VerticalAlignment.Center;
+
+        var row = new Grid
+        {
+            Height = ShelfRowHeight,
+            ColumnSpacing = 10,
+            Padding = new Thickness(6, 0, 0, 0),
+            CornerRadius = new CornerRadius(Radii.Small),
+            Background = new SolidColorBrush(Colors.Transparent),
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(words, 1);
+        Grid.SetColumn(remove, 2);
+        row.Children.Add(icon);
+        row.Children.Add(words);
+        row.Children.Add(remove);
+        AutomationProperties.SetName(row, name + ", " + place);
+
+        _shelfRowOf[path] = (row, kind);
+        row.PointerEntered += (_, _) =>
+        {
+            _shelfHovered = path;
+            PaintShelfRow(path);
+        };
+        row.PointerExited += (_, _) =>
+        {
+            if (string.Equals(_shelfHovered, path, StringComparison.OrdinalIgnoreCase))
+            {
+                _shelfHovered = null;
+            }
+
+            PaintShelfRow(path);
+        };
+        row.Tapped += (_, e) =>
+        {
+            if (IsInsideButton(e.OriginalSource as DependencyObject))
+            {
+                return;
+            }
+
+            e.Handled = true;
+            ClickShelfRow(path, present);
+        };
+        PaintShelfRow(path);
+        if (!present)
+        {
+            return row;
+        }
+
+        row.CanDrag = true;
+        row.DragStarting += async (_, e) =>
+        {
+            List<(string Path, ShelfKind Kind)> taking = ToTakeOut(path, kind);
+            DragOperationDeferral deferral = e.GetDeferral();
+            try
+            {
+                // One that cannot be had now (gone a moment ago) is left out; the others go.
+                var items = new List<IStorageItem>();
+                var paths = new List<string>();
+                foreach ((string one, ShelfKind oneKind) in taking)
+                {
+                    try
+                    {
+                        IStorageItem item;
+                        if (oneKind == ShelfKind.Folder)
+                        {
+                            item = await StorageFolder.GetFolderFromPathAsync(one);
+                        }
+                        else
+                        {
+                            item = await StorageFile.GetFileFromPathAsync(one);
+                        }
+
+                        items.Add(item);
+                        paths.Add(one);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warn("Dynaland: a shelf item was left out of a drag (it could not be had).", ex);
+                    }
+                }
+
+                if (items.Count == 0)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                e.Data.SetStorageItems(items);
+                e.AllowedOperations = DataPackageOperation.Copy | DataPackageOperation.Move;
+                _shelfDragged = paths;
+                Log.Info("Dynaland: " + items.Count.ToString(CultureInfo.InvariantCulture) + " shelf item(s) being dragged out.");
+            }
+            catch (Exception ex)
+            {
+                e.Cancel = true;
+                Log.Warn("Dynaland: shelf items could not be dragged out.", ex);
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+        };
+        row.DropCompleted += (_, _) =>
+        {
+            List<string> dragged = _shelfDragged ?? new List<string> { path };
+            _shelfDragged = null;
+            _ = ForgetMovedAsync(dragged);
+        };
+        return row;
+    }
+
+    /// <summary>
+    /// A click on a row. Ctrl (or Shift with nothing picked yet) + click picks it or lets it go;
+    /// Shift + click picks every row from the last one picked to this one (Ctrl + Shift adds them
+    /// to the picked ones). A plain click opens it (and Dynaland closes); a gone one does nothing.
+    /// The keys are read as they are now: Dynaland never takes the keyboard.
+    /// </summary>
+    private void ClickShelfRow(string path, bool present)
+    {
+        bool ctrl = KeyIsDown(User32.VK_CONTROL);
+        bool shift = KeyIsDown(User32.VK_SHIFT);
+        if (shift && _shelfAnchor is not null && _shelfRowOf.ContainsKey(_shelfAnchor))
+        {
+            if (!ctrl)
+            {
+                _shelfPicked.Clear();
+            }
+
+            IReadOnlyList<string> paths = _host.Shelf.Paths;
+            int from = ShelfIndex(paths, _shelfAnchor);
+            int to = ShelfIndex(paths, path);
+            if (from >= 0 && to >= 0)
+            {
+                for (int i = Math.Min(from, to); i <= Math.Max(from, to); i++)
+                {
+                    _shelfPicked.Add(paths[i]);
+                }
+            }
+
+            UpdateShelfPicks();
+            return;
+        }
+
+        if (ctrl || shift)
+        {
+            if (!_shelfPicked.Remove(path))
+            {
+                _shelfPicked.Add(path);
+            }
+
+            _shelfAnchor = path;
+            UpdateShelfPicks();
+            return;
+        }
+
+        if (!present)
+        {
+            return;
+        }
+
+        Log.Info("Dynaland: a shelf item was opened.");
+        FileActions.Open(path);
+        EndHover();
+    }
+
+    private static bool KeyIsDown(int virtualKey)
+    {
+        return (User32.GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+    }
+
+    private static int ShelfIndex(IReadOnlyList<string> paths, string path)
+    {
+        for (int i = 0; i < paths.Count; i++)
+        {
+            if (string.Equals(paths[i], path, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>What a drag from this row takes: all the picked ones still there, in the shelf's order, when it is picked; else itself.</summary>
+    private List<(string Path, ShelfKind Kind)> ToTakeOut(string path, ShelfKind kind)
+    {
+        var taking = new List<(string Path, ShelfKind Kind)>();
+        if (_shelfPicked.Contains(path))
+        {
+            foreach (string one in _host.Shelf.Paths)
+            {
+                if (_shelfPicked.Contains(one)
+                    && _shelfRowOf.TryGetValue(one, out (Grid Row, ShelfKind Kind) shown)
+                    && shown.Kind != ShelfKind.Gone)
+                {
+                    taking.Add((one, shown.Kind));
+                }
+            }
+        }
+
+        if (taking.Count == 0)
+        {
+            taking.Add((path, kind));
+        }
+
+        return taking;
+    }
+
+    /// <summary>
+    /// The title row and the rows after the picks changed: how many are picked, the button that
+    /// takes them off (while some are), the one that selects all or none (from two rows on, or
+    /// while some are picked), and each row's look.
+    /// </summary>
+    private void UpdateShelfPicks()
+    {
+        int rows = _shelfRowOf.Count;
+        int picked = _shelfPicked.Count;
+        bool all = rows > 0 && picked >= rows;
+        Set(_shelfCount, picked > 0 ? Fmt.F(Strings.DynShelfCount, picked) : string.Empty);
+        Show(_shelfCount, picked > 0);
+        Show(_shelfRemovePicked, picked > 0);
+        Show(_shelfSelectAll, rows >= 2 || picked > 0);
+        _shelfSelectAllIcon.Glyph = ((char)(all ? 0xE8E6 : 0xE8B3)).ToString();
+        AutomationProperties.SetName(_shelfSelectAll, all ? Strings.DynShelfSelectNone : Strings.DynShelfSelectAll);
+        foreach (string path in _shelfRowOf.Keys)
+        {
+            PaintShelfRow(path);
+        }
+    }
+
+    /// <summary>A row's background: brighter when picked, a little brighter under the pointer.</summary>
+    private void PaintShelfRow(string path)
+    {
+        if (!_shelfRowOf.TryGetValue(path, out (Grid Row, ShelfKind Kind) shown))
+        {
+            return;
+        }
+
+        bool picked = _shelfPicked.Contains(path);
+        bool hovered = string.Equals(_shelfHovered, path, StringComparison.OrdinalIgnoreCase);
+        shown.Row.Background = picked
+            ? hovered ? _shelfPickedHoverBrush : _shelfPickedBrush
+            : hovered ? _shelfHoverBrush : _shelfStillBrush;
+        AutomationProperties.SetItemStatus(shown.Row, picked ? Strings.DynShelfIsSelected : string.Empty);
+    }
+
+    /// <summary>The title row's select button: all rows, or none when all are picked.</summary>
+    private Task<bool> ToggleSelectAll()
+    {
+        bool all = _shelfRowOf.Count > 0 && _shelfPicked.Count >= _shelfRowOf.Count;
+        _shelfPicked.Clear();
+        _shelfAnchor = null;
+        if (!all)
+        {
+            foreach (string path in _shelfRowOf.Keys)
+            {
+                _shelfPicked.Add(path);
+            }
+        }
+
+        UpdateShelfPicks();
+        return Task.FromResult(true);
+    }
+
+    /// <summary>The title row's "Clear all": everything off the shelf (the files stay where they are), as the notifications' one, at once.</summary>
+    private void ClearShelf()
+    {
+        _shelfPicked.Clear();
+        _shelfAnchor = null;
+        int removed = _host.Shelf.RemoveMany(new List<string>(_host.Shelf.Paths));
+        Log.Info("Dynaland: the shelf was cleared (" + removed.ToString(CultureInfo.InvariantCulture) + " item(s) taken off).");
+        UpdateShelfPicks();
+    }
+
+    /// <summary>The title row's button: the picked ones off the shelf (the files stay where they are).</summary>
+    private Task<bool> RemovePicked()
+    {
+        var picked = new List<string>(_shelfPicked);
+        _shelfPicked.Clear();
+        _shelfAnchor = null;
+        int removed = _host.Shelf.RemoveMany(picked);
+        Log.Info("Dynaland: " + removed.ToString(CultureInfo.InvariantCulture) + " shelf item(s) taken off.");
+        UpdateShelfPicks();
+        return Task.FromResult(removed > 0);
+    }
+
+    /// <summary>A parked item's name: the file's or folder's own, or the drive ("D:\") for a drive.</summary>
+    private static string ShelfName(string path)
+    {
+        string name = Path.GetFileName(path.TrimEnd('\\', '/'));
+        return name.Length > 0 ? name : path;
+    }
+
+    /// <summary>Windows' own icon for the file or folder (a picture's or a video's thumbnail), kept while it is parked.</summary>
+    private async Task LoadShelfIconAsync(string path, bool folder, Image picture, FontIcon glyph)
+    {
+        try
+        {
+            if (!_shelfIcons.TryGetValue(path, out ImageSource? source))
+            {
+                uint pixels = (uint)Math.Ceiling(ShelfIconDip * (_root.XamlRoot?.RasterizationScale ?? 1) * _size);
+                StorageItemThumbnail? thumbnail;
+                if (folder)
+                {
+                    StorageFolder item = await StorageFolder.GetFolderFromPathAsync(path);
+                    thumbnail = await item.GetThumbnailAsync(ThumbnailMode.SingleItem, pixels, ThumbnailOptions.ResizeThumbnail);
+                }
+                else
+                {
+                    StorageFile item = await StorageFile.GetFileFromPathAsync(path);
+                    thumbnail = await item.GetThumbnailAsync(ThumbnailMode.SingleItem, pixels, ThumbnailOptions.ResizeThumbnail);
+                }
+
+                using (thumbnail)
+                {
+                    if (thumbnail is null || thumbnail.Size == 0)
+                    {
+                        return;
+                    }
+
+                    var bitmap = new BitmapImage();
+                    await bitmap.SetSourceAsync(thumbnail);
+                    source = bitmap;
+                    _shelfIcons[path] = bitmap;
+                }
+            }
+
+            if (!_closed)
+            {
+                picture.Source = source;
+                glyph.Visibility = Visibility.Collapsed;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Dynaland: a shelf icon could not be shown.", ex);
+        }
+    }
+
+    /// <summary>
+    /// After a drag out: the files that left their place (moved; Windows may finish a moment
+    /// later) leave the shelf too; copies stay. Looked at for up to 10 seconds.
+    /// </summary>
+    private async Task ForgetMovedAsync(List<string> dragged)
+    {
+        try
+        {
+            var waiting = new List<string>(dragged);
+            for (int i = 0; i < 20 && !_closed && waiting.Count > 0; i++)
+            {
+                string[] looking = waiting.ToArray();
+                List<string> gone = await Task.Run(() =>
+                {
+                    var away = new List<string>();
+                    foreach (string one in looking)
+                    {
+                        if (!File.Exists(one) && !Directory.Exists(one))
+                        {
+                            away.Add(one);
+                        }
+                    }
+
+                    return away;
+                });
+
+                if (gone.Count > 0)
+                {
+                    int removed = _host.Shelf.RemoveMany(gone);
+                    Log.Info("Dynaland: " + removed.ToString(CultureInfo.InvariantCulture) + " shelf item(s) moved out, so they left the shelf.");
+                    waiting.RemoveAll(gone.Contains);
+                }
+
+                if (waiting.Count > 0)
+                {
+                    await Task.Delay(500);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Dynaland: a shelf item could not be looked at after it was dragged out.", ex);
         }
     }
 

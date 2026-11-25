@@ -727,6 +727,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Back to camera, microphone and notifications.
+        /// </summary>
+        internal static string DynBackToGeneral {
+            get {
+                return ResourceManager.GetString("DynBackToGeneral", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Back to the music.
         /// </summary>
         internal static string DynBackToMusic {
@@ -943,6 +952,141 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Shelf.
+        /// </summary>
+        internal static string DynShelf {
+            get {
+                return ResourceManager.GetString("DynShelf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add to shelf.
+        /// </summary>
+        internal static string DynShelfAdd {
+            get {
+                return ResourceManager.GetString("DynShelfAdd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Take everything off the shelf (the files stay where they are).
+        /// </summary>
+        internal static string DynShelfClearAll {
+            get {
+                return ResourceManager.GetString("DynShelfClearAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} selected.
+        /// </summary>
+        internal static string DynShelfCount {
+            get {
+                return ResourceManager.GetString("DynShelfCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Drop to add to the shelf.
+        /// </summary>
+        internal static string DynShelfDrop {
+            get {
+                return ResourceManager.GetString("DynShelfDrop", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Drop files or folders on Dynaland to keep them here. Only where they are is remembered: nothing is copied..
+        /// </summary>
+        internal static string DynShelfEmpty {
+            get {
+                return ResourceManager.GetString("DynShelfEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The shelf is full ({0} at most): {1} not added..
+        /// </summary>
+        internal static string DynShelfFull {
+            get {
+                return ResourceManager.GetString("DynShelfFull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Selected.
+        /// </summary>
+        internal static string DynShelfIsSelected {
+            get {
+                return ResourceManager.GetString("DynShelfIsSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not found: moved or deleted.
+        /// </summary>
+        internal static string DynShelfMissing {
+            get {
+                return ResourceManager.GetString("DynShelfMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} not added: not a file or folder on this PC..
+        /// </summary>
+        internal static string DynShelfNoPath {
+            get {
+                return ResourceManager.GetString("DynShelfNoPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to shelf.json could not be read, so changes to the shelf are not saved this time..
+        /// </summary>
+        internal static string DynShelfNotSaved {
+            get {
+                return ResourceManager.GetString("DynShelfNotSaved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove {0} from the shelf.
+        /// </summary>
+        internal static string DynShelfRemove {
+            get {
+                return ResourceManager.GetString("DynShelfRemove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Take the selected ones off the shelf.
+        /// </summary>
+        internal static string DynShelfRemoveSelected {
+            get {
+                return ResourceManager.GetString("DynShelfRemoveSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select all.
+        /// </summary>
+        internal static string DynShelfSelectAll {
+            get {
+                return ResourceManager.GetString("DynShelfSelectAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clear the selection.
+        /// </summary>
+        internal static string DynShelfSelectNone {
+            get {
+                return ResourceManager.GetString("DynShelfSelectNone", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} by {1}.
         /// </summary>
         internal static string DynTitleBy {
@@ -957,6 +1101,15 @@ namespace Machitan {
         internal static string DynToGeneral {
             get {
                 return ResourceManager.GetString("DynToGeneral", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open the shelf.
+        /// </summary>
+        internal static string DynToShelf {
+            get {
+                return ResourceManager.GetString("DynToShelf", resourceCulture);
             }
         }
         
@@ -2248,6 +2401,24 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Check for updates at start and once a day.
+        /// </summary>
+        internal static string SetCheckForUpdates {
+            get {
+                return ResourceManager.GetString("SetCheckForUpdates", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Machitan asks GitHub for its newest release. Nothing is downloaded or installed until you say so..
+        /// </summary>
+        internal static string SetCheckForUpdatesNote {
+            get {
+                return ResourceManager.GetString("SetCheckForUpdatesNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Choose picture.
         /// </summary>
         internal static string SetChoosePicture {
@@ -2788,6 +2959,24 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Also offer pre-releases.
+        /// </summary>
+        internal static string SetOfferPreReleases {
+            get {
+                return ResourceManager.GetString("SetOfferPreReleases", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Every version before 1.0, and versions marked as pre-release on GitHub..
+        /// </summary>
+        internal static string SetOfferPreReleasesNote {
+            get {
+                return ResourceManager.GetString("SetOfferPreReleasesNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Opacity.
         /// </summary>
         internal static string SetOpacity {
@@ -3121,6 +3310,24 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The paths of the files and folders you park on Dynaland&apos;s shelf, in {0}. Only the paths: nothing is copied, and nothing leaves this PC..
+        /// </summary>
+        internal static string SetPrivacyShelf {
+            get {
+                return ResourceManager.GetString("SetPrivacyShelf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to When updates are checked (at start and once a day while that is on, and when you check), Machitan asks GitHub (api.github.com) for its newest release, so GitHub sees this PC&apos;s internet address and Machitan&apos;s version. An update is downloaded from GitHub only when you say so..
+        /// </summary>
+        internal static string SetPrivacyUpdates {
+            get {
+                return ResourceManager.GetString("SetPrivacyUpdates", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to With weather on, Machitan asks Windows for this PC&apos;s location at most once an hour, rounds it to about 1 km, and sends it to Open-Meteo (open-meteo.com) every 15 minutes. If Windows blocks location for desktop apps, the weather stays hidden. With a place you picked, its rounded coordinates go instead, and a place search sends the name you typed to Open-Meteo. Nothing else leaves this PC..
         /// </summary>
         internal static string SetPrivacyWeather {
@@ -3243,6 +3450,15 @@ namespace Machitan {
         internal static string SetShape {
             get {
                 return ResourceManager.GetString("SetShape", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to File shelf.
+        /// </summary>
+        internal static string SetShelf {
+            get {
+                return ResourceManager.GetString("SetShelf", resourceCulture);
             }
         }
         
@@ -3468,6 +3684,15 @@ namespace Machitan {
         internal static string SetTurnOffAnimationsNote {
             get {
                 return ResourceManager.GetString("SetTurnOffAnimationsNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Updates.
+        /// </summary>
+        internal static string SetUpdates {
+            get {
+                return ResourceManager.GetString("SetUpdates", resourceCulture);
             }
         }
         
@@ -3963,6 +4188,357 @@ namespace Machitan {
         internal static string UnpinXFromStart {
             get {
                 return ResourceManager.GetString("UnpinXFromStart", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Machitan {0} is available.
+        /// </summary>
+        internal static string UpdAvailable {
+            get {
+                return ResourceManager.GetString("UpdAvailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Its installer for this PC is {0} ({1} MB). Machitan downloads it from GitHub, checks it against GitHub&apos;s SHA-256, then starts it; Setup closes Machitan first and can start it again at the end..
+        /// </summary>
+        internal static string UpdAvailableNote {
+            get {
+                return ResourceManager.GetString("UpdAvailableNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Machitan {0} (pre-release) is available.
+        /// </summary>
+        internal static string UpdAvailablePre {
+            get {
+                return ResourceManager.GetString("UpdAvailablePre", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to GitHub&apos;s answer could not be read..
+        /// </summary>
+        internal static string UpdBadAnswer {
+            get {
+                return ResourceManager.GetString("UpdBadAnswer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The download did not match GitHub&apos;s SHA-256, so it was deleted..
+        /// </summary>
+        internal static string UpdBroken {
+            get {
+                return ResourceManager.GetString("UpdBroken", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The download was cancelled..
+        /// </summary>
+        internal static string UpdCancelled {
+            get {
+                return ResourceManager.GetString("UpdCancelled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The installer could not be saved in the temporary folder..
+        /// </summary>
+        internal static string UpdCannotSave {
+            get {
+                return ResourceManager.GetString("UpdCannotSave", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Check for updates.
+        /// </summary>
+        internal static string UpdCheck {
+            get {
+                return ResourceManager.GetString("UpdCheck", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Check again.
+        /// </summary>
+        internal static string UpdCheckAgain {
+            get {
+                return ResourceManager.GetString("UpdCheckAgain", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Checked at {0}..
+        /// </summary>
+        internal static string UpdCheckedAt {
+            get {
+                return ResourceManager.GetString("UpdCheckedAt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The check failed.
+        /// </summary>
+        internal static string UpdCheckFailed {
+            get {
+                return ResourceManager.GetString("UpdCheckFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Asking GitHub....
+        /// </summary>
+        internal static string UpdChecking {
+            get {
+                return ResourceManager.GetString("UpdChecking", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The download failed.
+        /// </summary>
+        internal static string UpdDownloadFailed {
+            get {
+                return ResourceManager.GetString("UpdDownloadFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Downloading Machitan {0}: {1}%.
+        /// </summary>
+        internal static string UpdDownloading {
+            get {
+                return ResourceManager.GetString("UpdDownloading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Download and install.
+        /// </summary>
+        internal static string UpdDownloadInstall {
+            get {
+                return ResourceManager.GetString("UpdDownloadInstall", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to GitHub could not be reached (no internet connection?)..
+        /// </summary>
+        internal static string UpdNoConnection {
+            get {
+                return ResourceManager.GetString("UpdNoConnection", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to GitHub gave no SHA-256 for its installer, so Machitan does not install it itself..
+        /// </summary>
+        internal static string UpdNoDigest {
+            get {
+                return ResourceManager.GetString("UpdNoDigest", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to GitHub has no release of Machitan apart from pre-releases, which are offered only with the switch below..
+        /// </summary>
+        internal static string UpdNoFinalRelease {
+            get {
+                return ResourceManager.GetString("UpdNoFinalRelease", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The release has no installer for this PC ({0}), so it can only be got from its page..
+        /// </summary>
+        internal static string UpdNoInstaller {
+            get {
+                return ResourceManager.GetString("UpdNoInstaller", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No release to offer.
+        /// </summary>
+        internal static string UpdNoOffer {
+            get {
+                return ResourceManager.GetString("UpdNoOffer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to GitHub has no release of Machitan..
+        /// </summary>
+        internal static string UpdNoRelease {
+            get {
+                return ResourceManager.GetString("UpdNoRelease", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not checked yet.
+        /// </summary>
+        internal static string UpdNotChecked {
+            get {
+                return ResourceManager.GetString("UpdNotChecked", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing is known about newer versions..
+        /// </summary>
+        internal static string UpdNothingKnown {
+            get {
+                return ResourceManager.GetString("UpdNothingKnown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This copy of Machitan ({0}) is not the one Setup installed: an update installs the new version in {1}..
+        /// </summary>
+        internal static string UpdNotSetupCopy {
+            get {
+                return ResourceManager.GetString("UpdNotSetupCopy", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Something went wrong; diagnostics.log says what..
+        /// </summary>
+        internal static string UpdOther {
+            get {
+                return ResourceManager.GetString("UpdOther", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to GitHub turned the request away for now (too many from this network); try again later..
+        /// </summary>
+        internal static string UpdRefused {
+            get {
+                return ResourceManager.GetString("UpdRefused", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open the release page.
+        /// </summary>
+        internal static string UpdReleasePage {
+            get {
+                return ResourceManager.GetString("UpdReleasePage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows&apos; question was answered no..
+        /// </summary>
+        internal static string UpdSetupDeclined {
+            get {
+                return ResourceManager.GetString("UpdSetupDeclined", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows did not start it; diagnostics.log says why..
+        /// </summary>
+        internal static string UpdSetupDidNotStart {
+            get {
+                return ResourceManager.GetString("UpdSetupDidNotStart", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Setup did not start.
+        /// </summary>
+        internal static string UpdSetupFailed {
+            get {
+                return ResourceManager.GetString("UpdSetupFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Setup was started.
+        /// </summary>
+        internal static string UpdSetupOpen {
+            get {
+                return ResourceManager.GetString("UpdSetupOpen", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to It asks Windows for administrator rights, closes Machitan, installs {0}, and can start Machitan again at the end. If it was closed, start it again here..
+        /// </summary>
+        internal static string UpdSetupOpenNote {
+            get {
+                return ResourceManager.GetString("UpdSetupOpenNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Update: {0}.
+        /// </summary>
+        internal static string UpdStartBadge {
+            get {
+                return ResourceManager.GetString("UpdStartBadge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Machitan {0} is available: open Settings &gt; About to install it.
+        /// </summary>
+        internal static string UpdStartBadgeName {
+            get {
+                return ResourceManager.GetString("UpdStartBadgeName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Start Setup again.
+        /// </summary>
+        internal static string UpdStartSetup {
+            get {
+                return ResourceManager.GetString("UpdStartSetup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This is Machitan {0} ({1})..
+        /// </summary>
+        internal static string UpdThisCopy {
+            get {
+                return ResourceManager.GetString("UpdThisCopy", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Try again.
+        /// </summary>
+        internal static string UpdTryAgain {
+            get {
+                return ResourceManager.GetString("UpdTryAgain", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Machitan {0} is the newest version.
+        /// </summary>
+        internal static string UpdUpToDate {
+            get {
+                return ResourceManager.GetString("UpdUpToDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to What&apos;s new.
+        /// </summary>
+        internal static string UpdWhatsNew {
+            get {
+                return ResourceManager.GetString("UpdWhatsNew", resourceCulture);
             }
         }
         

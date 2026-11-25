@@ -28,6 +28,9 @@
 ;   other. The files of the Machitan already there go first, so nothing is left from another
 ;   edition or an older version.
 ; - Adds Machitan to the Start menu (a desktop shortcut only if ticked).
+; - "Machitan's shortcuts also in apps running as administrator" (ticked): makes that task for
+;   this copy and turns the option on ("Machitan.exe --setup-adminkeys"), with no further
+;   prompt; left off when it was turned off in Settings.
 ; - A Machitan that is running is asked to exit cleanly first ("Machitan.exe --exit" does the
 ;   same), so Explorer's taskbar comes back; at the end Machitan can be started again.
 ; - Uninstall (Windows' Settings > Apps): Machitan is asked to exit, its files and shortcuts
@@ -115,6 +118,9 @@ ReadyLabel2b=If Machitan is running, Setup closes it first (Explorer's taskbar c
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+; Ticked by default. Setup runs as administrator already, so Windows does not ask again for it.
+; Machitan.exe --setup-adminkeys leaves the option off when it was turned off in Settings.
+Name: "adminkeys"; Description: "Machitan's shortcuts also in apps running as administrator (a small helper runs as administrator; Settings > Shortcuts turns it off)"; GroupDescription: "Shortcuts:"
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -126,11 +132,14 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\Machitan.exe"; WorkingDir: "
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Machitan.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
+; The admin keys' task for this copy (see Shell/AdminKeys.cs, SetUpForInstaller). As administrator,
+; which Setup is: no prompt. Only the small helper ever runs as administrator, never the shell.
+Filename: "{app}\Machitan.exe"; Parameters: "--setup-adminkeys"; WorkingDir: "{app}"; StatusMsg: "Setting up Machitan's shortcuts in apps running as administrator..."; Flags: runhidden waituntilterminated; Tasks: adminkeys
 ; As the user who started Setup, never as administrator: the shell must run with normal rights.
 Filename: "{app}\Machitan.exe"; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallRun]
-; The task Settings > Shortcuts makes for "Shortcuts in apps running as administrator".
+; The task Settings > Shortcuts (or Setup's ticked box) makes for "Shortcuts in apps running as administrator".
 ; Nothing happens if it was never made.
 Filename: "{sys}\schtasks.exe"; Parameters: "/delete /tn ""Machitan\AdminKeys"" /f"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveAdminKeysTask"
 

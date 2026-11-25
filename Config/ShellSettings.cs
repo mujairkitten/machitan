@@ -310,12 +310,46 @@ public sealed record ShellSettings
 
     /// <summary>
     /// Machitan's shortcuts also while an app running as administrator is in front (a helper
-    /// runs as administrator; Windows asks once when it is turned on). Off by default.
+    /// runs as administrator; Windows asks once when it is turned on in Settings). Off in a new
+    /// settings file; the installer turns it on with its ticked box (it runs as administrator
+    /// already, so Windows does not ask then), unless it was turned off in Settings.
     /// </summary>
     public bool AdminAppShortcuts { get; set; }
 
     /// <summary>The Machitan.exe the admin-keys task was made for (another copy needs it made again).</summary>
     public string AdminAppShortcutsFor { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The admin-keys option was set on purpose (in Settings, or by the installer): the
+    /// installer then leaves an "off" alone instead of turning it on again at every update.
+    /// </summary>
+    public bool AdminAppShortcutsChosen { get; set; }
+
+    /// <summary>
+    /// Settings > About: Machitan asks GitHub for its newest release at start (30 seconds after)
+    /// and once a day while it runs (see UpdateService). On by default (v0.9.2 handoff): only a
+    /// question to GitHub; nothing is downloaded or installed without a yes.
+    /// </summary>
+    public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>
+    /// The default for "Also offer pre-releases" while nobody chose (Sam, 2026-11-25: on until he
+    /// says Machitan is ready for 1.0; then this becomes false and reaches everyone who never
+    /// chose, since only a choice is kept).
+    /// </summary>
+    internal const bool PreReleasesByDefault = true;
+
+    /// <summary>
+    /// Settings > About: also offer pre-releases: every version before 1.0, one with a label, and
+    /// one GitHub marks as pre-release. See <see cref="OfferPreReleasesNow"/>.
+    /// </summary>
+    public bool OfferPreReleases { get; set; } = PreReleasesByDefault;
+
+    /// <summary>"Also offer pre-releases" was set in Settings; until then <see cref="PreReleasesByDefault"/> holds.</summary>
+    public bool OfferPreReleasesChosen { get; set; }
+
+    /// <summary>Whether pre-releases are offered now: the choice, or the default while there is none.</summary>
+    public bool OfferPreReleasesNow => OfferPreReleasesChosen ? OfferPreReleases : PreReleasesByDefault;
 
     /// <summary>Calendar flyout (Win+N): show seconds on its clock.</summary>
     public bool CalendarShowSeconds { get; set; }

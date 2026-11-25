@@ -67,9 +67,16 @@ internal sealed class SettingsStore
         }
     }
 
+    /// <summary>
+    /// True when settings.json exists but could not be read at the last Load (defaults are in
+    /// use). Machitan.exe --setup-adminkeys (the installer) then changes nothing.
+    /// </summary>
+    internal bool ReadFailed { get; private set; }
+
     /// <summary>Reads the file. Never throws.</summary>
     internal void Load()
     {
+        ReadFailed = false;
         try
         {
             if (!File.Exists(AppPaths.SettingsFile))
@@ -93,6 +100,7 @@ internal sealed class SettingsStore
         catch (Exception ex)
         {
             Log.Error("Settings: the file could not be read; defaults are used for this run.", ex);
+            ReadFailed = true;
             KeepCopyOfUnreadableFile();
             _document = new JsonObject(NodeOptions);
             Current = new ShellSettings();
@@ -167,6 +175,10 @@ internal sealed class SettingsStore
             _document["Language"] = s.Language;
             _document["AdminAppShortcuts"] = s.AdminAppShortcuts;
             _document["AdminAppShortcutsFor"] = s.AdminAppShortcutsFor;
+            _document["AdminAppShortcutsChosen"] = s.AdminAppShortcutsChosen;
+            _document["CheckForUpdates"] = s.CheckForUpdates;
+            _document["OfferPreReleases"] = s.OfferPreReleases;
+            _document["OfferPreReleasesChosen"] = s.OfferPreReleasesChosen;
             _document["CalendarCollapsed"] = s.CalendarCollapsed;
             foreach (var option in StartOptions)
             {
@@ -738,6 +750,42 @@ internal sealed class SettingsStore
         else
         {
             NoteUnreadable(document, "AdminAppShortcutsFor");
+        }
+
+        if (TryBool(document["AdminAppShortcutsChosen"], out bool adminKeysChosen))
+        {
+            s.AdminAppShortcutsChosen = adminKeysChosen;
+        }
+        else
+        {
+            NoteUnreadable(document, "AdminAppShortcutsChosen");
+        }
+
+        if (TryBool(document["CheckForUpdates"], out bool checkForUpdates))
+        {
+            s.CheckForUpdates = checkForUpdates;
+        }
+        else
+        {
+            NoteUnreadable(document, "CheckForUpdates");
+        }
+
+        if (TryBool(document["OfferPreReleases"], out bool offerPreReleases))
+        {
+            s.OfferPreReleases = offerPreReleases;
+        }
+        else
+        {
+            NoteUnreadable(document, "OfferPreReleases");
+        }
+
+        if (TryBool(document["OfferPreReleasesChosen"], out bool offerPreReleasesChosen))
+        {
+            s.OfferPreReleasesChosen = offerPreReleasesChosen;
+        }
+        else
+        {
+            NoteUnreadable(document, "OfferPreReleasesChosen");
         }
 
         if (TryString(document["FolderOrder"], out string folderOrder))

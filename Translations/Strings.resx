@@ -283,6 +283,9 @@
   <data name="DynAnApp" xml:space="preserve">
     <value>an app</value>
   </data>
+  <data name="DynBackToGeneral" xml:space="preserve">
+    <value>Back to camera, microphone and notifications</value>
+  </data>
   <data name="DynBackToMusic" xml:space="preserve">
     <value>Back to the music</value>
   </data>
@@ -361,12 +364,60 @@
   <data name="DynPrevious" xml:space="preserve">
     <value>Previous track</value>
   </data>
+  <data name="DynShelf" xml:space="preserve">
+    <value>Shelf</value>
+  </data>
+  <data name="DynShelfAdd" xml:space="preserve">
+    <value>Add to shelf</value>
+  </data>
+  <data name="DynShelfClearAll" xml:space="preserve">
+    <value>Take everything off the shelf (the files stay where they are)</value>
+  </data>
+  <data name="DynShelfCount" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="DynShelfDrop" xml:space="preserve">
+    <value>Drop to add to the shelf</value>
+  </data>
+  <data name="DynShelfEmpty" xml:space="preserve">
+    <value>Drop files or folders on Dynaland to keep them here. Only where they are is remembered: nothing is copied.</value>
+  </data>
+  <data name="DynShelfFull" xml:space="preserve">
+    <value>The shelf is full ({0} at most): {1} not added.</value>
+  </data>
+  <data name="DynShelfIsSelected" xml:space="preserve">
+    <value>Selected</value>
+  </data>
+  <data name="DynShelfMissing" xml:space="preserve">
+    <value>Not found: moved or deleted</value>
+  </data>
+  <data name="DynShelfNoPath" xml:space="preserve">
+    <value>{0} not added: not a file or folder on this PC.</value>
+  </data>
+  <data name="DynShelfNotSaved" xml:space="preserve">
+    <value>shelf.json could not be read, so changes to the shelf are not saved this time.</value>
+  </data>
+  <data name="DynShelfRemove" xml:space="preserve">
+    <value>Remove {0} from the shelf</value>
+  </data>
+  <data name="DynShelfRemoveSelected" xml:space="preserve">
+    <value>Take the selected ones off the shelf</value>
+  </data>
+  <data name="DynShelfSelectAll" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="DynShelfSelectNone" xml:space="preserve">
+    <value>Clear the selection</value>
+  </data>
   <data name="DynTitleBy" xml:space="preserve">
     <value>{0} by {1}</value>
     <comment>Keep {0}, {1}: Machitan fills them in.</comment>
   </data>
   <data name="DynToGeneral" xml:space="preserve">
     <value>Show camera, microphone and notifications</value>
+  </data>
+  <data name="DynToShelf" xml:space="preserve">
+    <value>Open the shelf</value>
   </data>
   <data name="DynTray" xml:space="preserve">
     <value>Tray</value>
@@ -819,6 +870,12 @@
   <data name="SetCenter" xml:space="preserve">
     <value>Center</value>
   </data>
+  <data name="SetCheckForUpdates" xml:space="preserve">
+    <value>Check for updates at start and once a day</value>
+  </data>
+  <data name="SetCheckForUpdatesNote" xml:space="preserve">
+    <value>Machitan asks GitHub for its newest release. Nothing is downloaded or installed until you say so.</value>
+  </data>
   <data name="SetChoosePicture" xml:space="preserve">
     <value>Choose picture</value>
   </data>
@@ -1005,6 +1062,12 @@
   <data name="SetNotchShapeNote" xml:space="preserve">
     <value>For the notch shape only.</value>
   </data>
+  <data name="SetOfferPreReleases" xml:space="preserve">
+    <value>Also offer pre-releases</value>
+  </data>
+  <data name="SetOfferPreReleasesNote" xml:space="preserve">
+    <value>Every version before 1.0, and versions marked as pre-release on GitHub.</value>
+  </data>
   <data name="SetOpacity" xml:space="preserve">
     <value>Opacity</value>
   </data>
@@ -1118,6 +1181,12 @@
   <data name="SetPrivacyRing" xml:space="preserve">
     <value>Battery, network and volume come from Windows on this PC. The Wi-Fi name comes from Windows' network list, so no location permission is needed.</value>
   </data>
+  <data name="SetPrivacyShelf" xml:space="preserve">
+    <value>The paths of the files and folders you park on Dynaland's shelf, in {0}. Only the paths: nothing is copied, and nothing leaves this PC.</value>
+  </data>
+  <data name="SetPrivacyUpdates" xml:space="preserve">
+    <value>When updates are checked (at start and once a day while that is on, and when you check), Machitan asks GitHub (api.github.com) for its newest release, so GitHub sees this PC's internet address and Machitan's version. An update is downloaded from GitHub only when you say so.</value>
+  </data>
   <data name="SetPrivacyWeather" xml:space="preserve">
     <value>With weather on, Machitan asks Windows for this PC's location at most once an hour, rounds it to about 1 km, and sends it to Open-Meteo (open-meteo.com) every 15 minutes. If Windows blocks location for desktop apps, the weather stays hidden. With a place you picked, its rounded coordinates go instead, and a place search sends the name you typed to Open-Meteo. Nothing else leaves this PC.</value>
   </data>
@@ -1160,6 +1229,9 @@
   </data>
   <data name="SetShape" xml:space="preserve">
     <value>Shape</value>
+  </data>
+  <data name="SetShelf" xml:space="preserve">
+    <value>File shelf</value>
   </data>
   <data name="SetShowsWhileUpdate" xml:space="preserve">
     <value>Shows while an update is waiting.</value>
@@ -1235,6 +1307,9 @@
   </data>
   <data name="SetTurnOffAnimationsNote" xml:space="preserve">
     <value>Start, the hidden icons (^) and the bar appear and go at once, with no motion. Turning off Animation effects in Windows (Accessibility &gt; Visual effects) does the same.</value>
+  </data>
+  <data name="SetUpdates" xml:space="preserve">
+    <value>Updates</value>
   </data>
   <data name="SetWeather" xml:space="preserve">
     <value>Weather</value>
@@ -1405,6 +1480,123 @@
   <data name="UnpinXFromStart" xml:space="preserve">
     <value>Unpin {0} from Start</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="UpdAvailable" xml:space="preserve">
+    <value>Machitan {0} is available</value>
+  </data>
+  <data name="UpdAvailableNote" xml:space="preserve">
+    <value>Its installer for this PC is {0} ({1} MB). Machitan downloads it from GitHub, checks it against GitHub's SHA-256, then starts it; Setup closes Machitan first and can start it again at the end.</value>
+  </data>
+  <data name="UpdAvailablePre" xml:space="preserve">
+    <value>Machitan {0} (pre-release) is available</value>
+  </data>
+  <data name="UpdBadAnswer" xml:space="preserve">
+    <value>GitHub's answer could not be read.</value>
+  </data>
+  <data name="UpdBroken" xml:space="preserve">
+    <value>The download did not match GitHub's SHA-256, so it was deleted.</value>
+  </data>
+  <data name="UpdCancelled" xml:space="preserve">
+    <value>The download was cancelled.</value>
+  </data>
+  <data name="UpdCannotSave" xml:space="preserve">
+    <value>The installer could not be saved in the temporary folder.</value>
+  </data>
+  <data name="UpdCheck" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="UpdCheckAgain" xml:space="preserve">
+    <value>Check again</value>
+  </data>
+  <data name="UpdCheckFailed" xml:space="preserve">
+    <value>The check failed</value>
+  </data>
+  <data name="UpdCheckedAt" xml:space="preserve">
+    <value>Checked at {0}.</value>
+  </data>
+  <data name="UpdChecking" xml:space="preserve">
+    <value>Asking GitHub...</value>
+  </data>
+  <data name="UpdDownloadFailed" xml:space="preserve">
+    <value>The download failed</value>
+  </data>
+  <data name="UpdDownloadInstall" xml:space="preserve">
+    <value>Download and install</value>
+  </data>
+  <data name="UpdDownloading" xml:space="preserve">
+    <value>Downloading Machitan {0}: {1}%</value>
+  </data>
+  <data name="UpdNoConnection" xml:space="preserve">
+    <value>GitHub could not be reached (no internet connection?).</value>
+  </data>
+  <data name="UpdNoDigest" xml:space="preserve">
+    <value>GitHub gave no SHA-256 for its installer, so Machitan does not install it itself.</value>
+  </data>
+  <data name="UpdNoFinalRelease" xml:space="preserve">
+    <value>GitHub has no release of Machitan apart from pre-releases, which are offered only with the switch below.</value>
+  </data>
+  <data name="UpdNoInstaller" xml:space="preserve">
+    <value>The release has no installer for this PC ({0}), so it can only be got from its page.</value>
+  </data>
+  <data name="UpdNoOffer" xml:space="preserve">
+    <value>No release to offer</value>
+  </data>
+  <data name="UpdNoRelease" xml:space="preserve">
+    <value>GitHub has no release of Machitan.</value>
+  </data>
+  <data name="UpdNotChecked" xml:space="preserve">
+    <value>Not checked yet</value>
+  </data>
+  <data name="UpdNotSetupCopy" xml:space="preserve">
+    <value>This copy of Machitan ({0}) is not the one Setup installed: an update installs the new version in {1}.</value>
+  </data>
+  <data name="UpdNothingKnown" xml:space="preserve">
+    <value>Nothing is known about newer versions.</value>
+  </data>
+  <data name="UpdOther" xml:space="preserve">
+    <value>Something went wrong; diagnostics.log says what.</value>
+  </data>
+  <data name="UpdRefused" xml:space="preserve">
+    <value>GitHub turned the request away for now (too many from this network); try again later.</value>
+  </data>
+  <data name="UpdReleasePage" xml:space="preserve">
+    <value>Open the release page</value>
+  </data>
+  <data name="UpdSetupDeclined" xml:space="preserve">
+    <value>Windows' question was answered no.</value>
+  </data>
+  <data name="UpdSetupDidNotStart" xml:space="preserve">
+    <value>Windows did not start it; diagnostics.log says why.</value>
+  </data>
+  <data name="UpdSetupFailed" xml:space="preserve">
+    <value>Setup did not start</value>
+  </data>
+  <data name="UpdSetupOpen" xml:space="preserve">
+    <value>Setup was started</value>
+  </data>
+  <data name="UpdSetupOpenNote" xml:space="preserve">
+    <value>It asks Windows for administrator rights, closes Machitan, installs {0}, and can start Machitan again at the end. If it was closed, start it again here.</value>
+  </data>
+  <data name="UpdStartBadge" xml:space="preserve">
+    <value>Update: {0}</value>
+  </data>
+  <data name="UpdStartBadgeName" xml:space="preserve">
+    <value>Machitan {0} is available: open Settings &gt; About to install it</value>
+  </data>
+  <data name="UpdStartSetup" xml:space="preserve">
+    <value>Start Setup again</value>
+  </data>
+  <data name="UpdThisCopy" xml:space="preserve">
+    <value>This is Machitan {0} ({1}).</value>
+  </data>
+  <data name="UpdTryAgain" xml:space="preserve">
+    <value>Try again</value>
+  </data>
+  <data name="UpdUpToDate" xml:space="preserve">
+    <value>Machitan {0} is the newest version</value>
+  </data>
+  <data name="UpdWhatsNew" xml:space="preserve">
+    <value>What's new</value>
   </data>
   <data name="WinXComputerManagement" xml:space="preserve">
     <value>Computer Mana&amp;gement</value>

@@ -25,9 +25,10 @@ namespace Machitan.Widgets;
 /// with no background. Its rim is the battery: it runs up the left, across the top, down the
 /// right and in along the bottom from both corners, stopping short of the four volume dots in
 /// the middle of the bottom edge. The fill follows the rim (white, red under 20 % or the charge
-/// set in Settings, green while charging) over a 22 % track. In the middle: the Wi-Fi arcs and
-/// the network's name (or "Connecting...", "No signal", the plane and "Plane mode"), with a
-/// bolt while charging.
+/// set in Settings, green while charging) over a 22 % track; a PC without a battery (a desktop)
+/// gets the whole rim, in the ink. In the middle: the Wi-Fi arcs and the network's name (or
+/// "Connecting...", "No signal", the plane and "Plane mode"), or on a network cable a plug and
+/// the network's name; a bolt while charging. The volume dots stay as they are.
 /// The width follows the label, animated. A click sends Win+A to Windows: its own quick settings.
 /// The ink (white or near-black) follows the wallpaper behind the ring; where the wallpaper is
 /// too mixed for either, a soft backing in the opposite tone is shown behind it (Transparency:
@@ -42,6 +43,9 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
 
     /// <summary>The Wi-Fi icon's width (DIP), per the spec.</summary>
     private const double WifiIconSize = 19;
+
+    /// <summary>The plug's width (DIP); as tall as the Wi-Fi icon.</summary>
+    private const double PlugIconWidth = 12;
     private const double Rim = 3;
     private const double SidePad = 14;
     private const double LabelMax = 170;
@@ -74,7 +78,8 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
     private readonly Shapes.Path[] _arcs = new Shapes.Path[3];
     private readonly Shapes.Ellipse _wifiDot;
     private readonly FontIcon _planeIcon;
-    private readonly FontIcon _wiredIcon;
+    /// <summary>A plug, drawn (Windows' icon font has none), for a network cable.</summary>
+    private readonly Canvas _plugIcon;
     private readonly TextBlock _label;
     private readonly FontIcon _bolt;
     private readonly SolidColorBrush _fillBrush = new(Colors.White);
@@ -88,6 +93,9 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
 
     private int _pollTicks;
     private bool _hasBattery;
+
+    /// <summary>Windows says this PC has no battery at all (a desktop): the whole rim is drawn.</summary>
+    private bool _noBattery;
     private int _batteryPercent = -1;
     private bool _charging;
     private bool _volumeKnown;
@@ -148,7 +156,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
 
         _wifiIcon = MakeWifiIcon(_arcs, out _wifiDot);
         _planeIcon = MakeGlyph(0xE709, 13);
-        _wiredIcon = MakeGlyph(0xE839, 13);
+        _plugIcon = MakePlugIcon(_litBrush);
         _bolt = MakeGlyph(0xE945, 11);
         _label = new TextBlock
         {
@@ -171,7 +179,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         };
         _centre.Children.Add(_wifiIcon);
         _centre.Children.Add(_planeIcon);
-        _centre.Children.Add(_wiredIcon);
+        _centre.Children.Add(_plugIcon);
         _centre.Children.Add(_label);
         _centre.Children.Add(_bolt);
 
@@ -345,6 +353,75 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         return canvas;
     }
 
+    /// <summary>
+    /// A plug, 12 x 17 DIP like the Wi-Fi icon's height: two prongs on top, the head, and the
+    /// cord down from it, in the ink (the brush follows the wallpaper as the rest does).
+    /// </summary>
+    private static Canvas MakePlugIcon(SolidColorBrush ink)
+    {
+        var canvas = new Canvas
+        {
+            Width = PlugIconWidth,
+            Height = 17,
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed,
+        };
+
+        // The prongs.
+        foreach (double x in new[] { 4.0, 8.0 })
+        {
+            canvas.Children.Add(new Shapes.Line
+            {
+                X1 = x,
+                Y1 = 1.5,
+                X2 = x,
+                Y2 = 5,
+                Stroke = ink,
+                StrokeThickness = 1.6,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+            });
+        }
+
+        // The head: square at the prongs, narrowing to the cord.
+        var head = new PathFigure
+        {
+            StartPoint = new Point(1.5, 5),
+            IsClosed = true,
+            IsFilled = true,
+            Segments = new PathSegmentCollection(),
+        };
+        head.Segments.Add(new LineSegment { Point = new Point(10.5, 5) });
+        head.Segments.Add(new LineSegment { Point = new Point(10.5, 8.5) });
+        head.Segments.Add(new LineSegment { Point = new Point(7.6, 11.8) });
+        head.Segments.Add(new LineSegment { Point = new Point(4.4, 11.8) });
+        head.Segments.Add(new LineSegment { Point = new Point(1.5, 8.5) });
+        var headGeometry = new PathGeometry { Figures = new PathFigureCollection() };
+        headGeometry.Figures.Add(head);
+        canvas.Children.Add(new Shapes.Path
+        {
+            Data = headGeometry,
+            Fill = ink,
+            Stroke = ink,
+            StrokeThickness = 1,
+            StrokeLineJoin = PenLineJoin.Round,
+        });
+
+        // The cord.
+        canvas.Children.Add(new Shapes.Line
+        {
+            X1 = 6,
+            Y1 = 11.8,
+            X2 = 6,
+            Y2 = 15.8,
+            Stroke = ink,
+            StrokeThickness = 1.8,
+            StrokeStartLineCap = PenLineCap.Flat,
+            StrokeEndLineCap = PenLineCap.Round,
+        });
+        return canvas;
+    }
+
     /// <summary>The rim's path for a ring of the given width, and its length.</summary>
     private static PathGeometry RimGeometry(double width, out double length)
     {
@@ -422,7 +499,6 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         _unlitBrush.Color = WithAlpha(foreground, TrackAlpha);
         _trackBrush.Color = WithAlpha(foreground, TrackAlpha);
         _planeIcon.Foreground = _litBrush;
-        _wiredIcon.Foreground = _litBrush;
         _bolt.Foreground = _litBrush;
 
         // The backing is the opposite tone of the ink, soft enough to keep the wallpaper visible
@@ -472,32 +548,48 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         }
     }
 
+    /// <summary>
+    /// The battery as Windows reports it: a level (the rim's fill), no battery at all (a desktop:
+    /// the whole rim), or not known (Windows could not read it: only the track, nothing made up).
+    /// </summary>
     private bool ReadBattery()
     {
         bool has = false;
+        bool none = false;
         int percent = -1;
         bool charging = false;
-        if (Kernel32.GetSystemPowerStatus(out SYSTEM_POWER_STATUS status)
-            && status.BatteryFlag != Kernel32.BATTERY_FLAG_UNKNOWN
-            && (status.BatteryFlag & Kernel32.BATTERY_FLAG_NO_BATTERY) == 0
-            && status.BatteryLifePercent != Kernel32.BATTERY_PERCENT_UNKNOWN)
+        if (Kernel32.GetSystemPowerStatus(out SYSTEM_POWER_STATUS status))
         {
-            has = true;
-            percent = Math.Clamp((int)status.BatteryLifePercent, 0, 100);
-            charging = (status.BatteryFlag & Kernel32.BATTERY_FLAG_CHARGING) != 0;
+            if (status.BatteryFlag != Kernel32.BATTERY_FLAG_UNKNOWN
+                && (status.BatteryFlag & Kernel32.BATTERY_FLAG_NO_BATTERY) != 0)
+            {
+                none = true;
+            }
+            else if (status.BatteryFlag != Kernel32.BATTERY_FLAG_UNKNOWN
+                && status.BatteryLifePercent != Kernel32.BATTERY_PERCENT_UNKNOWN)
+            {
+                has = true;
+                percent = Math.Clamp((int)status.BatteryLifePercent, 0, 100);
+                charging = (status.BatteryFlag & Kernel32.BATTERY_FLAG_CHARGING) != 0;
+            }
         }
 
-        if (has == _hasBattery && percent == _batteryPercent && charging == _charging)
+        if (has == _hasBattery && none == _noBattery && percent == _batteryPercent && charging == _charging)
         {
             return false;
         }
 
-        if (!has && _hasBattery != has)
+        if (none && !_noBattery)
         {
-            Log.Info("Status ring: Windows reports no battery; the rim shows only its track.");
+            Log.Info("Status ring: Windows reports no battery (a desktop PC); the rim is drawn whole.");
+        }
+        else if (!has && !none && (_hasBattery || _noBattery || _batteryPercent == -1))
+        {
+            Log.Info("Status ring: Windows could not read the battery; the rim shows only its track.");
         }
 
         _hasBattery = has;
+        _noBattery = none;
         _batteryPercent = percent;
         _charging = charging;
         return true;
@@ -546,7 +638,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         string label;
         bool wifiIcon = false;
         bool plane = false;
-        bool wired = false;
+        bool plug = false;
         int litArcs = 0;
         bool dotLit = false;
         string networkTip;
@@ -571,8 +663,8 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
                 networkTip = Strings.RingWifiOff;
                 break;
             case NetworkKind.Wired:
-                wired = true;
-                label = _net.Name.Length > 0 ? _net.Name : "Ethernet";
+                plug = true;
+                label = _net.Name.Length > 0 ? _net.Name : Strings.NetEthernet;
                 networkTip = Fmt.F(Strings.RingWired, label);
                 break;
             case NetworkKind.NoSignal:
@@ -594,7 +686,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
 
         Show(_wifiIcon, wifiIcon);
         Show(_planeIcon, plane);
-        Show(_wiredIcon, wired);
+        Show(_plugIcon, plug);
         Show(_bolt, _hasBattery && _charging);
         for (int i = 0; i < _arcs.Length; i++)
         {
@@ -644,7 +736,7 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
 
         string batteryTip = _hasBattery
             ? Fmt.F(_charging ? Strings.RingBatteryCharging : Strings.RingBattery, _batteryPercent)
-            : Strings.RingNoBattery;
+            : _noBattery ? Strings.RingNoBattery : Strings.RingBatteryUnknown;
         string volumeTip = !_volumeKnown
             ? Strings.RingVolumeNoDevice
             : _volumeMuted
@@ -725,17 +817,20 @@ public sealed partial class DuoRingWindow : CornerWidgetWindow
         }
     }
 
-    /// <summary>The battery part of the rim: the same path, cut to the battery's share of its length.</summary>
+    /// <summary>
+    /// The battery part of the rim: the same path, cut to the battery's share of its length.
+    /// No battery at all (a desktop): the whole rim, in the ink.
+    /// </summary>
     private void DrawFill()
     {
-        if (!_hasBattery || _batteryPercent <= 0 || _shownWidth <= 0)
+        if (_shownWidth <= 0 || !(_noBattery || (_hasBattery && _batteryPercent > 0)))
         {
             Show(_fill, false);
             return;
         }
 
         PathGeometry geometry = RimGeometry(_shownWidth, out double length);
-        double share = Math.Clamp(_batteryPercent / 100.0, 0, 1) * length;
+        double share = _noBattery ? length : Math.Clamp(_batteryPercent / 100.0, 0, 1) * length;
 
         // Dash lengths count in stroke thicknesses.
         _fill.Data = geometry;

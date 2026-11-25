@@ -49,7 +49,9 @@ namespace Machitan.Widgets;
 /// cover, title, artist, controls, position and the volume), a volume change (the level for 1.8 s), and
 /// camera or microphone use (a green camera dot and an orange mic dot on the pill in every
 /// state; for 4 seconds when a use starts, and on hover, an "In use now" view naming the
-/// apps). Never for notifications: Machitan reads Windows' list but is not told when one arrives.
+/// apps). v0.9.3: the brightness level, the charger plugged in or out, "Copied" or "Cut", and a
+/// new notification opened a little for 5 s, while Windows' own volume and brightness flyout and
+/// its notification popups are hidden (WindowsFlyouts; each a setting, Settings > Dynaland).
 /// Hovering opens Dynaland itself: with music playing, on the player first, with an arrow to
 /// the general page; otherwise straight on the general page ("In use now" for the camera and
 /// microphone, the tray, and Windows' own notifications as Windows' notification centre holds
@@ -170,6 +172,38 @@ public sealed partial class DynalandWindow : Window
     private const int PeekMs = 4000;
     private const int VolumeShowMs = 1800;
 
+    /// <summary>The brightness level on the closed pill, like the volume's.</summary>
+    private const int BrightnessShowMs = 1800;
+
+    /// <summary>The charger plugged in or out, on the closed pill.</summary>
+    private const int PowerShowMs = 3000;
+
+    /// <summary>"Copied" or "Cut" on the closed pill.</summary>
+    private const int ClipboardShowMs = 1800;
+
+    /// <summary>A new notification, opened a little this long (Windows' own popup shows about 5 s).</summary>
+    private const int NotePeekMs = 5000;
+    private const double NotePeekWidth = 360;
+    private const double NotePeekHeight = 96;
+
+    /// <summary>A notification's big picture (or its first picture below the text) under the words; the view grows for it.</summary>
+    private const double NotePeekPictureHeight = 110;
+
+    /// <summary>After a popup, Windows may add more notifications to it without showing it again: looked for this long.</summary>
+    private const long PopupSessionMs = 8000;
+
+    /// <summary>A notification at least this old and not shown came with no popup Machitan saw (a test line).</summary>
+    private const double UnpairedNoteSeconds = 3;
+
+    /// <summary>How long a hidden popup's notification is looked for in Windows' list (WindowsFlyouts waits 2.5 s).</summary>
+    private const long NoteWantedMs = 2400;
+
+    /// <summary>A notification Windows created this long ago at most can be the one its popup was for.</summary>
+    private const double NewNoteSeconds = 15;
+
+    /// <summary>Windows' brightness flyout and its WMI report come this close together (Sam's PC: within about 300 ms).</summary>
+    private const long BrightnessPairMs = 1000;
+
     private static readonly Color Neutral = ColorHelper.FromArgb(0xFF, 0xEC, 0xEC, 0xEC);
     private static readonly Color Dim = ColorHelper.FromArgb(0x99, 0xFF, 0xFF, 0xFF);
     private static readonly Color CameraGreen = ColorHelper.FromArgb(0xFF, 0x34, 0xC7, 0x59);
@@ -223,6 +257,16 @@ public sealed partial class DynalandWindow : Window
     private readonly ColumnDefinition _volumeDone;
     private readonly ColumnDefinition _volumeLeft;
     private readonly TextBlock _volumeText;
+    private readonly StackPanel _brightnessRow;
+    private readonly ColumnDefinition _brightnessDone;
+    private readonly ColumnDefinition _brightnessLeft;
+    private readonly TextBlock _brightnessText;
+    private readonly StackPanel _powerRow;
+    private readonly FontIcon _powerIcon;
+    private readonly TextBlock _powerText;
+    private readonly StackPanel _clipRow;
+    private readonly FontIcon _clipIcon;
+    private readonly TextBlock _clipText;
 
     // Music, open.
     private readonly Grid _mediaContent;
@@ -272,6 +316,19 @@ public sealed partial class DynalandWindow : Window
 
     // In use now, open (for a moment when a use starts).
     private readonly Grid _privacyContent;
+
+    /// <summary>A new notification, opened a little (Windows' own popup for it hidden).</summary>
+    private readonly Grid _noteContent;
+    private readonly Border _notePeekIcon;
+    private readonly TextBlock _notePeekApp;
+    private readonly TextBlock _notePeekTitle;
+    private readonly TextBlock _notePeekBody;
+
+    /// <summary>The notification's own picture beside the words (a person's photo, round when it asks), as in the list.</summary>
+    private readonly Border _notePeekLogo;
+
+    /// <summary>The notification's big picture, or its first picture below the text.</summary>
+    private readonly Border _notePeekPicture;
     private readonly TextBlock _privacyText;
 
     // General page, open.
@@ -383,6 +440,8 @@ public sealed partial class DynalandWindow : Window
     private readonly ScalarKeyFrameAnimation _generalFade;
     private readonly Visual _shelfVisual;
     private readonly ScalarKeyFrameAnimation _shelfFade;
+    private readonly Visual _noteVisual;
+    private readonly ScalarKeyFrameAnimation _noteFade;
 
     private readonly DispatcherQueueTimer _heal;
     private readonly DispatcherQueueTimer _tick;
@@ -394,8 +453,20 @@ public sealed partial class DynalandWindow : Window
     private readonly DispatcherQueueTimer _volumeTimer;
     private readonly DispatcherQueueTimer _volumePoll;
     private readonly DispatcherQueueTimer _dropLeaveTimer;
+
+    /// <summary>While a hidden popup's notification is looked for: Windows' list read again every half second.</summary>
+    private readonly DispatcherQueueTimer _noteRetry;
     private readonly MediaService _media;
     private readonly PrivacyMonitor _privacy;
+
+    /// <summary>Windows' own volume and brightness flyout and notification popups, hidden while Dynaland shows them.</summary>
+    private readonly WindowsFlyouts _flyouts;
+
+    /// <summary>Brightness changes as Windows reports them, for the brightness level.</summary>
+    private readonly BrightnessWatch _brightness;
+
+    /// <summary>Ids of new notifications already shown (only those Windows still holds: no history).</summary>
+    private readonly HashSet<uint> _noteShownIds = new();
     /// <summary>The tray icons: Machitan's one receiver, kept by the shell (Dynaland or the bar shows them).</summary>
     private TrayIconService _tray => _host.Tray;
 
@@ -469,6 +540,30 @@ public sealed partial class DynalandWindow : Window
     private bool _volumeMuted;
     private int _volumeTicks;
     private long _volumeUntil;
+    private int _brightnessPercent = -1;
+    private long _brightnessAt = long.MinValue / 2;
+    private long _levelFlyoutAt = long.MinValue / 2;
+    private long _brightnessUntil;
+
+    /// <summary>-1 unknown (or no battery), 0 on battery, 1 plugged in.</summary>
+    private int _powerState = -1;
+    private int _powerPercent = -1;
+    private bool _powerCharging;
+    private long _powerUntil;
+    private uint _clipSequence;
+    private bool _clipKnown;
+    private int _clipTries;
+    private long _clipUntil;
+    private long _noteWantedUntil;
+    private long _popupSessionUntil;
+    private uint? _notePeekId;
+    private int _notePeekMore;
+    private int _notePeekPicturesVersion = -1;
+    private double _notePeekHeight = NotePeekHeight;
+
+    /// <summary>Test lines only (v0.9.3 test build): notifications already noted as having come with no popup.</summary>
+    private readonly HashSet<uint> _noteUnpairedLogged = new();
+    private int _noteTestLines;
     private string _artKey = string.Empty;
     private bool _artFound;
     private int _artVersion;
@@ -590,6 +685,37 @@ public sealed partial class DynalandWindow : Window
         _volumeRow.Children.Add(_volumeText);
         _volumeRow.Children.Add(MakeDots(6));
 
+        // Brightness, like the volume (Windows' brightness flyout hidden; WindowsFlyouts).
+        _brightnessDone = new ColumnDefinition { Width = new GridLength(0.0001, GridUnitType.Star) };
+        _brightnessLeft = new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) };
+        Grid brightnessBar = MakeBar(_brightnessDone, _brightnessLeft, _whiteBrush);
+        brightnessBar.Width = 120;
+        _brightnessText = Text(12, FontWeights.SemiBold, _whiteBrush);
+        _brightnessText.MinWidth = 28;
+        _brightnessText.TextAlignment = TextAlignment.Right;
+        _brightnessRow = Row();
+        _brightnessRow.Spacing = 10;
+        _brightnessRow.Children.Add(Glyph(0xE706, 14, _whiteBrush));
+        _brightnessRow.Children.Add(brightnessBar);
+        _brightnessRow.Children.Add(_brightnessText);
+        _brightnessRow.Children.Add(MakeDots(6));
+
+        // The charger plugged in or out: the battery's glyph, what it does now, and the level.
+        _powerIcon = Glyph(0xE83F, 14, _whiteBrush);
+        _powerText = Text(12, FontWeights.SemiBold, _whiteBrush);
+        _powerRow = Row();
+        _powerRow.Children.Add(_powerIcon);
+        _powerRow.Children.Add(_powerText);
+        _powerRow.Children.Add(MakeDots(6));
+
+        // Copied or cut: only the kind of what is on the clipboard is looked at, never the content.
+        _clipIcon = Glyph(0xE8C8, 14, _whiteBrush);
+        _clipText = Text(12, FontWeights.SemiBold, _whiteBrush);
+        _clipRow = Row();
+        _clipRow.Children.Add(_clipIcon);
+        _clipRow.Children.Add(_clipText);
+        _clipRow.Children.Add(MakeDots(6));
+
         _collapsedContent = new Grid
         {
             Width = _idleWidth,
@@ -600,6 +726,9 @@ public sealed partial class DynalandWindow : Window
         _collapsedContent.Children.Add(_idleRow);
         _collapsedContent.Children.Add(_miniRow);
         _collapsedContent.Children.Add(_volumeRow);
+        _collapsedContent.Children.Add(_brightnessRow);
+        _collapsedContent.Children.Add(_powerRow);
+        _collapsedContent.Children.Add(_clipRow);
         _stage.Children.Add(_collapsedContent);
 
         // ---- music, open
@@ -901,6 +1030,48 @@ public sealed partial class DynalandWindow : Window
         _privacyContent.Children.Add(privacyStack);
         _stage.Children.Add(_privacyContent);
 
+        // ---- a new notification, opened a little: the app, the title, two lines of the text
+        _notePeekIcon = new Border { Width = 16, Height = 16, VerticalAlignment = VerticalAlignment.Center };
+        _notePeekApp = Text(11, FontWeights.Normal, _dimBrush);
+        var noteHead = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        noteHead.Children.Add(_notePeekIcon);
+        noteHead.Children.Add(_notePeekApp);
+        _notePeekTitle = Text(13, FontWeights.SemiBold, _whiteBrush);
+        _notePeekBody = Text(12, FontWeights.Normal, _dimBrush);
+        _notePeekBody.TextWrapping = TextWrapping.Wrap;
+        _notePeekBody.MaxLines = 2;
+        var noteWords = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        noteWords.Children.Add(_notePeekTitle);
+        noteWords.Children.Add(_notePeekBody);
+        _notePeekLogo = new Border
+        {
+            Width = NoteLogoSize,
+            Height = NoteLogoSize,
+            VerticalAlignment = VerticalAlignment.Top,
+            Visibility = Visibility.Collapsed,
+        };
+        var noteMiddle = new Grid { ColumnSpacing = 10 };
+        noteMiddle.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        noteMiddle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(noteWords, 1);
+        noteMiddle.Children.Add(_notePeekLogo);
+        noteMiddle.Children.Add(noteWords);
+        _notePeekPicture = new Border { Height = NotePeekPictureHeight, Visibility = Visibility.Collapsed };
+        var noteStack = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+        noteStack.Children.Add(noteHead);
+        noteStack.Children.Add(noteMiddle);
+        noteStack.Children.Add(_notePeekPicture);
+        _noteContent = new Grid
+        {
+            Width = NotePeekWidth,
+            Height = NotePeekHeight,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            IsHitTestVisible = false,
+        };
+        _noteContent.Children.Add(noteStack);
+        _stage.Children.Add(_noteContent);
+
         // ---- general page, open
         TextBlock usesTitle = Text(13, FontWeights.SemiBold, _whiteBrush);
         usesTitle.Text = Strings.DynInUseNow;
@@ -1169,6 +1340,7 @@ public sealed partial class DynalandWindow : Window
         _privacyVisual = ElementCompositionPreview.GetElementVisual(_privacyContent);
         _generalVisual = ElementCompositionPreview.GetElementVisual(_generalContent);
         _shelfVisual = ElementCompositionPreview.GetElementVisual(_shelfContent);
+        _noteVisual = ElementCompositionPreview.GetElementVisual(_noteContent);
         _compositor = _collapsedVisual.Compositor;
         _geometry = _compositor.CreateRoundedRectangleGeometry();
         _geometry.CornerRadius = new Vector2((float)CollapsedRadius);
@@ -1196,10 +1368,12 @@ public sealed partial class DynalandWindow : Window
         _privacyFade = _compositor.CreateScalarKeyFrameAnimation();
         _generalFade = _compositor.CreateScalarKeyFrameAnimation();
         _shelfFade = _compositor.CreateScalarKeyFrameAnimation();
+        _noteFade = _compositor.CreateScalarKeyFrameAnimation();
         _mediaVisual.Opacity = 0;
         _privacyVisual.Opacity = 0;
         _generalVisual.Opacity = 0;
         _shelfVisual.Opacity = 0;
+        _noteVisual.Opacity = 0;
 
         _cutter = new WindowCutter(_hwnd, _canvas);
         ApplySize();
@@ -1268,6 +1442,11 @@ public sealed partial class DynalandWindow : Window
         _volumeTimer = MakeTimer(TimeSpan.FromMilliseconds(VolumeShowMs + 20), repeating: false, Refresh);
         _volumePoll = MakeTimer(TimeSpan.FromMilliseconds(250), repeating: true, PollVolume);
         _dropLeaveTimer = MakeTimer(TimeSpan.FromMilliseconds(DropLeaveMs), repeating: false, EndDrop);
+        _noteRetry = MakeTimer(TimeSpan.FromMilliseconds(500), repeating: true, () =>
+        {
+            _notes.ReadNow();
+            ShowNewNote();
+        });
 
         // The tray icons arrive from their apps (TrayIconService), live; started with Dynaland.
         _tray.Changed += FillTray;
@@ -1283,6 +1462,12 @@ public sealed partial class DynalandWindow : Window
         _privacy = new PrivacyMonitor(DispatcherQueue);
         _privacy.Changed += OnPrivacyChanged;
         _notes.Changed += FillNotes;
+        _notes.Changed += OnNotesChangedForPeek;
+        _flyouts = new WindowsFlyouts(DispatcherQueue);
+        _flyouts.LevelFlyoutShown += OnLevelFlyoutShown;
+        _flyouts.PopupHidden += OnPopupHidden;
+        _brightness = new BrightnessWatch(DispatcherQueue);
+        _brightness.Changed += OnBrightnessChanged;
         _host.Shelf.Changed += FillShelf;
 
         _host.Settings.Changed += OnSettingsChanged;
@@ -1296,7 +1481,7 @@ public sealed partial class DynalandWindow : Window
             foreach (DispatcherQueueTimer timer in new[]
                      {
                          _heal, _tick, _hoverTimer, _leaveTimer, _cursorTimer, _regionTimer, _peekTimer, _volumeTimer, _volumePoll,
-                         _trayCloseTimer, _dropLeaveTimer,
+                         _trayCloseTimer, _dropLeaveTimer, _noteRetry,
                      })
             {
                 timer.Stop();
@@ -1309,7 +1494,10 @@ public sealed partial class DynalandWindow : Window
             _privacy.Changed -= OnPrivacyChanged;
             _privacy.Dispose();
             _notes.Changed -= FillNotes;
+            _notes.Changed -= OnNotesChangedForPeek;
             _notes.Dispose();
+            _flyouts.Dispose();
+            _brightness.Dispose();
             _host.Shelf.Changed -= FillShelf;
             _tray.Changed -= FillTray;
             _host.BarLayout.Changed -= FillTray;
@@ -1333,6 +1521,7 @@ public sealed partial class DynalandWindow : Window
         Privacy,
         General,
         Shelf,
+        Note,
     }
 
     private enum CollapsedForm
@@ -1340,6 +1529,9 @@ public sealed partial class DynalandWindow : Window
         Idle,
         Media,
         Volume,
+        Brightness,
+        Power,
+        Clipboard,
     }
 
     /// <summary>True while on screen.</summary>
@@ -1941,6 +2133,7 @@ public sealed partial class DynalandWindow : Window
             PillShape.General => (_stageWidth, _generalHeight, _openRadius),
             PillShape.Shelf => (_stageWidth, _shelfHeight, _openRadius),
             PillShape.Privacy => (PrivacyWidth, PrivacyHeight, _privacyRadius),
+            PillShape.Note => (NotePeekWidth, _notePeekHeight, _privacyRadius),
             _ => (collapsedWidth, CollapsedHeight, _collapsedRadius),
         };
     }
@@ -2042,8 +2235,14 @@ public sealed partial class DynalandWindow : Window
 
         _shown = want;
 
+        // The volume keys are Machitan's only while Dynaland is there to show the level.
+        _host.VolumeKeys.SetDynalandShown(want);
+
         // Windows' notifications are read only while Dynaland is on screen.
         _notes.Active = want;
+
+        // Windows' own flyouts are hidden only while Dynaland is there to show them instead.
+        UpdateFlyouts();
         if (want)
         {
             if (!_servicesStarted)
@@ -2055,6 +2254,8 @@ public sealed partial class DynalandWindow : Window
 
             _volumeKnown = false;
             _volumeTicks = 0;
+            _clipKnown = false;
+            _powerState = -1;
             _volumePoll.Start();
             _placed = default;
             Place();
@@ -2099,6 +2300,7 @@ public sealed partial class DynalandWindow : Window
         ApplyLook(EffectiveStyle(), !_host.DynalandOnTop());
         ApplyTransparency();
         UpdateVisibility();
+        UpdateFlyouts();
         FillTray();
         UpdateDots();
         _placed = default;
@@ -2213,6 +2415,7 @@ public sealed partial class DynalandWindow : Window
         _stage.Margin = atBottom ? new Thickness(0, 0, 0, _gap) : new Thickness(0, _gap, 0, 0);
         _collapsedContent.VerticalAlignment = toEdge;
         _privacyContent.VerticalAlignment = toEdge;
+        _noteContent.VerticalAlignment = toEdge;
         _mediaContent.VerticalAlignment = toEdge;
         _generalContent.VerticalAlignment = toEdge;
         _shelfContent.VerticalAlignment = toEdge;
@@ -2225,6 +2428,9 @@ public sealed partial class DynalandWindow : Window
         _mediaContent.Padding = open;
         _generalContent.Padding = open;
         _shelfContent.Padding = open;
+        _noteContent.Padding = island
+            ? new Thickness(22, 10, 22, 10)
+            : atBottom ? new Thickness(20, 12, 20, 6) : new Thickness(20, 6, 20, 12);
         if (_leftEar is not null && _rightEar is not null && _leftEarFollow is not null && _rightEarFollow is not null)
         {
             float r = (float)EarRadius;
@@ -2331,6 +2537,11 @@ public sealed partial class DynalandWindow : Window
             return media && !_onGeneralPage ? PillShape.Media : PillShape.General;
         }
 
+        if (_peek == PillShape.Note)
+        {
+            return PillShape.Note;
+        }
+
         if (_peek == PillShape.Media && media)
         {
             return PillShape.Media;
@@ -2344,11 +2555,28 @@ public sealed partial class DynalandWindow : Window
         return PillShape.Collapsed;
     }
 
+    /// <summary>A short moment (volume, brightness, charger, copy) while it runs; else the music, else idle.</summary>
     private CollapsedForm DesiredForm()
     {
-        if (_volumeKnown && Environment.TickCount64 < _volumeUntil)
+        long now = Environment.TickCount64;
+        if (_volumeKnown && now < _volumeUntil)
         {
             return CollapsedForm.Volume;
+        }
+
+        if (_brightnessPercent >= 0 && now < _brightnessUntil)
+        {
+            return CollapsedForm.Brightness;
+        }
+
+        if (_powerState >= 0 && now < _powerUntil)
+        {
+            return CollapsedForm.Power;
+        }
+
+        if (now < _clipUntil)
+        {
+            return CollapsedForm.Clipboard;
         }
 
         return _media.Current.HasMedia ? CollapsedForm.Media : CollapsedForm.Idle;
@@ -2366,11 +2594,17 @@ public sealed partial class DynalandWindow : Window
         Show(_idleRow, form == CollapsedForm.Idle);
         Show(_miniRow, form == CollapsedForm.Media);
         Show(_volumeRow, form == CollapsedForm.Volume);
+        Show(_brightnessRow, form == CollapsedForm.Brightness);
+        Show(_powerRow, form == CollapsedForm.Power);
+        Show(_clipRow, form == CollapsedForm.Clipboard);
 
         StackPanel row = form switch
         {
             CollapsedForm.Media => _miniRow,
             CollapsedForm.Volume => _volumeRow,
+            CollapsedForm.Brightness => _brightnessRow,
+            CollapsedForm.Power => _powerRow,
+            CollapsedForm.Clipboard => _clipRow,
             _ => _idleRow,
         };
         row.Measure(new Windows.Foundation.Size(double.PositiveInfinity, CollapsedHeight));
@@ -2435,6 +2669,7 @@ public sealed partial class DynalandWindow : Window
         PillShape.Privacy => _privacyVisual,
         PillShape.General => _generalVisual,
         PillShape.Shelf => _shelfVisual,
+        PillShape.Note => _noteVisual,
         _ => _collapsedVisual,
     };
 
@@ -2444,6 +2679,7 @@ public sealed partial class DynalandWindow : Window
         PillShape.Privacy => _privacyFade,
         PillShape.General => _generalFade,
         PillShape.Shelf => _shelfFade,
+        PillShape.Note => _noteFade,
         _ => _collapsedFade,
     };
 
@@ -2527,7 +2763,7 @@ public sealed partial class DynalandWindow : Window
         _geometry.Offset = PillOffset(_collapsedWidth, CollapsedHeight);
         _geometry.CornerRadius = new Vector2((float)_collapsedRadius);
         SetSilhouette(_collapsedWidth, CollapsedHeight, _collapsedRadius, animate: false);
-        foreach (Visual visual in new[] { _collapsedVisual, _mediaVisual, _privacyVisual, _generalVisual, _shelfVisual })
+        foreach (Visual visual in new[] { _collapsedVisual, _mediaVisual, _privacyVisual, _generalVisual, _shelfVisual, _noteVisual })
         {
             visual.StopAnimation("Opacity");
         }
@@ -2537,6 +2773,7 @@ public sealed partial class DynalandWindow : Window
         _privacyVisual.Opacity = 0;
         _generalVisual.Opacity = 0;
         _shelfVisual.Opacity = 0;
+        _noteVisual.Opacity = 0;
         SettleRegion();
     }
 
@@ -2630,6 +2867,7 @@ public sealed partial class DynalandWindow : Window
     {
         _peek = shape;
         _peekTimer.Stop();
+        _peekTimer.Interval = TimeSpan.FromMilliseconds(shape == PillShape.Note ? NotePeekMs : PeekMs);
         _peekTimer.Start();
         Refresh();
     }
@@ -2646,7 +2884,15 @@ public sealed partial class DynalandWindow : Window
         }
 
         _hovering = true;
-        _onGeneralPage = false;
+
+        // On a new notification: its list (the general page), and the notification is done.
+        _onGeneralPage = _pill == PillShape.Note;
+        if (_peek == PillShape.Note)
+        {
+            _peek = PillShape.Collapsed;
+            _peekTimer.Stop();
+        }
+
         _onShelfPage = false;
         _leaveTimer.Stop();
         _cursorTimer.Start();
@@ -4440,10 +4686,27 @@ public sealed partial class DynalandWindow : Window
 
     // ---------------------------------------------------------------- volume
 
-    /// <summary>Four times a second; a change shows the level for 1.8 s. The first reading only sets the start.</summary>
+    /// <summary>A volume key Machitan handled (VolumeKeys): the new level shows now, not at the next reading.</summary>
+    internal void ShowVolumeNow()
+    {
+        if (_shown && !_closed)
+        {
+            PollVolume();
+        }
+    }
+
+    /// <summary>
+    /// Four times a second, while Dynaland is on screen: the volume (a change shows the level for
+    /// 1.8 s; the first reading only sets the start), the clipboard, and once a second the charger.
+    /// </summary>
     private void PollVolume()
     {
         _volumeTicks++;
+        PollClipboard();
+        if (_volumeTicks % 4 == 1)
+        {
+            PollPower();
+        }
         if (_volumeTicks % 20 == 1 || !_volume.IsAvailable)
         {
             // The default device can change.
@@ -4483,10 +4746,10 @@ public sealed partial class DynalandWindow : Window
         _volumeMuted = muted;
         ShowVolumeLevel();
         ShowPlayerVolume();
-        _volumeUntil = Environment.TickCount64 + VolumeShowMs;
-        _volumeTimer.Stop();
-        _volumeTimer.Start();
-        Refresh();
+
+        // Windows' flyout for this change (from a key Machitan did not see) stays hidden.
+        _flyouts.LevelChanged();
+        StartMoment(CollapsedForm.Volume, VolumeShowMs);
     }
 
     /// <summary>The player's volume line as Windows has the volume now (hidden without speakers).</summary>
@@ -4593,6 +4856,375 @@ public sealed partial class DynalandWindow : Window
         double done = _volumeMuted ? 0 : _volumePercent / 100.0;
         _volumeDone.Width = new GridLength(Math.Max(done, 0.0001), GridUnitType.Star);
         _volumeLeft.Width = new GridLength(Math.Max(1 - done, 0.0001), GridUnitType.Star);
+    }
+
+    // ---------------------------------------------------------------- moments: brightness, charger, copy
+
+    /// <summary>One short moment on the closed pill; a newer one replaces the one before.</summary>
+    private void StartMoment(CollapsedForm form, int showMs)
+    {
+        long until = Environment.TickCount64 + showMs;
+        _volumeUntil = form == CollapsedForm.Volume ? until : 0;
+        _brightnessUntil = form == CollapsedForm.Brightness ? until : 0;
+        _powerUntil = form == CollapsedForm.Power ? until : 0;
+        _clipUntil = form == CollapsedForm.Clipboard ? until : 0;
+        _volumeTimer.Stop();
+        _volumeTimer.Interval = TimeSpan.FromMilliseconds(showMs + 20);
+        _volumeTimer.Start();
+        Refresh();
+    }
+
+    /// <summary>
+    /// What Windows may not show itself now: its volume and brightness flyout, and its popups for
+    /// new notifications, only while Dynaland is on screen to show them instead (each with its
+    /// option; the popups only while Windows lets Machitan read the notifications).
+    /// </summary>
+    private void UpdateFlyouts()
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        ShellSettings settings = _host.Settings.Current;
+        bool levels = _shown && settings.DynalandLevels;
+        bool popups = _shown && settings.DynalandNotifications && _notes.Access == NotificationAccess.Allowed;
+        _flyouts.Set(levels, popups);
+        _brightness.SetWanted(levels);
+    }
+
+    /// <summary>
+    /// Windows reported a new brightness level. Shown with Windows' brightness flyout (hidden):
+    /// for the brightness keys, not for the screen dimming by itself, which Windows shows no flyout for.
+    /// </summary>
+    private void OnBrightnessChanged(int percent)
+    {
+        _brightnessPercent = percent;
+        _brightnessAt = Environment.TickCount64;
+        _flyouts.LevelChanged();
+        if (_brightnessAt - _levelFlyoutAt <= BrightnessPairMs)
+        {
+            ShowBrightness();
+        }
+    }
+
+    /// <summary>Windows showed its volume and brightness flyout (now hidden): a brightness level just reported shows now.</summary>
+    private void OnLevelFlyoutShown()
+    {
+        _levelFlyoutAt = Environment.TickCount64;
+        if (_brightnessPercent >= 0 && _levelFlyoutAt - _brightnessAt <= BrightnessPairMs)
+        {
+            ShowBrightness();
+        }
+    }
+
+    private void ShowBrightness()
+    {
+        if (!_shown || _closed)
+        {
+            return;
+        }
+
+        Set(_brightnessText, _brightnessPercent.ToString(CultureInfo.CurrentCulture));
+        double done = _brightnessPercent / 100.0;
+        _brightnessDone.Width = new GridLength(Math.Max(done, 0.0001), GridUnitType.Star);
+        _brightnessLeft.Width = new GridLength(Math.Max(1 - done, 0.0001), GridUnitType.Star);
+        AutomationProperties.SetName(_brightnessRow, Fmt.F(Strings.DynBrightnessLevel, _brightnessPercent));
+        StartMoment(CollapsedForm.Brightness, BrightnessShowMs);
+    }
+
+    /// <summary>
+    /// Once a second: the charger plugged in or out shows on the pill for 3 s (with the option
+    /// on, on a PC with a battery). The first reading only sets the start. Charging often begins
+    /// a moment after the plug goes in, so the words follow while the moment runs.
+    /// </summary>
+    private void PollPower()
+    {
+        if (!Kernel32.GetSystemPowerStatus(out SYSTEM_POWER_STATUS status)
+            || status.ACLineStatus > 1
+            || (status.BatteryFlag & Kernel32.BATTERY_FLAG_NO_BATTERY) != 0)
+        {
+            _powerState = -1;
+            return;
+        }
+
+        int state = status.ACLineStatus;
+        bool changed = _powerState >= 0 && state != _powerState;
+        bool running = Environment.TickCount64 < _powerUntil;
+        _powerState = state;
+        _powerCharging = (status.BatteryFlag & Kernel32.BATTERY_FLAG_CHARGING) != 0;
+        _powerPercent = status.BatteryLifePercent == Kernel32.BATTERY_PERCENT_UNKNOWN ? -1 : Math.Min((int)status.BatteryLifePercent, 100);
+        if (!_host.Settings.Current.DynalandCharging)
+        {
+            return;
+        }
+
+        if (changed)
+        {
+            ShowPower();
+            StartMoment(CollapsedForm.Power, PowerShowMs);
+        }
+        else if (running)
+        {
+            ShowPower();
+            Refresh();
+        }
+    }
+
+    private void ShowPower()
+    {
+        string words = _powerState == 1
+            ? (_powerCharging ? Strings.DynCharging : Strings.DynPluggedIn)
+            : Strings.DynOnBattery;
+        Set(_powerText, _powerPercent >= 0 ? Fmt.F(Strings.DynPowerLevel, words, _powerPercent) : words);
+
+        // Segoe Fluent Icons: Battery0-9 E850-E859, Battery10 E83F; BatteryCharging0-8 E85A-E862, BatteryCharging9 E83E.
+        int step = _powerPercent < 0 ? 10 : Math.Clamp(_powerPercent / 10, 0, 10);
+        int glyph = _powerState == 1
+            ? (step >= 9 ? 0xE83E : 0xE85A + step)
+            : (step >= 10 ? 0xE83F : 0xE850 + step);
+        _powerIcon.Glyph = ((char)glyph).ToString();
+    }
+
+    /// <summary>
+    /// Four times a second: a change of the clipboard shows "Copied" or "Cut" (with the option on).
+    /// Only the kind of what is there (files, a picture, other) and whether File Explorer cut or
+    /// copied it are looked at; the content is never read. The first reading only sets the start;
+    /// while the app that changed it still holds the clipboard, it is tried again (up to a second).
+    /// An emptied clipboard shows nothing.
+    /// </summary>
+    private void PollClipboard()
+    {
+        uint sequence = User32.GetClipboardSequenceNumber();
+        if (!_clipKnown)
+        {
+            _clipKnown = true;
+            _clipSequence = sequence;
+            _clipTries = 0;
+            return;
+        }
+
+        if (sequence != _clipSequence)
+        {
+            _clipSequence = sequence;
+            _clipTries = 4;
+        }
+
+        if (_clipTries == 0)
+        {
+            return;
+        }
+
+        _clipTries--;
+        if (!_host.Settings.Current.DynalandClipboard)
+        {
+            _clipTries = 0;
+            return;
+        }
+
+        try
+        {
+            Windows.ApplicationModel.DataTransfer.DataPackageView view = Windows.ApplicationModel.DataTransfer.Clipboard.GetContent();
+            if (view.AvailableFormats.Count == 0)
+            {
+                _clipTries = 0;
+                return;
+            }
+
+            bool files = view.Contains(StandardDataFormats.StorageItems);
+            bool picture = !files && view.Contains(StandardDataFormats.Bitmap);
+            DataPackageOperation operation = files ? view.RequestedOperation : DataPackageOperation.None;
+            bool cut = (operation & DataPackageOperation.Move) != 0 && (operation & DataPackageOperation.Copy) == 0;
+            _clipTries = 0;
+            _clipIcon.Glyph = ((char)(cut ? 0xE8C6 : picture ? 0xE8B9 : 0xE8C8)).ToString();
+            Set(_clipText, files ? (cut ? Strings.DynFilesCut : Strings.DynFilesCopied) : picture ? Strings.DynPictureCopied : Strings.DynCopied);
+            if (_shown && !_closed)
+            {
+                StartMoment(CollapsedForm.Clipboard, ClipboardShowMs);
+            }
+        }
+        catch (Exception)
+        {
+            // Another app still holds the clipboard: tried again at the next reading.
+        }
+    }
+
+    // ---------------------------------------------------------------- a new notification
+
+    /// <summary>Windows showed a popup for a new notification and it was hidden: find the notification in Windows' list now.</summary>
+    private void OnPopupHidden()
+    {
+        long now = Environment.TickCount64;
+        _noteWantedUntil = now + NoteWantedMs;
+        _popupSessionUntil = now + PopupSessionMs;
+        _notes.ReadNow();
+        _noteRetry.Start();
+        ShowNewNote();
+    }
+
+    private void OnNotesChangedForPeek()
+    {
+        // Windows may have changed whether Machitan can read the notifications.
+        UpdateFlyouts();
+        ShowNewNote();
+
+        // A notification's pictures arrive a moment after it: the open notification gets them.
+        if (_peek == PillShape.Note && _notePeekId is uint id && _notes.PicturesVersion != _notePeekPicturesVersion)
+        {
+            foreach (NotificationEntry entry in _notes.Current)
+            {
+                if (entry.Id == id)
+                {
+                    FillNotePeek(entry, _notePeekMore);
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// While a hidden popup waits, and for 8 s after one (Windows may add more notifications to
+    /// its popup without showing it again): the newest notification Windows created in the last
+    /// few seconds and Dynaland has not shown yet opens a little for 5 s (with how many more came
+    /// with it), and Windows' popup stays hidden. Not found in time: Windows shows its popup
+    /// again (WindowsFlyouts). Only ids Windows still holds are remembered.
+    /// </summary>
+    private void ShowNewNote()
+    {
+        IReadOnlyList<NotificationEntry> current = _notes.Current;
+        if (_noteShownIds.Count > 0)
+        {
+            var held = new HashSet<uint>();
+            foreach (NotificationEntry entry in current)
+            {
+                held.Add(entry.Id);
+            }
+
+            _noteShownIds.IntersectWith(held);
+        }
+
+        long now = Environment.TickCount64;
+        if (now > _noteWantedUntil && now > _popupSessionUntil)
+        {
+            _noteRetry.Stop();
+            NoteUnpaired(current);
+            return;
+        }
+
+        DateTimeOffset since = DateTimeOffset.Now.AddSeconds(-NewNoteSeconds);
+        NotificationEntry? newest = null;
+        int count = 0;
+        foreach (NotificationEntry entry in current)
+        {
+            if (entry.Time >= since && !_noteShownIds.Contains(entry.Id))
+            {
+                // The list is newest first.
+                newest ??= entry;
+                count++;
+                _noteShownIds.Add(entry.Id);
+            }
+        }
+
+        if (newest is null)
+        {
+            return;
+        }
+
+        // The popup that waited has its notification; more may still come with it (the session).
+        _noteWantedUntil = 0;
+        _flyouts.PopupShownInDynaland();
+        FillNotePeek(newest, count - 1);
+        if (_shown && !_closed && !_hovering)
+        {
+            Peek(PillShape.Note);
+        }
+    }
+
+    /// <summary>
+    /// Test lines only (v0.9.3 test build): a notification Windows created 3 to 15 s ago that
+    /// Dynaland never showed came with no popup Machitan saw (Do not disturb, an app whose
+    /// popups are off, or a popup Machitan missed). Never the notification's app, title or text.
+    /// </summary>
+    private void NoteUnpaired(IReadOnlyList<NotificationEntry> current)
+    {
+        if (_noteTestLines >= 20 || !_shown || !_host.Settings.Current.DynalandNotifications || _notes.Access != NotificationAccess.Allowed)
+        {
+            return;
+        }
+
+        DateTimeOffset now = DateTimeOffset.Now;
+        foreach (NotificationEntry entry in current)
+        {
+            double age = (now - entry.Time).TotalSeconds;
+            if (age >= UnpairedNoteSeconds && age <= NewNoteSeconds && !_noteShownIds.Contains(entry.Id) && _noteUnpairedLogged.Add(entry.Id))
+            {
+                _noteTestLines++;
+                Log.Info("Dynaland (test): a new notification in Windows' list came with no popup Machitan saw ("
+                    + Math.Round(age).ToString(CultureInfo.InvariantCulture) + " s old; Do not disturb, an app whose popups are off, or a popup Machitan missed).");
+            }
+        }
+
+        if (_noteUnpairedLogged.Count > 200)
+        {
+            _noteUnpairedLogged.Clear();
+        }
+    }
+
+    /// <summary>
+    /// The app's icon and name (and how many more came), the notification's own picture beside
+    /// the words (as in the list), the title, up to two lines of the text, and its big picture
+    /// (or its first picture below the text) under them; the view grows for the picture.
+    /// </summary>
+    private void FillNotePeek(NotificationEntry entry, int more)
+    {
+        NotificationPictureView? pictures = _notes.PicturesFor(entry.Id);
+        _notePeekId = entry.Id;
+        _notePeekMore = more;
+        _notePeekPicturesVersion = _notes.PicturesVersion;
+        _notePeekIcon.Child = NoteAppIcon(entry) is ImageSource icon
+            ? new Image { Source = icon, Width = 16, Height = 16, Stretch = Stretch.Uniform }
+            : Glyph(0xE7E7, 12, _dimBrush);
+        Set(_notePeekApp, more > 0 ? Fmt.F(Strings.DynNoteAndMore, entry.AppName, more) : entry.AppName);
+        string body = BodyWithout(entry.Body, pictures?.Attribution ?? string.Empty);
+        string title = entry.Title.Length > 0 ? entry.Title : body;
+        if (entry.Title.Length == 0)
+        {
+            body = string.Empty;
+        }
+
+        Set(_notePeekTitle, title);
+        Set(_notePeekBody, body);
+        Show(_notePeekBody, body.Length > 0);
+        AutomationProperties.SetName(_noteContent, entry.AppName + ": " + title);
+
+        if (pictures?.Logo is ImageSource logo)
+        {
+            var fill = new ImageBrush { ImageSource = logo, Stretch = Stretch.UniformToFill };
+            _notePeekLogo.Child = pictures.LogoCircle
+                ? new Ellipse { Width = NoteLogoSize, Height = NoteLogoSize, Fill = fill }
+                : new Rectangle { Width = NoteLogoSize, Height = NoteLogoSize, RadiusX = 4, RadiusY = 4, Fill = fill };
+            Show(_notePeekLogo, true);
+        }
+        else
+        {
+            _notePeekLogo.Child = null;
+            Show(_notePeekLogo, false);
+        }
+
+        ImageSource? big = pictures?.Hero ?? (pictures is { Inline.Count: > 0 } ? pictures.Inline[0] : null);
+        _notePeekPicture.Child = big is not null ? PictureBox(big, NotePeekPictureHeight) : null;
+        Show(_notePeekPicture, big is not null);
+
+        double height = big is not null ? NotePeekHeight + NotePeekPictureHeight + 6 : NotePeekHeight;
+        bool resized = Math.Abs(height - _notePeekHeight) >= 0.5;
+        _notePeekHeight = height;
+        _noteContent.Height = height;
+        if (resized && _pill == PillShape.Note)
+        {
+            // The picture arrived while the notification is open: the view grows to it.
+            HoldRegion(_collapsedWidth);
+            AnimatePill(NotePeekWidth, height, _privacyRadius);
+        }
     }
 
     // ---------------------------------------------------------------- camera and microphone

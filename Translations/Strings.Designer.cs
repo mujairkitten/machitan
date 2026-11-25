@@ -745,6 +745,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Brightness {0}%.
+        /// </summary>
+        internal static string DynBrightnessLevel {
+            get {
+                return ResourceManager.GetString("DynBrightnessLevel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Camera.
         /// </summary>
         internal static string DynCamera {
@@ -763,11 +772,29 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Charging.
+        /// </summary>
+        internal static string DynCharging {
+            get {
+                return ResourceManager.GetString("DynCharging", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Clear all.
         /// </summary>
         internal static string DynClearAll {
             get {
                 return ResourceManager.GetString("DynClearAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Copied.
+        /// </summary>
+        internal static string DynCopied {
+            get {
+                return ResourceManager.GetString("DynCopied", resourceCulture);
             }
         }
         
@@ -786,6 +813,24 @@ namespace Machitan {
         internal static string DynDismissFrom {
             get {
                 return ResourceManager.GetString("DynDismissFrom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Files copied.
+        /// </summary>
+        internal static string DynFilesCopied {
+            get {
+                return ResourceManager.GetString("DynFilesCopied", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Files cut.
+        /// </summary>
+        internal static string DynFilesCut {
+            get {
+                return ResourceManager.GetString("DynFilesCut", resourceCulture);
             }
         }
         
@@ -862,6 +907,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} and {1} more.
+        /// </summary>
+        internal static string DynNoteAndMore {
+            get {
+                return ResourceManager.GetString("DynNoteAndMore", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Nothing is using the camera or the microphone..
         /// </summary>
         internal static string DynNothingInUse {
@@ -889,6 +943,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to On battery.
+        /// </summary>
+        internal static string DynOnBattery {
+            get {
+                return ResourceManager.GetString("DynOnBattery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Open Windows&apos; notification centre.
         /// </summary>
         internal static string DynOpenNotifications {
@@ -903,6 +966,15 @@ namespace Machitan {
         internal static string DynPaused {
             get {
                 return ResourceManager.GetString("DynPaused", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Picture copied.
+        /// </summary>
+        internal static string DynPictureCopied {
+            get {
+                return ResourceManager.GetString("DynPictureCopied", resourceCulture);
             }
         }
         
@@ -925,6 +997,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Plugged in.
+        /// </summary>
+        internal static string DynPluggedIn {
+            get {
+                return ResourceManager.GetString("DynPluggedIn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Point at it to open Dynaland..
         /// </summary>
         internal static string DynPointToOpen {
@@ -939,6 +1020,15 @@ namespace Machitan {
         internal static string DynPosition {
             get {
                 return ResourceManager.GetString("DynPosition", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0}, {1}%.
+        /// </summary>
+        internal static string DynPowerLevel {
+            get {
+                return ResourceManager.GetString("DynPowerLevel", resourceCulture);
             }
         }
         
@@ -1825,6 +1915,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Battery level not known.
+        /// </summary>
+        internal static string RingBatteryUnknown {
+            get {
+                return ResourceManager.GetString("RingBatteryUnknown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Connecting....
         /// </summary>
         internal static string RingConnecting {
@@ -2550,6 +2649,78 @@ namespace Machitan {
         internal static string SetDynalandTransparencyNote {
             get {
                 return ResourceManager.GetString("SetDynalandTransparencyNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Charger plugged in or out.
+        /// </summary>
+        internal static string SetDynCharging {
+            get {
+                return ResourceManager.GetString("SetDynCharging", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Dynaland shows it with the battery level..
+        /// </summary>
+        internal static string SetDynChargingNote {
+            get {
+                return ResourceManager.GetString("SetDynChargingNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Copy and cut.
+        /// </summary>
+        internal static string SetDynClipboard {
+            get {
+                return ResourceManager.GetString("SetDynClipboard", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Dynaland shows &quot;Copied&quot; or &quot;Cut&quot;. Machitan never reads what is on the clipboard..
+        /// </summary>
+        internal static string SetDynClipboardNote {
+            get {
+                return ResourceManager.GetString("SetDynClipboardNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Volume and brightness show in Dynaland.
+        /// </summary>
+        internal static string SetDynLevels {
+            get {
+                return ResourceManager.GetString("SetDynLevels", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Machitan handles the volume keys and hides Windows&apos; volume and brightness flyout, so only Dynaland shows the level. While Dynaland is hidden (a full-screen app), Windows&apos; own flyout is back..
+        /// </summary>
+        internal static string SetDynLevelsNote {
+            get {
+                return ResourceManager.GetString("SetDynLevelsNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New notifications show in Dynaland.
+        /// </summary>
+        internal static string SetDynNotifications {
+            get {
+                return ResourceManager.GetString("SetDynNotifications", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows&apos; popup for a new notification is hidden and Dynaland shows the notification for 5 seconds. It stays in Windows&apos; list; its buttons (reply, snooze) are in Windows&apos; notification centre..
+        /// </summary>
+        internal static string SetDynNotificationsNote {
+            get {
+                return ResourceManager.GetString("SetDynNotificationsNote", resourceCulture);
             }
         }
         

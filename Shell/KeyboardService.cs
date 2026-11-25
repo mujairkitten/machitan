@@ -57,6 +57,7 @@ internal sealed class HotkeyDefinition
 /// The one exception: a shortcut marked "catch when Windows owns it" (Win+1..9 and
 /// Win+Shift+1..9) is then caught by the hook. Its key is held back from Windows (press,
 /// repeats and release), and the Win release is masked as above so Windows' Start stays shut.
+/// The volume keys, while VolumeKeys wants them (v0.9.3), are held back the same way and go to it.
 /// Every other key still passes through.
 /// </summary>
 internal sealed unsafe class KeyboardService
@@ -84,6 +85,16 @@ internal sealed unsafe class KeyboardService
 
     /// <summary>The admin-keys helper only: act only while this says yes (an app above Machitan's rights is in front).</summary>
     private static Func<bool>? s_actFilter;
+
+    private const uint VkVolumeMute = 0xAD;
+    private const uint VkVolumeDown = 0xAE;
+    private const uint VkVolumeUp = 0xAF;
+
+    /// <summary>
+    /// Volume up, down and mute are held back from Windows and go here (presses only), on the hook
+    /// thread; null leaves them to Windows. The shell: VolumeKeys. The admin-keys helper: posted to the shell.
+    /// </summary>
+    private static volatile Action<uint>? s_volumeKeySink;
     private static bool s_winDown;
     private static bool s_chord;
     private static bool s_heldBackDuringWin;
@@ -221,6 +232,12 @@ internal sealed unsafe class KeyboardService
     internal static void SetHelperShortcuts(List<HotkeyDefinition> caught)
     {
         s_caught = caught;
+    }
+
+    /// <summary>Volume up, down and mute go to <paramref name="sink"/> (presses, on the hook thread) and not to Windows. Null gives them back.</summary>
+    internal static void SetVolumeKeySink(Action<uint>? sink)
+    {
+        s_volumeKeySink = sink;
     }
 
     /// <summary>Removes the hook and the shortcuts. Safe to call more than once.</summary>
@@ -636,6 +653,18 @@ internal sealed unsafe class KeyboardService
         {
             // Any other key while Win is held makes it a combination.
             s_chord = true;
+        }
+
+        if (s_volumeKeySink is { } volumeSink && virtualKey is VkVolumeMute or VkVolumeDown or VkVolumeUp)
+        {
+            // Windows never sees the volume keys (so its volume flyout stays away); Machitan
+            // changes the volume itself. Releases and repeats go the same way as the presses.
+            if (down)
+            {
+                volumeSink(virtualKey);
+            }
+
+            return true;
         }
 
         return false;

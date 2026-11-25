@@ -289,6 +289,9 @@
   <data name="DynBackToMusic" xml:space="preserve">
     <value>Back to the music</value>
   </data>
+  <data name="DynBrightnessLevel" xml:space="preserve">
+    <value>Brightness {0}%</value>
+  </data>
   <data name="DynCamera" xml:space="preserve">
     <value>Camera</value>
   </data>
@@ -296,14 +299,26 @@
     <value>Camera: {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="DynCharging" xml:space="preserve">
+    <value>Charging</value>
+  </data>
   <data name="DynClearAll" xml:space="preserve">
     <value>Clear all</value>
+  </data>
+  <data name="DynCopied" xml:space="preserve">
+    <value>Copied</value>
   </data>
   <data name="DynDismiss" xml:space="preserve">
     <value>Dismiss</value>
   </data>
   <data name="DynDismissFrom" xml:space="preserve">
     <value>Dismiss the notification from {0}</value>
+  </data>
+  <data name="DynFilesCopied" xml:space="preserve">
+    <value>Files copied</value>
+  </data>
+  <data name="DynFilesCut" xml:space="preserve">
+    <value>Files cut</value>
   </data>
   <data name="DynInUseNow" xml:space="preserve">
     <value>In use now</value>
@@ -332,6 +347,10 @@
   <data name="DynNoNotifications" xml:space="preserve">
     <value>No notifications</value>
   </data>
+  <data name="DynNoteAndMore" xml:space="preserve">
+    <value>{0} and {1} more</value>
+    <comment>{0}: the app's name. {1}: how many more new notifications came with it.</comment>
+  </data>
   <data name="DynNothingInUse" xml:space="preserve">
     <value>Nothing is using the camera or the microphone.</value>
   </data>
@@ -341,12 +360,18 @@
   <data name="DynNotificationsNotAllowed" xml:space="preserve">
     <value>Windows doesn't let Machitan read notifications (Settings &gt; Privacy &amp; security &gt; Notifications).</value>
   </data>
+  <data name="DynOnBattery" xml:space="preserve">
+    <value>On battery</value>
+  </data>
   <data name="DynOpenNotifications" xml:space="preserve">
     <value>Open Windows' notification centre</value>
   </data>
   <data name="DynPaused" xml:space="preserve">
     <value>Paused: {0}, in {1}.</value>
     <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="DynPictureCopied" xml:space="preserve">
+    <value>Picture copied</value>
   </data>
   <data name="DynPlayPause" xml:space="preserve">
     <value>Play or pause</value>
@@ -355,11 +380,18 @@
     <value>Playing {0}, in {1}.</value>
     <comment>Keep {0}, {1}: Machitan fills them in.</comment>
   </data>
+  <data name="DynPluggedIn" xml:space="preserve">
+    <value>Plugged in</value>
+  </data>
   <data name="DynPointToOpen" xml:space="preserve">
     <value>Point at it to open Dynaland.</value>
   </data>
   <data name="DynPosition" xml:space="preserve">
     <value>Playback position</value>
+  </data>
+  <data name="DynPowerLevel" xml:space="preserve">
+    <value>{0}, {1}%</value>
+    <comment>{0}: Charging, Plugged in or On battery. {1}: the battery level.</comment>
   </data>
   <data name="DynPrevious" xml:space="preserve">
     <value>Previous track</value>
@@ -673,6 +705,9 @@
     <value>Battery {0}%, charging</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="RingBatteryUnknown" xml:space="preserve">
+    <value>Battery level not known</value>
+  </data>
   <data name="RingConnecting" xml:space="preserve">
     <value>Connecting...</value>
   </data>
@@ -918,6 +953,30 @@
   </data>
   <data name="SetDragTip" xml:space="preserve">
     <value>Drag to move (Alt+Up, Alt+Down)</value>
+  </data>
+  <data name="SetDynCharging" xml:space="preserve">
+    <value>Charger plugged in or out</value>
+  </data>
+  <data name="SetDynChargingNote" xml:space="preserve">
+    <value>Dynaland shows it with the battery level.</value>
+  </data>
+  <data name="SetDynClipboard" xml:space="preserve">
+    <value>Copy and cut</value>
+  </data>
+  <data name="SetDynClipboardNote" xml:space="preserve">
+    <value>Dynaland shows "Copied" or "Cut". Machitan never reads what is on the clipboard.</value>
+  </data>
+  <data name="SetDynLevels" xml:space="preserve">
+    <value>Volume and brightness show in Dynaland</value>
+  </data>
+  <data name="SetDynLevelsNote" xml:space="preserve">
+    <value>Machitan handles the volume keys and hides Windows' volume and brightness flyout, so only Dynaland shows the level. While Dynaland is hidden (a full-screen app), Windows' own flyout is back.</value>
+  </data>
+  <data name="SetDynNotifications" xml:space="preserve">
+    <value>New notifications show in Dynaland</value>
+  </data>
+  <data name="SetDynNotificationsNote" xml:space="preserve">
+    <value>Windows' popup for a new notification is hidden and Dynaland shows the notification for 5 seconds. It stays in Windows' list; its buttons (reply, snooze) are in Windows' notification centre.</value>
   </data>
   <data name="SetDynalandTransparencyNote" xml:space="preserve">
     <value>Up to 50%, so the text stays easy to read.</value>

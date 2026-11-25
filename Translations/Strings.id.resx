@@ -289,6 +289,9 @@
   <data name="DynBackToMusic" xml:space="preserve">
     <value>Kembali ke musik</value>
   </data>
+  <data name="DynBrightnessLevel" xml:space="preserve">
+    <value>Kecerahan {0}%</value>
+  </data>
   <data name="DynCamera" xml:space="preserve">
     <value>Kamera</value>
   </data>
@@ -296,14 +299,26 @@
     <value>Kamera: {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="DynCharging" xml:space="preserve">
+    <value>Mengisi daya</value>
+  </data>
   <data name="DynClearAll" xml:space="preserve">
     <value>Hapus semua</value>
+  </data>
+  <data name="DynCopied" xml:space="preserve">
+    <value>Disalin</value>
   </data>
   <data name="DynDismiss" xml:space="preserve">
     <value>Tutup</value>
   </data>
   <data name="DynDismissFrom" xml:space="preserve">
     <value>Tutup pemberitahuan dari {0}</value>
+  </data>
+  <data name="DynFilesCopied" xml:space="preserve">
+    <value>File disalin</value>
+  </data>
+  <data name="DynFilesCut" xml:space="preserve">
+    <value>File dipotong</value>
   </data>
   <data name="DynInUseNow" xml:space="preserve">
     <value>Sedang dipakai</value>
@@ -332,6 +347,10 @@
   <data name="DynNoNotifications" xml:space="preserve">
     <value>Tidak ada pemberitahuan</value>
   </data>
+  <data name="DynNoteAndMore" xml:space="preserve">
+    <value>{0} dan {1} lainnya</value>
+    <comment>{0}: the app's name. {1}: how many more new notifications came with it.</comment>
+  </data>
   <data name="DynNothingInUse" xml:space="preserve">
     <value>Tidak ada yang memakai kamera atau mikrofon.</value>
   </data>
@@ -341,12 +360,18 @@
   <data name="DynNotificationsNotAllowed" xml:space="preserve">
     <value>Windows tidak mengizinkan Machitan membaca pemberitahuan (Pengaturan &gt; Privasi &amp; keamanan &gt; Pemberitahuan).</value>
   </data>
+  <data name="DynOnBattery" xml:space="preserve">
+    <value>Memakai baterai</value>
+  </data>
   <data name="DynOpenNotifications" xml:space="preserve">
     <value>Buka pusat pemberitahuan Windows</value>
   </data>
   <data name="DynPaused" xml:space="preserve">
     <value>Dijeda: {0}, di {1}.</value>
     <comment>Keep {0}, {1}: Machitan fills them in.</comment>
+  </data>
+  <data name="DynPictureCopied" xml:space="preserve">
+    <value>Gambar disalin</value>
   </data>
   <data name="DynPlayPause" xml:space="preserve">
     <value>Putar atau jeda</value>
@@ -355,11 +380,18 @@
     <value>Memutar {0}, di {1}.</value>
     <comment>Keep {0}, {1}: Machitan fills them in.</comment>
   </data>
+  <data name="DynPluggedIn" xml:space="preserve">
+    <value>Terhubung ke daya</value>
+  </data>
   <data name="DynPointToOpen" xml:space="preserve">
     <value>Arahkan penunjuk ke sini untuk membuka Dynaland.</value>
   </data>
   <data name="DynPosition" xml:space="preserve">
     <value>Posisi pemutaran</value>
+  </data>
+  <data name="DynPowerLevel" xml:space="preserve">
+    <value>{0}, {1}%</value>
+    <comment>{0}: Charging, Plugged in or On battery. {1}: the battery level.</comment>
   </data>
   <data name="DynPrevious" xml:space="preserve">
     <value>Lagu sebelumnya</value>
@@ -673,6 +705,9 @@
     <value>Baterai {0}%, mengisi daya</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="RingBatteryUnknown" xml:space="preserve">
+    <value>Level baterai tidak diketahui</value>
+  </data>
   <data name="RingConnecting" xml:space="preserve">
     <value>Menyambungkan...</value>
   </data>
@@ -918,6 +953,30 @@
   </data>
   <data name="SetDragTip" xml:space="preserve">
     <value>Seret untuk memindahkan (Alt+Atas, Alt+Bawah)</value>
+  </data>
+  <data name="SetDynCharging" xml:space="preserve">
+    <value>Pengisi daya dicolok atau dicabut</value>
+  </data>
+  <data name="SetDynChargingNote" xml:space="preserve">
+    <value>Dynaland menampilkannya bersama level baterai.</value>
+  </data>
+  <data name="SetDynClipboard" xml:space="preserve">
+    <value>Salin dan potong</value>
+  </data>
+  <data name="SetDynClipboardNote" xml:space="preserve">
+    <value>Dynaland menampilkan "Disalin" atau "Dipotong". Machitan tidak pernah membaca isi papan klip.</value>
+  </data>
+  <data name="SetDynLevels" xml:space="preserve">
+    <value>Volume dan kecerahan tampil di Dynaland</value>
+  </data>
+  <data name="SetDynLevelsNote" xml:space="preserve">
+    <value>Machitan menangani tombol volume dan menyembunyikan flyout volume dan kecerahan Windows, sehingga hanya Dynaland yang menampilkan levelnya. Saat Dynaland tersembunyi (aplikasi layar penuh), flyout bawaan Windows kembali.</value>
+  </data>
+  <data name="SetDynNotifications" xml:space="preserve">
+    <value>Pemberitahuan baru tampil di Dynaland</value>
+  </data>
+  <data name="SetDynNotificationsNote" xml:space="preserve">
+    <value>Popup Windows untuk pemberitahuan baru disembunyikan dan Dynaland menampilkan pemberitahuan itu selama 5 detik. Pemberitahuan tetap ada di daftar Windows; tombolnya (balas, tunda) ada di pusat pemberitahuan Windows.</value>
   </data>
   <data name="SetDynalandTransparencyNote" xml:space="preserve">
     <value>Paling banyak 50%, agar teksnya tetap mudah dibaca.</value>

@@ -7,12 +7,13 @@
 ; All bring the Windows App SDK's parts Machitan uses (WinUI 3), not its AI parts.
 ;
 ; Made by build-installer.cmd in the project folder, which publishes a Release build per
-; edition and kind of PC to publish\Machitan-Full, publish\Machitan-Trimmed,
+; edition and kind of PC to publish\Machitan-x64-Full, publish\Machitan-x64-Trimmed,
 ; publish\Machitan-ARM64-Full and publish\Machitan-ARM64-Trimmed, then compiles this script
 ; once for each (/DEdition=Full or Trimmed, /DArch=x64 or ARM64). The installers land in
-; publish\: Machitan-Setup-<version>-Full.exe and Machitan-Setup-<version>-Trimmed.exe (x64),
+; publish\: Machitan-Setup-<version>-x64-Full.exe and Machitan-Setup-<version>-x64-Trimmed.exe,
 ; Machitan-Setup-<version>-ARM64-Full.exe and Machitan-Setup-<version>-ARM64-Trimmed.exe, the
-; version being Machitan.exe's own (<Version> in Machitan.csproj).
+; version being Machitan.exe's own (<Version> in Machitan.csproj). Before 0.9.3 the x64 ones
+; had no "-x64" (Machitan-Setup-<version>-Full.exe); Machitan's in-app update knows both.
 ; The x64 installers also run on Windows on Arm (Windows runs x64 apps there); the ARM64 ones
 ; run only there, natively. All are the same app to Windows (one AppId): one replaces another. Windows stamps a program with four
 ; numbers (0.9.0 becomes 0.9.0.0); a last ".0" is left out of the file name and Windows' Apps
@@ -52,8 +53,8 @@
 #endif
 
 #if Arch == "x64"
-  #define PublishDir AddBackslash(SourcePath) + "..\publish\Machitan-" + Edition
-  #define FileSuffix "-" + Edition
+  #define PublishDir AddBackslash(SourcePath) + "..\publish\Machitan-x64-" + Edition
+  #define FileSuffix "-x64-" + Edition
   #define DotNetArch "x64"
 #elif Arch == "ARM64"
   #define PublishDir AddBackslash(SourcePath) + "..\publish\Machitan-ARM64-" + Edition

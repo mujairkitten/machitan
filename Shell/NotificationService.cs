@@ -162,6 +162,18 @@ internal sealed class NotificationService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Reads Windows' list now, not at the next tick: Windows just showed a popup for a new
+    /// notification (Machitan hid it; Dynaland shows the notification instead). UI thread.
+    /// </summary>
+    internal void ReadNow()
+    {
+        if (!_disposed && _active && _listener is not null)
+        {
+            _ = ReadAsync();
+        }
+    }
+
     /// <summary>A notification's own pictures, or null when it has none (or they are not read yet).</summary>
     internal NotificationPictureView? PicturesFor(uint id)
     {

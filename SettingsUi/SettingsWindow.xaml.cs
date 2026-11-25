@@ -1055,7 +1055,27 @@ public sealed partial class SettingsWindow : Window
                 Strings.SetPrivacyDots,
                 Strings.SetPrivacyDotsNote,
                 s => s.ShowPrivacyDots,
-                (s, on) => s.ShowPrivacyDots = on));
+                (s, on) => s.ShowPrivacyDots = on),
+            ToggleRow(
+                Strings.SetDynLevels,
+                Strings.SetDynLevelsNote,
+                s => s.DynalandLevels,
+                (s, on) => s.DynalandLevels = on),
+            ToggleRow(
+                Strings.SetDynNotifications,
+                Strings.SetDynNotificationsNote,
+                s => s.DynalandNotifications,
+                (s, on) => s.DynalandNotifications = on),
+            ToggleRow(
+                Strings.SetDynCharging,
+                Strings.SetDynChargingNote,
+                s => s.DynalandCharging,
+                (s, on) => s.DynalandCharging = on),
+            ToggleRow(
+                Strings.SetDynClipboard,
+                Strings.SetDynClipboardNote,
+                s => s.DynalandClipboard,
+                (s, on) => s.DynalandClipboard = on));
     }
 
     private void BuildEdgePage()

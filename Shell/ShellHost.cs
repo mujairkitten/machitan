@@ -46,6 +46,8 @@ internal sealed class ShellHost
     /// <summary>Create on the UI thread.</summary>
     internal ShellHost()
     {
+        // After each volume key, Dynaland shows the level at once (not at its next reading).
+        VolumeKeys = new VolumeKeys(() => _queue?.TryEnqueue(() => _dynaland?.ShowVolumeNow()));
         Tasks = new TaskService(DispatcherQueue.GetForCurrentThread());
         Tasks.ShortcutAppIds = program => Catalog.ShortcutAppIdsFor(program);
         Accent = new AccentService(DispatcherQueue.GetForCurrentThread());
@@ -180,6 +182,10 @@ internal sealed class ShellHost
 
     /// <summary>Dynaland's file shelf: files and folders parked by dropping them on Dynaland (paths only).</summary>
     internal ShelfStore Shelf { get; } = new(AppPaths.ShelfFile);
+
+    /// <summary>Volume up, down and mute handled by Machitan while Dynaland is on screen (Settings > Dynaland).</summary>
+    internal VolumeKeys VolumeKeys { get; }
+
 
     /// <summary>The bar's bubbles and which apps sit where.</summary>
     internal BarLayoutStore BarLayout { get; } = new();
@@ -920,6 +926,8 @@ internal sealed class ShellHost
         Accent.Start(Settings.Current.AccentSource);
         Settings.Changed += () => Accent.SetSource(Settings.Current.AccentSource);
         Settings.Changed += StartTrayWhenWanted;
+        VolumeKeys.SetOption(Settings.Current.DynalandLevels);
+        Settings.Changed += () => VolumeKeys.SetOption(Settings.Current.DynalandLevels);
         Accent.Changed += () =>
         {
             // The strip cover's accent colour (the bar and Start follow the accent themselves).
@@ -1043,6 +1051,7 @@ internal sealed class ShellHost
         Log.Info("Shutdown requested.");
         Accent.Dispose();
         Updates.Stop();
+        VolumeKeys.Dispose();
 
         try
         {

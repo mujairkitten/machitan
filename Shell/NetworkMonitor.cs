@@ -30,7 +30,7 @@ internal enum NetworkKind
 }
 
 /// <param name="Kind">The state.</param>
-/// <param name="Name">The network's name as Windows lists it (Wi-Fi), or the connection's name (wired). Empty when unknown.</param>
+/// <param name="Name">The network's name as Windows lists it (Wi-Fi), or as Windows' Settings shows it (wired; "Ethernet" when Windows gives none). Empty when unknown.</param>
 /// <param name="Bars">Wi-Fi signal, 0..3 lit arcs. -1 when Windows gives no strength.</param>
 internal readonly record struct NetworkState(NetworkKind Kind, string Name, int Bars);
 
@@ -214,12 +214,13 @@ internal sealed class NetworkMonitor : IDisposable
 
         if (internet is not null && !internet.IsWlanConnectionProfile && IsUsable(internet))
         {
+            // The network's name as Windows' Settings shows it ("Network 2", a company's domain,
+            // a phone over USB); "Ethernet" only when Windows gives none.
             string name = Strings.NetEthernet;
             try
             {
-                if (internet.NetworkAdapter is { IanaInterfaceType: not 6 } && internet.ProfileName.Length > 0)
+                if (internet.ProfileName.Length > 0)
                 {
-                    // Not a network cable (a phone over USB, for example): its own name.
                     name = internet.ProfileName;
                 }
             }

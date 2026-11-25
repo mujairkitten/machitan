@@ -111,7 +111,9 @@ internal sealed class UpdateService
     {
         bool arm = RuntimeInformation.ProcessArchitecture == Architecture.Arm64;
         bool full = File.Exists(Path.Combine(AppContext.BaseDirectory, "coreclr.dll"));
-        EditionSuffix = (arm ? "-ARM64-" : "-") + (full ? "Full" : "Trimmed");
+        // The x64 installers say "-x64" from 0.9.3 on (Sam, 2026-11-25); before, they said nothing.
+        string edition = full ? "Full" : "Trimmed";
+        EditionPattern = arm ? "-ARM64-" + edition : "(?:-x64)?-" + edition;
         ThisPc = (arm ? "ARM64" : "x64") + ", " + (full ? "Full" : "Trimmed");
         SetupFolder = ReadSetupFolder();
     }
@@ -166,8 +168,11 @@ internal sealed class UpdateService
     internal bool NewerKnown => State is UpdateState.Available or UpdateState.Downloading
         or UpdateState.DownloadFailed or UpdateState.SetupStarted or UpdateState.SetupFailed;
 
-    /// <summary>"-Full", "-ARM64-Trimmed": the end of this PC's installer's name, before ".exe".</summary>
-    private string EditionSuffix { get; }
+    /// <summary>
+    /// The end of this PC's installer's name, before ".exe", as a regular expression:
+    /// "-ARM64-Full", or "-x64-Trimmed" with the "-x64" optional (the names before 0.9.3).
+    /// </summary>
+    private string EditionPattern { get; }
 
     private static string UpdateFolder => Path.Combine(Path.GetTempPath(), "Machitan", "Update");
 
@@ -385,7 +390,7 @@ internal sealed class UpdateService
             : ReleasesPage;
 
         // This PC's installer: "Machitan-Setup-<version>" and this edition's end, nothing else.
-        var name = new Regex("^Machitan-Setup-[0-9.]+" + Regex.Escape(EditionSuffix) + @"\.exe$", RegexOptions.IgnoreCase);
+        var name = new Regex("^Machitan-Setup-[0-9.]+" + EditionPattern + @"\.exe$", RegexOptions.IgnoreCase);
         if (release["assets"] is JsonArray assets)
         {
             foreach (JsonNode? asset in assets)

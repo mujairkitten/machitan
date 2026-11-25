@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.3 (in progress)
+
+### Added
+
+- **Dynaland instead of Windows' flyouts.** Each has a switch in Settings > Dynaland, all on by default. While Dynaland is hidden for a full-screen app, Windows' own flyouts show as before.
+  - **Volume and brightness.** Volume up, down and mute now change the volume through Machitan, and Windows' volume and brightness flyout is hidden, so only Dynaland shows the level. The volume keys also work this way in front of apps running as administrator when "Shortcuts in apps running as administrator" is on.
+  - **New notifications.** Windows' popup is hidden and Dynaland opens a little for 5 seconds with the app, the title, the text and the notification's pictures (a person's photo beside the words, a big picture below them); point at it for the full list. The notification stays in Windows' list.
+  - **Charger.** Plugging in or unplugging shows "Charging", "Plugged in" or "On battery" with the battery level.
+  - **Copy and cut.** "Copied", "Files copied", "Files cut" or "Picture copied". Machitan never reads what is on the clipboard.
+
+### Changed
+
+- **The status ring on a desktop PC and on a network cable.** With no battery, the rim is drawn whole instead of showing only its faint track. On a network cable the ring shows a plug and the network's name, as Windows' Settings shows it ("Ethernet" only when Windows gives none). Wi-Fi and the volume dots are as before.
+- **x64 installers are marked x64.** They are now `Machitan-Setup-<version>-x64-Full.exe` and `Machitan-Setup-<version>-x64-Trimmed.exe`, like the ARM64 ones. The in-app update finds the x64 installer under either name.
+
+### Known limits
+
+- Windows' notification popup is recognised by its title, "New notification", so far only on English Windows. In another language it still shows, beside Dynaland's (diagnostics.log names the title, so it can be added).
+- A notification's buttons (reply, snooze) are in Windows' notification centre, not in Dynaland.
+- Dynaland's brightness level needs a screen whose brightness Windows reports (a laptop's own screen). Without it, Windows' brightness flyout shows as before.
+- If Windows shows its flyout for something Dynaland does not show (such as airplane mode), or a popup for a notification it keeps out of its list, Machitan shows Windows' own again, under a second late (popups: about two and a half seconds).
+
 ## 0.9.2 (2026-11-25)
 
 ### Added

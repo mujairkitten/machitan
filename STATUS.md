@@ -13,7 +13,7 @@ Work is numbered by version: this is v0.9.2. The old batch, part and line number
 | 0.9.0 | 2026-11-21 | Released (GitHub tag `v0.9.0`) | First public beta: the bar (bubbles, joined or full width, pins, Show Desktop with peek, auto-hide, previews, drag and drop, groups, custom mode, tray with its ^ box, own Start button pictures, wallpaper accent, animations), Machitan's Start (search, pins, All apps, app menus, file previews, folders, power menu), the keyboard (Win, Win+1..9, Win+N, Win+A, Win+`, Win+X, optionally while an admin app runs), the info line and status ring, Dynaland (music, volume, camera and mic dots, tray icons), Settings, English and Indonesian, run at startup, two installers (Full, Trimmed). |
 | 0.9.1 | 2026-11-23 | Released (commit "v0.9.1"; Sam made its installers) | Windows' notifications in Dynaland (with their pictures), Start's new layout (greeting, pinned categories, Most used, letters, drag and drop), Lock in the power menu, ring and Dynaland options (low-battery level, transparency, trapezoid notch), Win+N and Win+A by their widgets, bar fixes. |
 | 0.9.2 | 2026-11-25 | Changelog written (Sam, 2026-11-25 12:18: "write me 0.9.2 changelog, the timestamp, today. i will check this when 0.9.3 is ready to ship."); not all of it has run yet, see "0.9.2 checklist" | File shelf in Dynaland, in-app update (with pre-releases), calculator and actions in search, Settings' search box, volume in Dynaland's player, action center in Win+A, split taskbar, Windows on Arm, admin shortcuts set up by the installer, new apps found at once, search icon fix. |
-| 0.9.3 | - | Next | The rest of the Most wanted list (5: Explorer's flyouts, spike first; 6: multi-monitor), and the 0.9.2 checks before it ships. `Machitan.csproj` still says 0.9.2. |
+| 0.9.3 | - | Next | The rest of the Most wanted list (5: Explorer's flyouts, spike first; 6: multi-monitor), and the 0.9.2 checks before it ships. Also a GitHub Actions workflow (Sam, 2026-11-25 12:30: "later, for v0.9.3"): build on every push; on a tag such as `v0.9.3`, the four installers as build-installer.cmd makes them (.NET 10 SDK, the four `dotnet publish`, Inno Setup), attached to a GitHub release (pre-release below 1.0) under their usual names, so the in-app update finds them and GitHub adds their SHA-256s; optionally a start on a `windows-11-arm` runner. Free on the public repo; installers stay unsigned. Done ahead (Sam, 12:34: "next time, mark the x64 build output as x64"): the x64 installers are `Machitan-Setup-<version>-x64-Full.exe` and `-x64-Trimmed.exe`, their folders `publish\Machitan-x64-Full` and `-x64-Trimmed` (build-installer.cmd, installer/Machitan.iss); the in-app update takes the x64 name with or without "-x64", so copies made before still find it. When 0.9.3 ships: README.md's download table (lines 24-25) and build section (line 115) still give the old names. `Machitan.csproj` says 0.9.3 since the item 5 spike (2026-11-25). |
 
 ## The project
 
@@ -100,7 +100,7 @@ From five Indonesian-made shell and island apps (Abra, Nusa, Layzee, Rav, ReyLan
 2. Search actions (from Abra): a calculator (the result is copied on Enter or click) and actions for things Machitan already does (Settings pages, power actions); ranked by `Start/SearchRank.cs`; no `web:` scope. **Green (Sam, 2026-11-25 09:34: "everything works").** Then Sam asked "how about machitan settings?": Machitan's Settings pages in search, **green (Sam, 2026-11-25 10:11: "next.").**
 3. File shelf in Dynaland: park files by dropping them on the pill, drag them out, click to open, remove; paths stored (not copies) in a new file next to `pins.json`, kept across restarts; an honest empty state. **Go-ahead (Sam, 2026-11-25 11:30: "add 'clear all' button while continue to the next step.").** "Clear all" delivered with it; waiting for its build.
 4. In-app update: Settings > About "Check for updates" and a check at start (setting, on by default unless there is a reason not to), from github.com/mujairkitten/machitan's releases; download and install only after the user says yes, closing Machitan cleanly first and offering to start it again; an honest "the check failed" when it could not run. **Delivered 2026-11-25, waiting for build.**
-5. Explorer's own flyouts replaced by Dynaland's (from Rav): spike first (volume and brightness keys handled in Machitan's keyboard hook; battery, charging and copy/paste may not be possible from an unpackaged app). Only what the spike proves ships; the rest is left out and said so.
+5. Explorer's own flyouts replaced by Dynaland's (from Rav): spike first (volume and brightness keys handled in Machitan's keyboard hook; battery, charging and copy/paste may not be possible from an unpackaged app). Only what the spike proves ships; the rest is left out and said so. **Test 1 done (Sam, 13:35: "everything works as intended"): volume ships. Sam (13:35-13:39) widened the item: volume keys on by default; Dynaland also shows brightness, charging and copy; Windows' brightness flyout and Windows' notification popups hidden. Part 5a (volume keys for real) and test 2 green (Sam, 14:14: "everything works. just, the brightness slider and notifications doesn't showed up in dynaland yet."). Part 5b built (after Sam deleted FlyoutSpike.cs, 14:33). Sam (14:45): "sometimes the notification showed inside dynaland, sometimes still system's. also, add pictures in the notification." Part 5c built; Sam (15:03): "it works. however, the system's notifier tends to resend the same notification shortly after dynaland successfully sends them". Part 5d (that second showing left hidden) delivered, waiting for build; see "v0.9.3" below.**
 6. Multi-monitor (from Abra): the bar, Dynaland and the corner widgets on a chosen screen, mixed scaling, everything back to the main screen when a screen goes. The widget side may come first if per-monitor bars do not fit in v0.9.2; say so plainly.
 
 #### 1. Volume on Dynaland's music page (2026-11-25)
@@ -269,6 +269,166 @@ To check:
 
 antislop Delivery Gate (during mode), UI: the picking follows File Explorer's keys; the two new buttons are the title row's small round buttons (the back arrow's look); the count is a dim line next to the title. Nothing decorative. Real data only. Desktop WinUI: web-only items N/A.
 - Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 PASS (taking off never touches files; the select button's name says what it will do). R-27 PASS (an item that cannot be had is left out of a drag and logged; the installer step logs and changes nothing on any failure; an unreadable settings.json is never written over). R-32 PARTIAL (as 3: Dynaland never takes the keyboard; the buttons are buttons). R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; text and name checks, code inspection). R-39 PASS (picked rows carry "Selected"; buttons named). Others N/A.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+## v0.9.3
+
+### 5. Explorer's flyouts: the spike (2026-11-25)
+
+Sam (2026-11-25): "now, continue." The handoff: prove first what an unpackaged app can suppress; build only that; leave out the rest and say so.
+
+What was known before the spike (web reading, not tried on Sam's PC):
+- Windows 11 has no supported way to hide its own volume and brightness flyouts. The old trick (hiding the "NativeHWNDHost" window) is for Windows 10; on Windows 11 the flyout is drawn by Explorer's shell and the trick is unreliable. Not used.
+- Volume up, down and mute come through the keyboard as normal keys (VK 0xAF, 0xAE, 0xAD), so Machitan's low-level hook can keep them from Windows and change the volume itself. Not while an app running as administrator is in front (the hook sees nothing then; the admin-keys helper does not take them).
+- Brightness keys on most laptops do not come through the keyboard at all (the laptop's firmware tells Windows directly), so the hook likely cannot see them.
+- Windows has no low battery, charging or copy/paste flyout of its own that is known (low battery is a notification; charging only changes the tray icon; copy/paste shows only File Explorer's progress window for big copies). The spike checks this on Sam's PC instead of guessing.
+
+**Status: test 1 done (Sam, 13:35: "everything works as intended", with his diagnostics.log).** Temporary: removed again once item 5 is decided. No new packages, no new settings (nothing saved; both probes are off at every start); 6 new strings (`Spike*`, removed with the spike).
+
+- `Shell/FlyoutSpike.cs` (new): the two probes, run from the UI thread.
+  - "Log the windows that show": every top-level window of another program that is shown or uncloaked goes to diagnostics.log as "Spike: window shown/uncloaked: class, title (60 characters), program, place and size, visible or hidden, cloaked". When turned on, the windows of explorer.exe, ShellExperienceHost.exe and ShellHost.exe as they are then ("Spike: shell window now"). Also changes of the power source and charging (twice a second, GetSystemPowerStatus) and that the clipboard changed (GetClipboardSequenceNumber; never what is on it). The same window within 500 ms is logged once; at most 40 lines a second.
+  - "Machitan handles the volume keys": the hook keeps Volume up, down and mute from Windows; Machitan changes Windows' default speakers itself (2 points a press, rounded to steps of 2 as Windows does; up or down also unmutes; mute toggles), so Dynaland shows it as it shows any volume change.
+- `Shell/KeyboardService.cs`: the spike's two sinks (`SetSpikeKeyLog`, `SetVolumeKeySink`). The key log writes only keys that never type text: browser, volume, media and launch keys, F13 to F24, Sleep, and keys with no name (0xFF, 0x00), with key code, scan code, flags and down or up. Never letters, digits or symbols. The volume keys are kept from Windows only in Machitan's own process, after every other rule (a caught shortcut still wins).
+- `Shell/ShellHost.cs`: `Spike` (made the first time it is used), disposed at shutdown.
+- `SettingsUi/SettingsWindow.xaml.cs`: Settings > About > "Tests for v0.9.3 (temporary)": a note and two switches that follow the probes, not settings.
+- `Machitan.csproj`: version 0.9.3. `CHANGELOG.md`: "0.9.3 (in progress)" with the x64 installer names.
+
+To check (Sam):
+1. Build: 0 errors, 0 warnings. Settings > About shows "Tests for v0.9.3 (temporary)" with two switches, both off.
+2. Turn on "Log the windows that show". Then, a few seconds apart: Volume up, down, mute (and mute again); the brightness keys (Fn + the sun keys); unplug the charger, wait, plug it in; in File Explorer copy a file, cut a file, paste both somewhere.
+3. Turn on "Machitan handles the volume keys" and press the volume keys again. Does Windows' own volume flyout still show? Does Dynaland show the level? Does the volume change?
+4. Turn both off. Send the "Spike:" lines from `%APPDATA%\Machitan\diagnostics.log`, and say what was seen on screen for each step.
+
+What decides the build: a flyout ships only if its trigger reaches Machitan and Windows' own flyout can be kept away (acceptance: only Dynaland's shows). Volume: ships if step 3 shows no Windows flyout. Brightness: only if the key log shows the brightness keys (then the same as volume, with WMI brightness) and Windows' flyout stays away. Low battery, charging, copy/paste: only if step 2 shows a Windows window that appears for them; otherwise there is no Windows flyout to replace, and they are left out (Dynaland could still show its own, but that is new, not a replacement; ask Sam).
+
+antislop Delivery Gate (during mode), UI: two plain Settings switches with dim second lines, in a section named as temporary, under About; nothing decorative. Real data only: the log writes what Windows reports; the volume is Windows' own. Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 PASS (both off at every start; turning a switch off gives the keys back at once). R-27 PASS (a hook Windows refuses is logged; a volume key with no speakers is logged and does nothing). R-32 PASS (plain ToggleSwitch, keyboard reachable). R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; text and name checks, code inspection). R-39 PASS (switches named by their labels). Others N/A.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+Test 1 results (Sam's diagnostics.log, 13:33 to 13:35; Sam: "everything works as intended"):
+- Volume keys: with the log only, Windows' volume flyout showed each time: `XamlExplorerHostIslandWindow` of explorer.exe, 169x61 at 875,1139 (low and centred on the 1920x1200 screen), always the same window (0x70074). With "Machitan handles the volume keys" on, the keys were "kept from Windows", no flyout window showed, and Dynaland showed the level. **Proven: ships (part 5a).** Seen: the log lines of a few presses arrived bunched (the UI thread waited on Core Audio for about 100 ms); the real build changes the volume on a thread of its own.
+- Brightness keys: no key line at all (they never reach the hook, as expected), and no new flyout window was logged for them. Windows' brightness flyout cannot be kept away at the keyboard; only by hiding Explorer's window after it shows (test 2).
+- Charging: "plugged in, charging" and "on battery" logged at once; no Windows window showed. Copy, cut and paste in File Explorer: three clipboard changes logged; no Windows window showed (only File Explorer's own "Delete File" question, from something else Sam did). Windows has no flyout of its own for these: nothing to hide, so Dynaland's would be new, not a replacement.
+
+### 5. Sam's answers after test 1 (2026-11-25 13:35-13:39)
+
+Asked: the volume-keys switch's default, and whether Dynaland should show new indicators for what Windows has no flyout for. Sam: "On by default"; "add charging, copy, and brightness, and suppress the explorer's brightness flyout."; then "also, suppress the system's original notification flyout".
+
+Told Sam plainly: the brightness keys never reach Machitan, and Windows has no switch to hide its popups, so both hides can only work by hiding Windows' window right after it appears; that may flash, come back, or upset Explorer, so it is tested first (test 2). Planned in two parts: 5a (volume keys for real, with test 2), then 5b (Dynaland's brightness, charging and copy moments, plus whatever test 2 proves: the hides for real, and Dynaland showing new notifications as they arrive, which it does not do today).
+
+### 5a. Volume keys for real, and test 2 (2026-11-25)
+
+**Status: delivered, waiting for build and Sam's test.** No new packages. One new setting (`DynalandVolumeKeys`, **on by default**, Sam's choice; a file without it gets on). Strings: 6 new (`SetVolumeKeys`, `SetVolumeKeysNote`, `SpikeHideFlyout`, `SpikeHideFlyoutNote`, `SpikeHideToasts`, `SpikeHideToastsNote`), 2 reworded (`SpikeNote`, `SpikeLogWindowsNote`), 2 removed (`SpikeVolumeKeys`, `SpikeVolumeKeysNote`).
+
+- `Shell/VolumeKeys.cs` (new): Volume up, down and mute handled by Machitan while the option is on and Dynaland is on screen (otherwise, as with Dynaland off or stepped aside for a full-screen app, the keys are Windows'). The hook keeps the keys from Windows; a thread of its own (MTA) changes Windows' default speakers as Windows would (2 points a press, rounded to steps of 2; up or down unmutes; mute turns mute on or off), connecting again at every press (the default speakers can change), then Dynaland shows the level at once.
+- `Shell/KeyboardService.cs`: the volume-key sink is the real one now, and works in the admin-keys helper too (the helper's filter already lets keys reach it only while an app running as administrator is in front). The spike's key log stays for test 2.
+- `Shell/AdminKeys.cs`, `Shell/AdminKeysHelper.cs`: while an app running as administrator is in front (when that option is on), the helper keeps the volume keys from Windows and posts them to the shell (`MsgVolumeKey`); the shell tells the helper when to take them (`DataVolumeKeys`, also at the helper's hello). A helper that missed "stop" still has its keys change the volume, and is told again.
+- `Widgets/DynalandWindow.cs`: tells VolumeKeys whether Dynaland is on screen; `ShowVolumeNow` shows the new level at once.
+- `Shell/ShellHost.cs`: `VolumeKeys`, set from the setting at start and on every settings change; disposed at shutdown (before the keyboard stops).
+- `Config/ShellSettings.cs`, `SettingsUi/SettingsWindow.xaml.cs`: Settings > Dynaland > "Volume keys show Dynaland's volume".
+- `Shell/FlyoutSpike.cs` (test 2): "Log the windows that show" as before, plus brightness changes as Windows reports them (WMI `WmiMonitorBrightnessEvent`, the route Dynaland's brightness moment would use), with how long after Windows' flyout window showed; no snapshot of the shell's windows any more. "Hide Windows' volume and brightness flyout": when explorer.exe's `XamlExplorerHostIslandWindow` shows small (a third of the screen wide, a quarter high at most), in its screen's lower third and centred, it is hidden at once (`ShowWindowAsync`, never waiting on Explorer); the log says how late (from Windows' event time), how long after the last brightness change, and a quarter second later whether it came back (then hidden again). Explorer windows of the same kind that are big or high up (Alt+Tab, Task View, snap layouts) are left alone. "Hide Windows' notification popups": the same for a `Windows.UI.Core.CoreWindow` titled "New notification" of ShellExperienceHost.exe or ShellHost.exe (English Windows; if Sam's popup has another name, the window log shows it and nothing is hidden).
+- `SettingsUi/SettingsWindow.xaml.cs`: About's test section has the three switches.
+
+To check (Sam):
+1. Build: 0 errors, 0 warnings. Settings > Dynaland shows "Volume keys show Dynaland's volume", on.
+2. Volume up, down, mute: only Dynaland shows the level; Windows' flyout does not show; the volume changes; holding a key keeps changing it. In front of an app running as administrator (regedit), the same (with "Shortcuts in apps running as administrator" on). Turn the setting off: Windows' flyout is back.
+3. Settings > About > Tests: turn on "Log the windows that show". Press the brightness keys a few times (Windows' flyout shows).
+4. Turn on "Hide Windows' volume and brightness flyout". Brightness keys again: does Windows' flyout stay away, flash, or come back? Alt+Tab, Win+Tab and the snap layouts (hover a window's maximize button) still work?
+5. Turn on "Hide Windows' notification popups". Make a notification (Win+Shift+S and snip something: the Snipping Tool notifies). Does Windows' popup stay away or flash? Is the notification in Dynaland's notification list?
+6. Turn both hides off: brightness keys and another snip; Windows' flyout and popup come back as before?
+7. Turn the log off and send diagnostics.log (from 13:40 on).
+
+What decides part 5b: a hide ships only if the window stays away (no flash worth seeing), comes back normally when turned off, and Alt+Tab, Task View and snap layouts are untouched. If a hide fails, it is left out and said so; Dynaland's moments (brightness, charging, copy) ship either way, as Sam asked. Dynaland's new-notification moment ships only with the popup hide.
+
+antislop Delivery Gate (during mode), UI: one more Settings > Dynaland switch like its neighbours; About's test section keeps its plain switches. Nothing new on Dynaland itself (the volume level it already shows). Real data only: the volume is Windows' own, read back after each change. Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 PASS (the switch gives the keys back at once; the hides are off at every start). R-27 PASS (no speakers: logged once, nothing changes; a helper that does not answer is logged; a refused hide is logged). R-32 PASS (plain ToggleSwitch rows). R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; text and name checks, code inspection). R-39 PASS (switches named by their labels). Others N/A.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+### 5a/test 2 results (Sam, 2026-11-25 14:14: "everything works. just, the brightness slider and notifications doesn't showed up in dynaland yet.")
+
+Read from Sam's diagnostics.log (Claude staged it from his Machitan folder):
+- Volume keys: "Volume keys: Machitan handles them while Dynaland is on screen" at start; Sam: works. The run was the Visual Studio copy, whose admin-keys option belongs to the installed copy ("turned on for another copy"), so the helper's route for the volume keys was not seen yet.
+- Brightness: WMI's `WmiMonitorBrightnessEvent` arrived at every step (100%, 90%, ... with the level), within 0 to about 300 ms of Windows' flyout window showing, either first. With the hide on, the flyout window (the same `XamlExplorerHostIslandWindow` 0x70074, 169x61 or 212x61 at the bottom centre) was hidden 0 ms after Windows showed it, every time, and a quarter second later it was still hidden; Explorer showed it again at every step (so nothing stays stuck when Machitan stops hiding). Alt+Tab ("Task Switching", 1920x1152) and the snap layouts (344x244 high up) were left alone.
+- Notification popups: the window is `Windows.UI.Core.CoreWindow` titled "New notification" of ShellExperienceHost.exe, 396x171 at the bottom right (1524,1029 on the 1920x1200 screen), the same window for each popup; first uncloaked, later shown. Hidden 0 ms after Windows showed it, three popups, still hidden a quarter second later.
+- Step 6 (hides off again) is not in the log; Explorer and ShellExperienceHost show their window afresh for each flyout and popup (seen above), so nothing is left hidden.
+
+### 5b. The hides for real, and Dynaland's moments (2026-11-25)
+
+**Status: delivered, waiting for build.** No new packages. 4 settings (all on by default; Sam asked for each): `DynalandLevels` (replaces 5a's `DynalandVolumeKeys`, never shipped: volume keys and Windows' volume and brightness flyout), `DynalandNotifications`, `DynalandCharging`, `DynalandClipboard`. Strings: 18 new; removed: the 8 `Spike*` and 5a's `SetVolumeKeys`, `SetVolumeKeysNote`. The spike is gone: **Sam deletes `Shell\FlyoutSpike.cs`** (Claude cannot delete files on his PC; the build fails on it otherwise: it still calls the removed `KeyboardService.SetSpikeKeyLog`).
+
+- `Shell/WindowsFlyouts.cs` (new): hides Windows' volume and brightness flyout (explorer.exe's `XamlExplorerHostIslandWindow`, small, low and centred) and its popups for new notifications (`Windows.UI.Core.CoreWindow` "New notification" of ShellExperienceHost.exe or ShellHost.exe, at the right edge, lower half) the moment they show (`ShowWindowAsync`, never waiting). Each hide must be confirmed: the flyout by a volume or brightness change within 1.5 s before or 0.7 s after; a popup by Dynaland finding the new notification within 2.5 s. Unconfirmed, Windows' window is shown again (unless Windows already took it away itself: its hide or cloak events, counted apart from Machitan's own), so airplane mode or a notification Windows keeps out of its list is never lost. Another title where popups show is logged once (other languages). Hooks only while something is hidden.
+- `Shell/BrightnessWatch.cs` (new): WMI's brightness event, off the UI thread; on a screen without it, logged once and not asked again (Windows' flyout then shows again, unconfirmed).
+- `Widgets/DynalandWindow.cs`: new closed-pill moments, the newest replacing the one before: brightness (as the volume: sun, bar, number; shown only together with Windows' flyout, within 1 s either way, so the screen dimming by itself shows nothing), the charger (battery glyph by level, "Charging" / "Plugged in" / "On battery", the level; the words follow while it runs, as charging starts a moment after the plug), copy ("Copied", "Files copied", "Files cut", "Picture copied"; only the clipboard's kinds and File Explorer's cut-or-copy mark are looked at, retried for a second while another app holds it; an emptied clipboard shows nothing). A new notification opens the pill a little (360 x 96 DIP) for 5 s: the app's icon and name ("and 2 more" when several came), the title, two lines of the text; pointing at it opens the general page with the list. The notification shown is the newest Windows created in the last 15 s that Dynaland has not shown yet (read at once and every half second while a popup waits; only ids Windows still holds are remembered). The hides apply only while Dynaland is on screen with the option on (the popups also only while Windows lets Machitan read notifications); the clipboard and charger are read with the volume (four times a second / once a second, only while Dynaland is on screen; the first reading after Dynaland shows only sets the start).
+- `Shell/NotificationService.cs`: `ReadNow()`.
+- `Interop/ClipboardInterop.cs` (new): `GetClipboardSequenceNumber`.
+- `Shell/KeyboardService.cs`, `Shell/ShellHost.cs`, `SettingsUi/SettingsWindow.xaml.cs`: the spike removed (its key log, `Spike`, About's test section); Settings > Dynaland gets the four switches; VolumeKeys follows `DynalandLevels`.
+- `Config/ShellSettings.cs`: the four settings.
+
+To check (Sam):
+1. Delete `Shell\FlyoutSpike.cs`. Build: 0 errors, 0 warnings. Settings > About has no test section; Settings > Dynaland has the four switches, on.
+2. Brightness keys: only Dynaland shows (sun, bar, number); Windows' flyout does not show. Let the screen dim by itself (or wait for it): Dynaland shows nothing.
+3. Volume keys: as before.
+4. Win+Shift+S and snip: Windows' popup does not show; Dynaland opens a little with Snipping Tool's notification (and "Picture copied" before or after it). Point at it: the list. Two notifications at once: "and 1 more".
+5. Unplug the charger: "On battery" with the level; plug it in: "Plugged in" or "Charging" with the level.
+6. Copy a file, cut a file, copy text, copy a picture: "Files copied", "Files cut", "Copied", "Picture copied".
+7. Turn each switch off: Windows' own flyout or popup is back; no charger or copy moment.
+8. Full-screen video: Windows' own flyouts show (Dynaland is hidden).
+
+antislop Delivery Gate (during mode), UI: the new closed-pill moments reuse the volume's row (glyph, 4 px bar, number, the camera and mic dots) and its 1.8 s; the notification opens the pill like the "In use now" view (its radius, fade and edge), with the notification rows' look (16 px app icon, dim app line, semi-bold title, dim text). Four plain Settings switches. Nothing decorative. Real data only: levels from Windows (Core Audio, WMI, GetSystemPowerStatus), notifications from Windows' own list, the clipboard's kinds only. Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 PASS (each switch gives Windows' own back at once; nothing is ever lost: unconfirmed hides are shown again). R-27 PASS (no brightness report: logged once, Windows' flyout shows; a busy clipboard is retried, then nothing shows; an unknown popup title is logged and left alone). R-32 PASS (switches; the moments need no input; the notification page is reached as before). R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; text and name checks, code inspection). R-39 PASS (the brightness row and the notification view carry names for screen readers). Others N/A.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+### 5c. Popups caught every time; pictures in the notification (2026-11-25)
+
+Sam (14:45): "sometimes the notification showed inside dynaland, sometimes still system's. also, add pictures in the notification."
+
+From Sam's diagnostics.log (run from 14:38): the first popup hidden was at 14:43:48 ("Windows' popups for new notifications are hidden" is logged at the first hide); the popups before it (his snip at 14:40:31 on) were never hidden, and none was shown again for want of a notification (that would be logged). So those popups never passed the window check. The likely cause: part 5b added a place check for the popup window (right edge, lower half) that test 2 did not have (test 2 caught 3 of 3 by class, program and title); the popup window can be shown or uncloaked before it reaches its place (or with no size yet). A popup Windows puts into its window while it is already on screen (no show event at all) is the other possible cause.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings.
+
+- `Shell/WindowsFlyouts.cs`: the popup window is known by class, program and title only (the place is used only for the once-per-title note about other titles). It is caught when Windows shows or uncloaks it (as before), when it moves or changes size while on screen (a move-and-size hook scoped to each shell program's process, so the cursor's moves elsewhere never reach Machitan), and by a check four times a second of the shell's CoreWindows (all found once when hiding starts, then from events). A popup only the check saw, with no notification found for it, is left hidden (most likely Windows' empty popup window: showing it again would bring back an empty window); every other unconfirmed popup is shown again as before. A window shown again is left alone until Windows shows it afresh (or takes it away). Test lines ("Windows' flyouts (test): ...", at most 80 a run): each popup hidden, how it was caught (shown, uncloaked, moved, or seen by the check), its place and size, and each one left hidden; to be removed once popups are caught every time.
+- `Widgets/DynalandWindow.cs`: for 8 s after a popup, Windows' list is read twice a second and any further new notification also opens Dynaland (Windows may add a second notification to a popup that is already up, without showing its window again). A test line ("Dynaland (test): ...", at most 20 a run, never the app, title or text) for a notification 3 to 15 s old that Dynaland never showed: it came with no popup Machitan saw (Do not disturb, an app whose popups are off, or a popup Machitan missed). The open notification now has the notification's pictures, as its row in the list: its own picture beside the words (40 DIP; round when the notification asks, as a person's photo), and its big picture, else its first picture below the text, under the words (110 DIP, filled and rounded); the view grows from 96 to 212 DIP for it, also when the pictures arrive a moment after the notification (Windows writes them a little later).
+
+To check (Sam):
+1. Build: 0 errors, 0 warnings.
+2. Several snips (Win+Shift+S), some quickly one after another, and other apps' notifications (a chat message, an email): Windows' popup never shows (a flash at most); Dynaland opens with each, with the screenshot (Snipping Tool) below the words; a person's photo beside the words for a chat message.
+3. Send diagnostics.log after a few minutes of this, with what was seen: the "(test)" lines say which way each popup was caught, or that one came with no popup seen.
+
+antislop Delivery Gate (during mode), UI: the open notification takes the list row's own look for pictures (40 DIP picture beside the words, round for a person; big picture filled and rounded under them), so the two match; nothing new elsewhere. Real data only: the pictures are the notification's own, from Windows' notification database. Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 PASS. R-27 PASS (no picture: the view stays small; a popup nobody can confirm is shown again, except an empty window only the check saw, which is logged). R-32 PASS. R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; text and name checks, code inspection). R-39 PASS. Others N/A.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+### 5d. Windows' second showing of a popup left hidden (2026-11-25)
+
+Sam (15:03): "it works. however, the system's notifier tends to resend the same notification shortly after dynaland successfully sends them".
+
+From the test lines (run from 14:58): every popup was caught (uncloaked or shown, 0x5048A at 1524,1029 396x171, also 396x353 with three popups stacked). About 6.3 s after each popup Dynaland showed (14:58:50.6 then 14:58:56.9; 14:59:28.1 then 14:59:34.5; 15:02:14.5 then 15:02:20.8), Windows showed the popup window once more: the end of the popup's time, with the same notification. Machitan hid it as a new popup, Dynaland found no new notification, and 2.5 s later Machitan showed Windows' popup again ("Dynaland did not find the new notification in Windows' list; Windows' popup shown again", 14:58:59.4, 14:59:36.9, 15:00:30.6, 15:02:23.4): that was the notification "sent again".
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings.
+
+- `Shell/WindowsFlyouts.cs`: Machitan remembers when Dynaland last showed each popup window's notification (kept when Windows takes the popup away). A popup window shown within 12 s of that is still hidden at once and Dynaland still looks for a new notification (a real new one is shown and confirmed as before), but when none is found it stays hidden instead of being shown again ("left hidden (it showed 6.3 s after a popup Dynaland showed: most likely the same notification once more)" in the test lines). Known: a notification Windows keeps out of its list that arrives within 12 s of another one stays unseen (it is not in the list either); rare.
+
+To check (Sam): build; snips and other notifications as before, waiting 10 s after each: Dynaland shows each once, Windows' popup never comes back for it.
+
+antislop Delivery Gate (during mode), UI: no UI change (when a hidden window stays hidden). Desktop WinUI: web-only items N/A.
+- Block 1: R-26 PASS. R-27 PASS (each popup left hidden is logged with why). R-35 NOT RUN (Claude cannot run on this PC; code inspection). Others N/A (no UI change).
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+### Status ring: desktops and network cables (2026-11-25)
+
+Sam (22:53): "On a machine with no battery (e.g. Desktop PC) the ring shows a full white rim; on Ethernet connection it shows the plug icon + network name; on Wi-Fi it shows the Wi-Fi icon as today; volume dots remains intact."
+
+Before: with no battery the ring showed only its 22 % track (no fill); on a cable it showed the Ethernet glyph (E839, a screen and cable) and "Ethernet" (a phone over USB showed its connection's name).
+
+**Status: delivered, waiting for build and Sam's test.** No new packages or settings; 1 new string (`RingBatteryUnknown`).
+
+- `Widgets/DuoRingWindow.cs`: three battery states from Windows: a level (the fill, as before), no battery at all (Windows' "no system battery" flag: the whole rim, in the ink, which is white on a dark wallpaper and near-black on a light one, like everything else on the ring), and not known (Windows could not read it: only the track, as before; tooltip "Battery level not known" instead of "No battery"). The cable's icon is a plug, drawn (12 x 17 DIP, two prongs, the head, the cord; Segoe Fluent Icons has no plug: its list has Ethernet, EthernetError, EthernetWarning, WifiEthernet, EthernetVPN, but nothing named Plug), in the ink.
+- `Shell/NetworkMonitor.cs`: on a cable, the network's name as Windows' Settings shows it (the connection profile's name, such as "Network 2" or a company's domain), "Ethernet" only when Windows gives none.
+
+To check (Sam): build; on the laptop the ring is as before. On a desktop PC: the whole rim (the log says "Windows reports no battery (a desktop PC); the rim is drawn whole"). A network cable (USB adapter or dock), Wi-Fi off: the plug and the network's name; Wi-Fi as before; the volume dots as before.
+
+antislop Delivery Gate (during mode), UI: the plug is drawn with the Wi-Fi icon's height and weight (strokes 1.6 to 1.8 DIP, round caps) in the same ink brush; the whole rim is the existing fill path at full length. Real data only: the no-battery flag and the network's name are Windows'. Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 N/A. R-27 PASS (battery not readable: track only, said so in the tooltip; no network name: "Ethernet"). R-32 N/A. R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; code inspection). R-39 PASS (the tooltip and name say what the rim means). Others N/A.
 - Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
 
 ## Before v0.9.2 (history, short)

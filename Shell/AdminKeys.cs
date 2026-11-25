@@ -48,12 +48,24 @@ internal sealed class AdminKeys : IDisposable
     internal const uint MsgShortcut = User32.WM_APP + 0x33;
     internal const uint MsgGoodbye = User32.WM_APP + 0x34;
 
+    /// <summary>A volume key the helper kept from Windows (wParam: the key), for VolumeKeys.</summary>
+    internal const uint MsgVolumeKey = User32.WM_APP + 0x35;
+
     // Shell to helper (WM_COPYDATA, the one message the helper lets through from lower rights).
     internal const nuint DataShortcuts = 1;
     internal const nuint DataForeground = 2;
     internal const nuint DataQuit = 3;
 
+    /// <summary>Whether the helper takes the volume keys: one byte, 1 or 0.</summary>
+    internal const nuint DataVolumeKeys = 4;
+
     private static bool s_classRegistered;
+
+    /// <summary>Where the volume keys the helper took go (VolumeKeys); null: the helper leaves them to Windows.</summary>
+    private static Action<uint>? s_volumeKeySink;
+
+    /// <summary>The last sink, for keys a helper still sends after it was told to stop (they still change the volume).</summary>
+    private static Action<uint>? s_volumeKeyFallback;
 
     private readonly KeyboardService _keyboard;
     private readonly Action? _onLoneWin;
@@ -104,6 +116,22 @@ internal sealed class AdminKeys : IDisposable
         if (ReferenceEquals(Current, this))
         {
             Current = null;
+        }
+    }
+
+    /// <summary>
+    /// The volume keys while an app running as administrator is in front: the helper keeps them
+    /// from Windows and passes them on to <paramref name="sink"/> (UI thread). Null leaves them to
+    /// Windows. Kept for a helper that starts later. UI thread.
+    /// </summary>
+    internal static void SetVolumeKeySink(Action<uint>? sink)
+    {
+        bool changed = (sink is null) != (s_volumeKeySink is null);
+        s_volumeKeySink = sink;
+        s_volumeKeyFallback = sink ?? s_volumeKeyFallback;
+        if (changed && Current is { Connected: true } keys)
+        {
+            keys.SendVolumeKeys();
         }
     }
 
@@ -374,6 +402,19 @@ internal sealed class AdminKeys : IDisposable
                     case MsgShortcut:
                         keys._keyboard.RunByIndex((int)wParam);
                         return 0;
+                    case MsgVolumeKey:
+                        if (s_volumeKeySink is { } volumeSink)
+                        {
+                            volumeSink((uint)wParam);
+                        }
+                        else
+                        {
+                            // The helper missed "stop": the key still does its job, and it is told again.
+                            s_volumeKeyFallback?.Invoke((uint)wParam);
+                            keys.SendVolumeKeys();
+                        }
+
+                        return 0;
                     case MsgGoodbye:
                         keys._helper = 0;
                         Log.Info("Admin keys: the helper ended.");
@@ -412,6 +453,23 @@ internal sealed class AdminKeys : IDisposable
         bool sent = SendToHelper(DataShortcuts, table, 2000) == 1;
         Log.Info("Admin keys: the helper is running (process " + process + "); "
             + (sent ? caught.Count + " shortcut(s) handed over." : "it did not take the shortcuts."));
+        if (s_volumeKeySink is not null)
+        {
+            SendVolumeKeys();
+        }
+    }
+
+    /// <summary>Tells the helper whether to take the volume keys.</summary>
+    private void SendVolumeKeys()
+    {
+        bool on = s_volumeKeySink is not null;
+        ReadOnlySpan<byte> data = stackalloc byte[] { on ? (byte)1 : (byte)0 };
+        if (SendToHelper(DataVolumeKeys, data, 1000) != 1)
+        {
+            Log.Warn(on
+                ? "Admin keys: the helper did not take the volume keys; while an app running as administrator is in front they stay Windows'."
+                : "Admin keys: the helper did not give the volume keys back; while an app running as administrator is in front Machitan still changes the volume.");
+        }
     }
 
     private unsafe nint SendToHelper(nuint kind, ReadOnlySpan<byte> data, uint timeoutMs)

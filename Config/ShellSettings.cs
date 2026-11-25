@@ -229,6 +229,25 @@ public sealed record ShellSettings
     /// <summary>Dynaland's green camera and orange mic dots (and its "In use now" view on the pill).</summary>
     public bool ShowPrivacyDots { get; set; } = true;
 
+    /// <summary>
+    /// Volume and brightness show in Dynaland, not in Windows' flyout, while Dynaland is on screen
+    /// (v0.9.3): Machitan handles the volume keys (VolumeKeys) and hides Windows' volume and
+    /// brightness flyout (WindowsFlyouts). On by default (Sam, 2026-11-25).
+    /// </summary>
+    public bool DynalandLevels { get; set; } = true;
+
+    /// <summary>
+    /// New notifications show in Dynaland, not in Windows' popup, while Dynaland is on screen and
+    /// Windows lets Machitan read them (v0.9.3). On by default (Sam asked for it, 2026-11-25).
+    /// </summary>
+    public bool DynalandNotifications { get; set; } = true;
+
+    /// <summary>The charger plugged in or out shows on Dynaland's pill (v0.9.3; Sam asked for it).</summary>
+    public bool DynalandCharging { get; set; } = true;
+
+    /// <summary>"Copied" or "Cut" shows on Dynaland's pill (v0.9.3; Sam asked for it). The clipboard's content is never read.</summary>
+    public bool DynalandClipboard { get; set; } = true;
+
     /// <summary>Dynaland's shape: notch (default) or island.</summary>
     public DynalandStyle DynalandStyle { get; set; } = global::Machitan.Config.DynalandStyle.Notch;
 

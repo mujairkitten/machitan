@@ -168,6 +168,9 @@ internal static unsafe class AdminKeysHelper
                     case AdminKeys.DataQuit:
                         User32.PostQuitMessage(0);
                         return 1;
+                    case AdminKeys.DataVolumeKeys:
+                        TakeVolumeKeys(data->cbData >= 1 && data->lpData != 0 && *(byte*)data->lpData != 0);
+                        return 1;
                 }
 
                 return 0;
@@ -212,6 +215,18 @@ internal static unsafe class AdminKeysHelper
 
         KeyboardService.SetHelperShortcuts(shortcuts);
         Log.Info("Admin keys helper: catching " + shortcuts.Count + " shortcut(s) while an app running as administrator is in front.");
+    }
+
+    /// <summary>
+    /// Volume up, down and mute while an app running as administrator is in front: kept from
+    /// Windows and posted to the shell, which changes the volume (VolumeKeys) and shows it in Dynaland.
+    /// </summary>
+    private static void TakeVolumeKeys(bool on)
+    {
+        KeyboardService.SetVolumeKeySink(on ? key => User32.PostMessageW(s_host, AdminKeys.MsgVolumeKey, (nint)key, 0) : null);
+        Log.Info(on
+            ? "Admin keys helper: taking the volume keys while an app running as administrator is in front."
+            : "Admin keys helper: the volume keys are Windows' again.");
     }
 
     private static void OnLoneWin()

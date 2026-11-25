@@ -20,8 +20,10 @@ namespace Machitan.Flyouts;
 
 /// <summary>
 /// The results of the bar's search box (Box mode), next to the bar and lined up with the box,
-/// while you type in the box itself. Same search as Start: app names, best fit first (see
-/// SearchRank), "files:" for files in your own folders, "apps:" for apps only. The first
+/// while you type in the box itself. Same search as Start: app names and actions (the
+/// calculator's answer on top, Settings pages, Windows tools, power; see SearchActions), best
+/// fit first (see SearchRank), "files:" for files in your own folders, "apps:" for apps only.
+/// An action that asks first (shut down, restart, sign out) asks in its row. The first
 /// result is selected; Up and Down move the selection, Enter opens it (the box sends those
 /// keys here), and a click opens any result. It never takes the keyboard: the typing stays in
 /// the bar's box. The bar closes it (Esc, a click elsewhere, opening a result).
@@ -55,13 +57,15 @@ public sealed partial class SearchResultsFlyout : FlyoutWindow
     private readonly Grid _previewBox;
     private readonly FilePreview _preview;
     private readonly ResultActions _actions;
-    private readonly List<(Grid Row, string Target)> _results = new();
+    /// <summary>The rows Enter and the arrows go through: the row, its file or app (empty for an action), and what opening it does.</summary>
+    private readonly List<(Grid Row, string Target, Action Open)> _results = new();
     private int _menusOpen;
     private readonly Dictionary<string, ImageSource> _icons = new(StringComparer.OrdinalIgnoreCase);
     private Action? _opened;
     private CancellationTokenSource? _fileSearch;
     private string _query = string.Empty;
     private bool _filesMode;
+    private bool _appsOnly;
     private int _selected = -1;
     private int _anchorLeft;
 
@@ -172,7 +176,7 @@ public sealed partial class SearchResultsFlyout : FlyoutWindow
             return false;
         }
 
-        Open(_results[_selected].Target);
+        _results[_selected].Open();
         return true;
     }
 
@@ -202,6 +206,7 @@ public sealed partial class SearchResultsFlyout : FlyoutWindow
     private void ParseQuery(string text)
     {
         string trimmed = text.Trim();
+        _appsOnly = false;
         if (trimmed.StartsWith("files:", StringComparison.OrdinalIgnoreCase))
         {
             _filesMode = true;
@@ -210,6 +215,7 @@ public sealed partial class SearchResultsFlyout : FlyoutWindow
         else if (trimmed.StartsWith("apps:", StringComparison.OrdinalIgnoreCase))
         {
             _filesMode = false;
+            _appsOnly = true;
             _query = trimmed.Substring("apps:".Length).Trim();
         }
         else
@@ -245,41 +251,133 @@ public sealed partial class SearchResultsFlyout : FlyoutWindow
             return;
         }
 
-        _header.Text = Strings.SearchApps;
+        // Apps and actions in one list, best fit first; on equal fits the apps come first.
+        List<(int Rank, SearchAction Action)> actions = _appsOnly
+            ? new List<(int Rank, SearchAction Action)>()
+            : SearchActions.Find(Host, _query);
+        _header.Text = actions.Count > 0 ? Strings.StartResults : Strings.SearchApps;
         _panel.Children.Add(_header);
 
-        if (!Host.Catalog.IsReady)
-        {
-            ShowNote(Strings.SearchReadingApps);
-            ShowSized();
-            return;
-        }
-
-        var ranked = new List<(int Rank, int Index)>();
-        IReadOnlyList<AppEntry> apps = Host.Catalog.Apps;
+        var ranked = new List<(int Rank, int Index, AppEntry? App, SearchAction? Action)>();
+        IReadOnlyList<AppEntry> apps = Host.Catalog.IsReady ? Host.Catalog.Apps : Array.Empty<AppEntry>();
         for (int i = 0; i < apps.Count; i++)
         {
             int rank = _query.Length == 0 ? SearchRank.NoMatch : SearchRank.Of(apps[i].Name, _query);
             if (rank != SearchRank.NoMatch)
             {
-                ranked.Add((rank, i));
+                ranked.Add((rank, i, apps[i], null));
             }
+        }
+
+        for (int i = 0; i < actions.Count; i++)
+        {
+            ranked.Add((actions[i].Rank, apps.Count + i, null, actions[i].Action));
         }
 
         ranked.Sort((a, b) => a.Rank != b.Rank ? a.Rank.CompareTo(b.Rank) : a.Index.CompareTo(b.Index));
         for (int i = 0; i < ranked.Count && i < MaxApps; i++)
         {
-            AppEntry app = apps[ranked[i].Index];
-            AddResult(MakeAppRow(app), app.LaunchTarget, file: false);
+            if (ranked[i].App is AppEntry app)
+            {
+                AddResult(MakeAppRow(app), app.LaunchTarget, file: false);
+            }
+            else if (ranked[i].Action is SearchAction action)
+            {
+                AddAction(action);
+            }
         }
 
-        if (_results.Count == 0)
+        if (!Host.Catalog.IsReady)
         {
-            ShowNote(Strings.SearchNoAppMatch);
+            ShowNote(Strings.SearchReadingApps);
+        }
+        else if (_results.Count == 0)
+        {
+            // Without "apps:" the actions were searched too.
+            ShowNote(_appsOnly ? Strings.SearchNoAppMatch : Strings.SearchNothingMatches);
         }
 
         Select(0);
         ShowSized();
+    }
+
+    /// <summary>An action's row: its icon, its name and what kind it is; opening it does it (or asks first).</summary>
+    private void AddAction(SearchAction action)
+    {
+        var icon = new FontIcon
+        {
+            Glyph = ((char)action.Glyph).ToString(),
+            FontFamily = IconFont,
+            FontSize = 18,
+            Width = IconDip,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = WidthDip - (2 * InnerPadDip) - IconDip - 40 };
+        words.Children.Add(new TextBlock
+        {
+            Text = action.Name,
+            FontWeight = action.IsAnswer ? FontWeights.SemiBold : FontWeights.Normal,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        words.Children.Add(new TextBlock
+        {
+            Text = action.Detail,
+            FontSize = 11,
+            Opacity = 0.6,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        content.Children.Add(icon);
+        content.Children.Add(words);
+
+        Button main = MakeRow(content, action.Name);
+        Grid row = MakeRowGrid(main, null);
+        void Run() => RunAction(action, row, main);
+        main.Click += (_, _) => Run();
+        _results.Add((row, string.Empty, (Action)Run));
+        _panel.Children.Add(row);
+    }
+
+    /// <summary>
+    /// Does the action and closes, as opening a result does; the calculator's answer is copied.
+    /// One that asks first shows its question in its row: the action's own button, or Cancel
+    /// (Enter in the box, again, is the action's button; Esc closes the results).
+    /// </summary>
+    private void RunAction(SearchAction action, Grid row, Button main)
+    {
+        void Do()
+        {
+            HideFlyout();
+            action.Run(Hwnd);
+            _opened?.Invoke();
+        }
+
+        if (action.Ask is not string question)
+        {
+            Do();
+            return;
+        }
+
+        if (row.Tag is Action asked)
+        {
+            asked();
+            return;
+        }
+
+        main.Visibility = Visibility.Collapsed;
+        Grid asking = _actions.Question(question, action.Name, Do, () =>
+        {
+            row.Tag = null;
+            while (row.Children.Count > 1)
+            {
+                row.Children.RemoveAt(row.Children.Count - 1);
+            }
+
+            main.Visibility = Visibility.Visible;
+        });
+        Grid.SetColumnSpan(asking, 2);
+        row.Children.Add(asking);
+        row.Tag = (Action)Do;
     }
 
     private async Task RunFileSearchAsync(string query)
@@ -339,7 +437,7 @@ public sealed partial class SearchResultsFlyout : FlyoutWindow
         }
 
         int index = _results.Count;
-        _results.Add((row, target));
+        _results.Add((row, target, () => Open(target)));
         _panel.Children.Add(row);
         if (file)
         {

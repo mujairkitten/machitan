@@ -419,6 +419,7 @@ public sealed partial class BarWindow : Window
             "|",
             settings.Theme,
             settings.TaskbarMode,
+            settings.TaskbarSplit,
             settings.DockEdge,
             settings.DockAlignment,
             settings.BarSize,
@@ -470,8 +471,9 @@ public sealed partial class BarWindow : Window
             double scale = Scale();
             bool top = settings.DockEdge == DockEdge.Top;
 
-            int strip = (int)Math.Round(settings.BarSize * scale);
-            int pillHeight = (int)Math.Round(PillHeightDip() * scale);
+            // A split bar (Settings > Taskbar) is taller than one pill: its strip grows by the same.
+            int strip = (int)Math.Round((settings.BarSize + BarHeightDip() - PillHeightDip()) * scale);
+            int pillHeight = (int)Math.Round(BarHeightDip() * scale);
             int margin = (int)Math.Round(EdgeMarginDip * scale);
             int pad = (int)Math.Round(WindowPadDip * scale);
             int maxWidth = Math.Max(_monitor.Width - (2 * margin), pillHeight);
@@ -483,7 +485,7 @@ public sealed partial class BarWindow : Window
             }
             else
             {
-                BarHost.Measure(new Windows.Foundation.Size(double.PositiveInfinity, PillHeightDip()));
+                BarHost.Measure(new Windows.Foundation.Size(double.PositiveInfinity, BarHeightDip()));
                 barWidth = (int)Math.Ceiling(BarHost.DesiredSize.Width * scale);
                 barWidth = Math.Clamp(barWidth, Math.Min(pillHeight, maxWidth), maxWidth);
             }
@@ -569,9 +571,34 @@ public sealed partial class BarWindow : Window
         }
     }
 
+    /// <summary>One pill: one row of buttons.</summary>
     private double PillHeightDip()
     {
         return Math.Max(_host.Settings.Current.BarSize - PillInsetDip, 16);
+    }
+
+    /// <summary>
+    /// A segment's height: one pill, or (two rows in one bar, Settings > Taskbar) room for two
+    /// rows of buttons with the same 4 DIP above and below them as in one pill.
+    /// </summary>
+    private double SegmentHeightDip()
+    {
+        double pill = PillHeightDip();
+        if (_host.Settings.Current.TaskbarSplit != TaskbarSplit.Rows)
+        {
+            return pill;
+        }
+
+        double button = Math.Max(pill - 8, _host.Settings.Current.IconSize + 14);
+        return Math.Max((2 * pill) - 8 + SplitRowGapDip, (2 * button) + SplitRowGapDip + 8);
+    }
+
+    /// <summary>The whole bar's height: its segments, or both bars when they are stacked.</summary>
+    private double BarHeightDip()
+    {
+        return _host.Settings.Current.TaskbarSplit == TaskbarSplit.Stacked
+            ? (2 * PillHeightDip()) + SegmentGapDip
+            : SegmentHeightDip();
     }
 
     private double Scale()
@@ -886,7 +913,7 @@ public sealed partial class BarWindow : Window
     /// <summary>How far the content moves to leave the window: down for a bottom bar, up for a top bar.</summary>
     private float SlideOutOffset()
     {
-        float distance = (float)(PillHeightDip() + PillInsetDip);
+        float distance = (float)(BarHeightDip() + PillInsetDip);
         return _host.Settings.Current.DockEdge == DockEdge.Top ? -distance : distance;
     }
 

@@ -1,4 +1,4 @@
-# Handoff: Machitan line i1, after Batch 7 Part 28b (2026-11-23)
+# Handoff: Machitan line i1, after Batch 7 Part 29 (2026-11-24)
 
 You are taking over Machitan from another Claude session. Read this whole note first, then `CHANGELOG-i1.md` (Parts 10 to 26 of Batch 7 are the recent history) and `README.md`. Sam (the owner) builds and runs; you write code.
 
@@ -7,7 +7,7 @@ You are taking over Machitan from another Claude session. Read this whole note f
 Machitan is an alternative shell for Windows 11: its own taskbar ("the bar", an AppBar at the bottom by default), Start menu, flyouts (Win+N calendar, Win+A quick settings, Win+Tab switcher, Win+X menu), corner widgets (info line, status ring), Dynaland (a notch-style media pill at the top), tray icons received straight from apps (Machitan has its own `Shell_TrayWnd` window), custom mode, Settings window, English and Bahasa Indonesia.
 
 - Folder: `C:\mujairkitten\projects\machitan` (Sam's PC). Sam opens `Machitan.csproj` in Visual Studio 2026 and uses GitHub Desktop.
-- Stack: .NET 10 (`net10.0-windows10.0.19041.0`), WinUI 3, Windows App SDK 2.7.0 (only `Microsoft.WindowsAppSDK.WinUI` and `.Runtime`, not the all-in-one package), System.Management 10.0.14, x64, unpackaged, self-contained (the Trimmed installer is the same without .NET).
+- Stack: .NET 10 (`net10.0-windows10.0.19041.0`), WinUI 3, Windows App SDK 2.7.0 (only `Microsoft.WindowsAppSDK.WinUI` and `.Runtime`, not the all-in-one package), System.Management 10.0.14, x64 and ARM64 (since Part 29), unpackaged, self-contained (the Trimmed installers are the same without .NET).
 - PC: Windows 11 26H2 build 26300.10066, 1920 x 1200 at 150%, laptop (battery).
 - Machitan's data and log: `C:\Users\Sammy\AppData\Roaming\Machitan` (`settings.json`, `bar-layout.json`, `diagnostics.log`). The log is the main evidence: ask Sam for it, or read it yourself if you can reach his files.
 
@@ -55,11 +55,14 @@ Machitan is an alternative shell for Windows 11: its own taskbar ("the bar", an 
 - Part 26b (r65): for the trapezoid and any transparency, the notch is one XAML path (`DrawSilhouette`, `UpdateSilhouetteMode`), redrawn per frame with Dynaland's curve while the pill moves; trapezoid only for the closed pill (slant 22, curves 8, corners 8 DIP), open views rectangular; opaque default notch and the island stay the composition pill. No report yet.
 - Part 27 (r66): Start's new layout (top user box with greeting, search over pinned categories, All apps on the right; 660 x 480 DIP); pinned categories in start-pins.json (`PinGroup`, `PinStore` grouped: rename, add, move, remove; pins' Move to); Most used (`Shell/AppUsage.cs`, app-usage.json, Settings `StartMostUsed` off by default, `StartMostUsedCollapsed`; counts apps opened from Start only; off deletes the file); All apps letters with the letters' grid; power menu icons (`PowerChoice.Glyph`). Built 21:21: pinned names cut off.
 - Part 28 (r67): pinned tiles 88 DIP tall (two-line names fit); drag and drop in Start (pinned apps to any place in any category; All apps rows pinned where dropped and kept in All apps; `PinStore.PlaceInGroup`; mouse and pen, Escape cancels, accent line marks the place); bar ^ and tray icons get a corner radius for their own width (the hover was an oval). Built 21:33: all fine except both drags (Windows refused `Root.CapturePointer`).
-- Part 28b (r68): Start's drags follow the mouse on a 16 ms timer like the bar's (cursor, button state, Escape), after the button releases the pointer; mouse only. Waiting for Sam's build.
+- Part 28b (r68): Start's drags follow the mouse on a 16 ms timer like the bar's (cursor, button state, Escape), after the button releases the pointer; mouse only. No report yet.
+- Lost work (2026-11-23 21:49): a Discard all changes in GitHub Desktop (git's log: "reset: moving to HEAD", then a pull of Sam's README commit 9db74b4) took everything since the 2026-11-21 commit. The Recycle Bin was empty; Claude wrote the last copy of every file back (r69, all hashes checked; README kept as on GitHub; csproj 0.9.1 set again). Read git's state from `.git` files only (logs/HEAD, objects); never run git. Keep a copy of every delivered file (`outputs/rNN`) and remind Sam to commit after each tested part.
+- Part 29 (r70): the bar's search icon closes Start; Win+A action center (`Shell/QuickToggles.cs`, `Interop/RadioManager.cs`: Wi-Fi and Bluetooth by `Windows.Devices.Radios`, airplane mode by the undocumented `IRadioManager`, hotspot by `NetworkOperatorTetheringManager`, live captions by LiveCaptions.exe, Project/Cast by Win+P/Win+K; tiles show Windows' state and wait greyed after a click); ARM64 (platforms x64;ARM64, RID from the platform, four installers, `/DArch=ARM64`); `Shell/AppWatcher.cs` (Programs folders + `PackageCatalog`, 2 s quiet, `AppCatalog.RefreshNow`); split taskbar (`TaskbarSplit` Off/Rows/Stacked, off by default: `AppBubble.PinnedPanel`, `_builtTopIds`/`_shownIds`, `SegmentHeightDip`/`BarHeightDip`, drags within the row's kind with `BubbleSnap.Full`). Waiting for Sam's build.
 - Skills: Sam saved three skills from Microsoft's WinUI agent plugin (winui-design, winui-code-review, winui-dev-workflow). Their `winapp` commands need WinApp CLI on a Windows PC; they cannot run in Claude's workspace.
 - Known small gap: a new window opened from the button of Firefox's private windows opens a normal window.
 - Notification tray (Parts 23 to 25): done. Sam's answers (2026-11-21): probe first (done: reading works without identity); show Windows' own current list, store nothing ("No notification history" stands: Machitan keeps no list, log or copy of notifications beyond Windows' list as last read, in memory).
-- Now: Part 28b, waiting for the build (and a word on Part 26b).
+- 0.9.1: Sam marked it released in `CHANGELOG.md` (2026-11-23) and made its installers (22:29), with Parts 23 to 28b. New entries go under "0.9.2 (not released yet)"; `<Version>` in the csproj is Sam's to change (still 0.9.1).
+- Now: Part 29, waiting for the build (and a word on Parts 26b and 28b). Sam's README (rewritten on GitHub in 9db74b4) is his: it still says "x64" and "no notification list"; offer updates, do not change it unasked.
 
 ## Solved problem 1: the top strip (Settings > Edge strip > "Keep the free edge clear")
 

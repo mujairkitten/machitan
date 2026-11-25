@@ -11,10 +11,14 @@
     <!-- Machitan.exe's icon (File Explorer, shortcuts); windows get the same file through AppWindow.SetIcon. -->
     <ApplicationIcon>machitan.ico</ApplicationIcon>
 
-    <!-- x64 only. -->
-    <Platforms>x64</Platforms>
-    <PlatformTarget>x64</PlatformTarget>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- x64 and ARM64. A build follows Visual Studio's platform (x64 or ARM64);
+         build-installer.cmd publishes each one with -r win-x64 or -r win-arm64. -->
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <PlatformTarget Condition="'$(RuntimeIdentifier)' == 'win-arm64'">ARM64</PlatformTarget>
+    <PlatformTarget Condition="'$(RuntimeIdentifier)' != 'win-arm64'">x64</PlatformTarget>
 
     <!-- WinUI 3, unpackaged, self-contained (.NET and Windows App SDK both ship with the app).
          build-installer.cmd also publishes a Trimmed edition without .NET (self-contained false). -->
@@ -33,7 +37,7 @@
 
     <Product>Machitan</Product>
     <Description>Alternative modern shell for Windows 11</Description>
-    <Version>0.9.1</Version>
+    <Version>0.9.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

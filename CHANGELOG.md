@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.9.2 (in progress)
+
+### Added
+
+- **Volume in Dynaland's player:** a mute button and a volume bar right below the music controls, as wide as they are. Click or drag the bar, or use the mouse wheel over it. It is Windows' own volume, the same as in Win+A.
+- **Search actions:** Start's search and the bar's search box also list a calculator (type `2+2`: the answer shows on top; Enter or a click copies it) and actions: Machitan's settings, Windows Settings pages (Display, Sound, Bluetooth, Wi-Fi, Windows Update and more), Windows tools from the Win+X menu, Show desktop, Lock, the power menu's choices (with the same questions), Sign out (with a question) and Exit Machitan. `apps:` lists apps only.
+- **Machitan's settings pages in search:** Start's search and the bar's search box list Machitan's Settings pages by any part of their names ("bar" finds Taskbar; Start, Corner widgets, Dynaland and the rest); choosing one opens Settings at that page. Settings itself has a search box above its pages that finds them the same way. When nothing fits, search says "Nothing matches." ("No app matches." with `apps:`).
+- **Action center in Win+A:** switches for Wi-Fi, Bluetooth, airplane mode, mobile hotspot and live captions, as Windows has them on your PC, plus Project and Cast.
+- **Split taskbar** (optional, off by default): pinned apps on top and open apps below, as two rows in one bar or as two stacked bars (Settings > Taskbar).
+- **Windows on Arm:** Machitan builds for ARM64 too, with its own installers (Full and Trimmed).
+
+### Changed
+
+- New apps show in Start and search a few seconds after they are installed (and go when removed), without waiting for Start to open.
+
+### Fixed
+
+- The bar's search icon closes Start before Windows' search opens.
+
+### Checked so far
+
+- Everything above the search actions builds (2026-11-25).
+- Volume in Dynaland's player: checked by Sam after its second look (2026-11-25).
+- Search actions: checked by Sam (2026-11-25).
+- The rest has not been run yet.
+
+### Left out
+
+- Win+A has no Night light, Energy saver or Do not disturb switch: Windows has no public way for other apps to switch them.
+
 ## 0.9.1 (2026-11-23)
 
 ### Added

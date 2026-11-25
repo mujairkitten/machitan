@@ -82,45 +82,25 @@ public sealed partial class SettingsWindow : Window
 
     // ---------------------------------------------------------------- pages
 
-    private const string PageGeneral = "general";
-    private const string PageTaskbar = "taskbar";
-    private const string PageStart = "start";
-    private const string PageWidgets = "widgets";
-    private const string PageDynaland = "dynaland";
-    private const string PageEdge = "edge";
-    private const string PageShortcuts = "shortcuts";
-    private const string PagePrivacy = "privacy";
-    private const string PageAbout = "about";
+    // The pages and their order come from SettingsPages, which search shares.
 
-    /// <summary>The sidebar, in order: key, name, Segoe Fluent Icons glyph.</summary>
-    private static readonly (string Key, string Name, string Glyph)[] Pages =
-    {
-        (PageGeneral, Strings.SetPageGeneral, "\uE713"),
-        (PageTaskbar, Strings.SetPageTaskbar, "\uE71D"),
-        (PageStart, Strings.SetPageStart, "\uE80F"),
-        (PageWidgets, Strings.SetPageWidgets, "\uE823"),
-        (PageDynaland, Strings.SetPageDynaland, "\uE8D6"),
-        (PageEdge, Strings.SetPageEdge, "\uE7F4"),
-        (PageShortcuts, Strings.SetPageShortcuts, "\uE765"),
-        (PagePrivacy, Strings.SetPagePrivacy, "\uE72E"),
-        (PageAbout, Strings.SetPageAbout, "\uE946"),
-    };
-
-    private string _page = PageGeneral;
+    private string _page = SettingsPages.General;
     private bool _selecting;
 
-    /// <summary>The sidebar items; the first page shows.</summary>
+    /// <summary>The sidebar items and its search box; the first page shows.</summary>
     private void BuildNavigation()
     {
-        foreach ((string key, string name, string glyph) in Pages)
+        foreach (SettingsPage page in SettingsPages.All())
         {
             Nav.MenuItems.Add(new NavigationViewItem
             {
-                Content = name,
-                Tag = key,
-                Icon = new FontIcon { Glyph = glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") },
+                Content = page.Name,
+                Tag = page.Key,
+                Icon = new FontIcon { Glyph = ((char)page.Glyph).ToString(), FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") },
             });
         }
+
+        Nav.AutoSuggestBox = BuildSearchBox();
 
         _selecting = true;
         try
@@ -132,7 +112,104 @@ public sealed partial class SettingsWindow : Window
             _selecting = false;
         }
 
-        ShowPage(PageGeneral);
+        ShowPage(SettingsPages.General);
+    }
+
+    /// <summary>
+    /// Opens a page from outside the sidebar (Start's or the bar's search, this window's search
+    /// box): selects it in the sidebar and shows it from the top. An unknown key is logged and left.
+    /// </summary>
+    internal void GoToPage(string key)
+    {
+        if (SettingsPages.Named(key) is null)
+        {
+            Log.Warn("Settings: there is no page \"" + key + "\".");
+            return;
+        }
+
+        _selecting = true;
+        try
+        {
+            foreach (object item in Nav.MenuItems)
+            {
+                if (item is NavigationViewItem { Tag: string tag } && tag == key)
+                {
+                    Nav.SelectedItem = item;
+                }
+            }
+        }
+        finally
+        {
+            _selecting = false;
+        }
+
+        if (key != _page)
+        {
+            // A slider still settling belongs to the page being left.
+            FlushSlider();
+            ShowPage(key);
+        }
+
+        Scroller.ChangeView(null, 0, null, true);
+    }
+
+    /// <summary>
+    /// The sidebar's search box: it lists the pages whose names fit what is typed (best fit
+    /// first, as Start's search ranks); choosing one, or Enter for the first, opens it.
+    /// </summary>
+    private AutoSuggestBox BuildSearchBox()
+    {
+        var box = new AutoSuggestBox
+        {
+            PlaceholderText = Strings.SetSearchSettings,
+            QueryIcon = new SymbolIcon(Symbol.Find),
+            UpdateTextOnSelect = false,
+        };
+        AutomationProperties.SetName(box, Strings.SetSearchSettings);
+
+        box.TextChanged += (sender, args) =>
+        {
+            if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+            {
+                return;
+            }
+
+            if (sender.Text.Trim().Length == 0)
+            {
+                sender.ItemsSource = null;
+                return;
+            }
+
+            // Nothing that fits says so (it opens nothing).
+            var items = new List<object>(SettingsPages.Find(sender.Text));
+            if (items.Count == 0)
+            {
+                items.Add(Strings.SetSearchNoPage);
+            }
+
+            sender.ItemsSource = items;
+        };
+
+        box.QuerySubmitted += (sender, args) =>
+        {
+            SettingsPage? page = args.ChosenSuggestion as SettingsPage;
+            if (page is null && args.ChosenSuggestion is null)
+            {
+                List<SettingsPage> found = SettingsPages.Find(args.QueryText);
+                page = found.Count > 0 ? found[0] : null;
+            }
+
+            if (page is null)
+            {
+                return;
+            }
+
+            sender.Text = string.Empty;
+            sender.ItemsSource = null;
+            GoToPage(page.Key);
+        };
+
+        return box;
     }
 
     private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -157,38 +234,35 @@ public sealed partial class SettingsWindow : Window
         _refreshers.Clear();
         _statusText = null;
 
-        foreach ((string pageKey, string name, _) in Pages)
+        if (SettingsPages.Named(key) is SettingsPage shown)
         {
-            if (pageKey == key)
-            {
-                AddTitle(name);
-            }
+            AddTitle(shown.Name);
         }
 
         switch (key)
         {
-            case PageTaskbar:
+            case SettingsPages.Taskbar:
                 BuildTaskbarPage();
                 break;
-            case PageStart:
+            case SettingsPages.Start:
                 BuildStartPage();
                 break;
-            case PageWidgets:
+            case SettingsPages.Widgets:
                 BuildWidgetsPage();
                 break;
-            case PageDynaland:
+            case SettingsPages.Dynaland:
                 BuildDynalandPage();
                 break;
-            case PageEdge:
+            case SettingsPages.Edge:
                 BuildEdgePage();
                 break;
-            case PageShortcuts:
+            case SettingsPages.Shortcuts:
                 BuildShortcutsPage();
                 break;
-            case PagePrivacy:
+            case SettingsPages.Privacy:
                 BuildPrivacyPage();
                 break;
-            case PageAbout:
+            case SettingsPages.About:
                 BuildAboutPage();
                 break;
             default:
@@ -279,6 +353,12 @@ public sealed partial class SettingsWindow : Window
                 new[] { Strings.SetModeSegmented, Strings.SetModeJoined, Strings.SetModeClassic, Strings.SetModeCompact },
                 s => (int)s.TaskbarMode,
                 (s, i) => s.TaskbarMode = (TaskbarMode)i),
+            ComboRow(
+                Strings.SetSplit,
+                Strings.SetSplitNote,
+                new[] { Strings.SetSplitOff, Strings.SetSplitRows, Strings.SetSplitStacked },
+                s => (int)s.TaskbarSplit,
+                (s, i) => s.TaskbarSplit = (TaskbarSplit)i),
             ComboRow(
                 Strings.SetPosition,
                 string.Empty,

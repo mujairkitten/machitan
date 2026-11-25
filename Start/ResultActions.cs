@@ -223,6 +223,42 @@ internal sealed class ResultActions
         return panel;
     }
 
+    /// <summary>
+    /// A question in a result's row before something that cannot be undone (shut down, restart,
+    /// sign out from search): the question, the thing's own button in the accent colour (it
+    /// does it) and Cancel (puts the row back).
+    /// </summary>
+    internal Grid Question(string text, string doLabel, Action doIt, Action cancelled)
+    {
+        var question = new TextBlock
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(8, 0, 0, 0),
+        };
+        AutomationProperties.SetLiveSetting(question, Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Assertive);
+        ToolTipService.SetToolTip(question, text);
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+        Button confirm = TextButton(doLabel);
+        PaintAccent(confirm, _host.Accent.Current);
+        Button cancel = TextButton(Strings.Cancel);
+        buttons.Children.Add(confirm);
+        buttons.Children.Add(cancel);
+
+        var panel = new Grid { ColumnSpacing = 8 };
+        panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(buttons, 1);
+        panel.Children.Add(question);
+        panel.Children.Add(buttons);
+
+        confirm.Click += (_, _) => doIt();
+        cancel.Click += (_, _) => cancelled();
+        return panel;
+    }
+
     /// <summary>An accent button in Machitan's accent colour, with the better-contrast text (WCAG).</summary>
     internal static void PaintAccent(Button button, Windows.UI.Color colour)
     {

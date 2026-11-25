@@ -89,7 +89,7 @@ public sealed partial class BarWindow
         {
             Dictionary<string, List<DockItem>> arranged = ArrangeDock();
             List<string> shown = ShownBubbles(arranged);
-            if (!SameIds(shown, _builtIds))
+            if (!SameIds(shown, _builtIds) || !SameIds(TopBubbles(arranged), _builtTopIds))
             {
                 BuildLayout();
                 return;
@@ -135,6 +135,10 @@ public sealed partial class BarWindow
                 if (button.Tag is DockButtonParts parts)
                 {
                     shown.Add(parts.Item.Key);
+                    if (parts.Item.PinKey is string pinKey)
+                    {
+                        shown.Add(pinKey);
+                    }
                 }
             }
         }
@@ -142,7 +146,17 @@ public sealed partial class BarWindow
         foreach (AppBubble bubble in _bubbles)
         {
             List<DockItem> items = arranged.TryGetValue(bubble.Id, out List<DockItem>? list) ? list : new List<DockItem>();
-            FillPanel(bubble.Panel, items, rebuild, shown);
+            if (bubble.PinnedPanel is StackPanel pinnedPanel)
+            {
+                // Split: the pinned apps on top (running or not), the open apps below (pinned or
+                // not); a pinned app that is open shows in both.
+                FillPanel(pinnedPanel, items.FindAll(item => item.IsPinned), rebuild, shown, pinnedRow: true);
+                FillPanel(bubble.Panel, items.FindAll(item => item.IsRunning), rebuild, shown, pinnedRow: false);
+            }
+            else
+            {
+                FillPanel(bubble.Panel, items, rebuild, shown, pinnedRow: false);
+            }
         }
 
         // The tray icons' order is kept in the same layout file.
@@ -152,9 +166,11 @@ public sealed partial class BarWindow
 
     /// <summary>
     /// Puts the items' buttons in the panel, reusing them when nothing moved. Buttons for keys
-    /// not in <paramref name="shown"/> (when given) grow into place.
+    /// not in <paramref name="shown"/> (when given) grow into place. A split bar's pinned row
+    /// (<paramref name="pinnedRow"/>) matches its buttons by pin, so a pinned app that starts or
+    /// closes keeps its button there (only its running mark changes).
     /// </summary>
-    private void FillPanel(StackPanel panel, List<DockItem> items, bool rebuild, HashSet<string>? shown)
+    private void FillPanel(StackPanel panel, List<DockItem> items, bool rebuild, HashSet<string>? shown, bool pinnedRow)
     {
         if (!rebuild && panel.Children.Count == items.Count)
         {
@@ -162,7 +178,7 @@ public sealed partial class BarWindow
             for (int i = 0; i < items.Count; i++)
             {
                 if (panel.Children[i] is not Button { Tag: DockButtonParts parts }
-                    || !string.Equals(parts.Item.Key, items[i].Key, StringComparison.OrdinalIgnoreCase))
+                    || !string.Equals(MatchKey(parts.Item, pinnedRow), MatchKey(items[i], pinnedRow), StringComparison.OrdinalIgnoreCase))
                 {
                     sameItems = false;
                     break;
@@ -188,18 +204,35 @@ public sealed partial class BarWindow
         {
             Button button = CreateDockButton(item);
             panel.Children.Add(button);
-            if (shown is not null && !shown.Contains(item.Key))
+            if (shown is not null && !shown.Contains(MatchKey(item, pinnedRow)))
             {
                 Motion.PopIn(button, PopInFromScale, PopInMs);
             }
         }
     }
 
-    /// <summary>Every app button on the bar, from the left.</summary>
+    /// <summary>What a button stands for in its row: the app, or (a split bar's pinned row) the pin.</summary>
+    private static string MatchKey(DockItem item, bool pinnedRow)
+    {
+        return pinnedRow && item.PinKey is string pinKey ? pinKey : item.Key;
+    }
+
+    /// <summary>Every app button on the bar, from the left (split: each bubble's pinned row, then its open row).</summary>
     private IEnumerable<Button> DockButtons()
     {
         foreach (AppBubble bubble in _bubbles)
         {
+            if (bubble.PinnedPanel is StackPanel pinnedPanel)
+            {
+                foreach (UIElement child in pinnedPanel.Children)
+                {
+                    if (child is Button { Tag: DockButtonParts } pinnedButton)
+                    {
+                        yield return pinnedButton;
+                    }
+                }
+            }
+
             foreach (UIElement child in bubble.Panel.Children)
             {
                 if (child is Button { Tag: DockButtonParts } button)
@@ -208,6 +241,25 @@ public sealed partial class BarWindow
                 }
             }
         }
+    }
+
+    /// <summary>True when <paramref name="panel"/> is a split bar's pinned row.</summary>
+    private bool IsPinnedRow(StackPanel? panel)
+    {
+        if (panel is null)
+        {
+            return false;
+        }
+
+        foreach (AppBubble bubble in _bubbles)
+        {
+            if (ReferenceEquals(bubble.PinnedPanel, panel))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Button CreateDockButton(DockItem item)
@@ -468,6 +520,17 @@ public sealed partial class BarWindow
             }
 
             ApplyDockState(clicked, parts);
+
+            // A split bar shows a pinned app that is open in both rows: both show the pick.
+            foreach (Button other in DockButtons())
+            {
+                if (!ReferenceEquals(other, clicked) && other.Tag is DockButtonParts otherParts
+                    && string.Equals(otherParts.Item.Key, item.Key, StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyDockState(other, otherParts);
+                }
+            }
+
             return;
         }
 
@@ -609,10 +672,13 @@ public sealed partial class BarWindow
     private List<DockItem> PickedWith(DockItem also)
     {
         var picked = new List<DockItem>();
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (Button button in DockButtons())
         {
+            // A split bar shows a pinned app that is open twice; it is picked once.
             if (button.Tag is DockButtonParts parts
-                && (IsSelected(parts.Item) || string.Equals(parts.Item.Key, also.Key, StringComparison.OrdinalIgnoreCase)))
+                && (IsSelected(parts.Item) || string.Equals(parts.Item.Key, also.Key, StringComparison.OrdinalIgnoreCase))
+                && keys.Add(parts.Item.Key))
             {
                 picked.Add(parts.Item);
             }
@@ -682,7 +748,30 @@ public sealed partial class BarWindow
 
     private int CountIn(string bubbleId)
     {
-        return BubbleById(bubbleId) is AppBubble bubble ? bubble.Panel.Children.Count : 0;
+        if (BubbleById(bubbleId) is not AppBubble bubble)
+        {
+            return 0;
+        }
+
+        if (bubble.PinnedPanel is not StackPanel pinnedPanel)
+        {
+            return bubble.Panel.Children.Count;
+        }
+
+        // A split bar: each app once, whichever rows it shows in.
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (StackPanel row in new[] { pinnedPanel, bubble.Panel })
+        {
+            foreach (UIElement child in row.Children)
+            {
+                if (child is Button { Tag: DockButtonParts parts })
+                {
+                    keys.Add(parts.Item.Key);
+                }
+            }
+        }
+
+        return keys.Count;
     }
 
     private void GroupApps(List<DockItem> apps, string after)

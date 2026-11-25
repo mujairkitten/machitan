@@ -1,14 +1,20 @@
-; Machitan's installers (Inno Setup 7, or 6.3 and later), in two editions:
+; Machitan's installers (Inno Setup 7, or 6.3 and later), in two editions, each for x64 PCs
+; and for Windows on Arm (ARM64) PCs:
 ;   Full     everything Machitan needs, the .NET 10 runtime included.
-;   Trimmed  the same without the .NET 10 runtime: the PC needs the .NET 10 Runtime (x64);
-;            Setup checks for it first and points to Microsoft's download page if it is missing.
-; Both bring the Windows App SDK's parts Machitan uses (WinUI 3), not its AI parts.
+;   Trimmed  the same without the .NET 10 runtime: the PC needs the .NET 10 Runtime (x64, or
+;            Arm64 for the ARM64 installer); Setup checks for it first and points to
+;            Microsoft's download page if it is missing.
+; All bring the Windows App SDK's parts Machitan uses (WinUI 3), not its AI parts.
 ;
 ; Made by build-installer.cmd in the project folder, which publishes a Release build per
-; edition to publish\Machitan-Full and publish\Machitan-Trimmed, then compiles this script
-; once per edition (/DEdition=Full, /DEdition=Trimmed). The installers land in publish\:
-; Machitan-Setup-<version>-Full.exe and Machitan-Setup-<version>-Trimmed.exe, the version
-; being Machitan.exe's own (<Version> in Machitan.csproj). Windows stamps a program with four
+; edition and kind of PC to publish\Machitan-Full, publish\Machitan-Trimmed,
+; publish\Machitan-ARM64-Full and publish\Machitan-ARM64-Trimmed, then compiles this script
+; once for each (/DEdition=Full or Trimmed, /DArch=x64 or ARM64). The installers land in
+; publish\: Machitan-Setup-<version>-Full.exe and Machitan-Setup-<version>-Trimmed.exe (x64),
+; Machitan-Setup-<version>-ARM64-Full.exe and Machitan-Setup-<version>-ARM64-Trimmed.exe, the
+; version being Machitan.exe's own (<Version> in Machitan.csproj).
+; The x64 installers also run on Windows on Arm (Windows runs x64 apps there); the ARM64 ones
+; run only there, natively. All are the same app to Windows (one AppId): one replaces another. Windows stamps a program with four
 ; numbers (0.9.0 becomes 0.9.0.0); a last ".0" is left out of the file name and Windows' Apps
 ; list, so they say 0.9.0.
 ;
@@ -38,7 +44,21 @@
   #error Edition must be Full or Trimmed (build-installer.cmd passes /DEdition=Full or /DEdition=Trimmed).
 #endif
 
-#define PublishDir AddBackslash(SourcePath) + "..\publish\Machitan-" + Edition
+#ifndef Arch
+  #define Arch "x64"
+#endif
+
+#if Arch == "x64"
+  #define PublishDir AddBackslash(SourcePath) + "..\publish\Machitan-" + Edition
+  #define FileSuffix "-" + Edition
+  #define DotNetArch "x64"
+#elif Arch == "ARM64"
+  #define PublishDir AddBackslash(SourcePath) + "..\publish\Machitan-ARM64-" + Edition
+  #define FileSuffix "-ARM64-" + Edition
+  #define DotNetArch "Arm64"
+#else
+  #error Arch must be x64 or ARM64 (build-installer.cmd passes /DArch=x64 or /DArch=ARM64).
+#endif
 
 #if !FileExists(PublishDir + "\Machitan.exe")
   #error Machitan.exe is not in this edition's publish folder. Run build-installer.cmd, which publishes it first.
@@ -59,12 +79,17 @@ AppVerName={#AppName} {#AppVersion}
 ; Setup's own file version needs all four numbers.
 VersionInfoVersion={#FileVersion}
 VersionInfoProductTextVersion={#AppVersion}
-VersionInfoDescription={#AppName} Setup ({#Edition})
+VersionInfoDescription={#AppName} Setup ({#Arch}, {#Edition})
 DefaultDirName={autopf}\{#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
+#if Arch == "ARM64"
+ArchitecturesAllowed=arm64
+ArchitecturesInstallIn64BitMode=arm64
+#else
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#endif
 MinVersion=10.0.19041
 LicenseFile=..\LICENSE
 SetupIconFile=..\machitan.ico
@@ -74,7 +99,7 @@ WizardStyle=modern
 Compression=lzma2/max
 SolidCompression=yes
 OutputDir=..\publish
-OutputBaseFilename={#AppName}-Setup-{#AppVersion}-{#Edition}
+OutputBaseFilename={#AppName}-Setup-{#AppVersion}{#FileSuffix}
 SetupLogging=yes
 ; Machitan is closed by the [Code] below; Windows' Restart Manager only covers what is left
 ; (the small helper processes), and nothing is restarted behind the user's back.
@@ -129,7 +154,11 @@ function CloseHandle(Handle: THandle): LongBool;
 #if Edition == "Trimmed"
 const
   DotNetDownloadPage = 'https://dotnet.microsoft.com/download/dotnet/10.0';
+#if Arch == "ARM64"
+  DotNetSetupKey = 'SOFTWARE\dotnet\Setup\InstalledVersions\arm64';
+#else
   DotNetSetupKey = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64';
+#endif
 
 // True when a .NET folder holds a .NET 10 runtime (the "Microsoft.NETCore.App" framework,
 // which both the .NET Runtime and the .NET Desktop Runtime bring).
@@ -148,7 +177,8 @@ begin
   end;
 end;
 
-// Where .NET's own installer says x64 .NET is (as Machitan.exe looks for it), else its usual folder.
+// Where .NET's own installer says {#DotNetArch} .NET is (as Machitan.exe looks for it), else its
+// usual folder. On Windows on Arm, x64 .NET goes in dotnet\x64 and Arm64 .NET in dotnet itself.
 function DotNet10Installed(): Boolean;
 var
   Location: String;
@@ -160,11 +190,20 @@ begin
     if RegQueryStringValue(HKLM64, DotNetSetupKey, 'InstallLocation', Location) then
       Result := HasDotNet10(Location);
   if not Result then
+  begin
+#if Arch == "ARM64"
     Result := HasDotNet10(ExpandConstant('{commonpf64}\dotnet'));
+#else
+    if IsArm64() then
+      Result := HasDotNet10(ExpandConstant('{commonpf64}\dotnet\x64'))
+    else
+      Result := HasDotNet10(ExpandConstant('{commonpf64}\dotnet'));
+#endif
+  end;
 end;
 
-// The Trimmed edition needs the .NET 10 Runtime (x64); without it Setup stops before anything
-// is changed, and can open Microsoft's download page.
+// The Trimmed edition needs the .NET 10 Runtime ({#DotNetArch}); without it Setup stops before
+// anything is changed, and can open Microsoft's download page.
 function InitializeSetup(): Boolean;
 var
   ErrorCode: Integer;
@@ -173,9 +212,9 @@ begin
   if DotNet10Installed() then
     Exit;
 
-  Log('The .NET 10 Runtime (x64) was not found; Setup stops.');
-  if SuppressibleMsgBox('This edition of Machitan needs the .NET 10 Runtime (x64), which is not on this PC.' + #13#10#13#10 +
-      'Open Microsoft''s download page now? Install ".NET Runtime 10" for x64 there, then run this Setup again.' + #13#10#13#10 +
+  Log('The .NET 10 Runtime ({#DotNetArch}) was not found; Setup stops.');
+  if SuppressibleMsgBox('This edition of Machitan needs the .NET 10 Runtime ({#DotNetArch}), which is not on this PC.' + #13#10#13#10 +
+      'Open Microsoft''s download page now? Install ".NET Runtime 10" for {#DotNetArch} there, then run this Setup again.' + #13#10#13#10 +
       'The Full edition of Machitan''s Setup brings .NET with it instead.',
       mbConfirmation, MB_YESNO, IDNO) = IDYES then
     ShellExecAsOriginalUser('open', DotNetDownloadPage, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);

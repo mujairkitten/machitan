@@ -38,7 +38,7 @@ namespace Machitan.Widgets;
 /// Idle it is a small empty pill and does nothing (no clock: the info line owns the time).
 /// It grows only for live things: music (the cover, the title and a note in the cover's
 /// colour; on hover, or for 4 seconds when a new track starts, the full view with app,
-/// cover, title, artist, controls and position), a volume change (the level for 1.8 s), and
+/// cover, title, artist, controls, position and the volume), a volume change (the level for 1.8 s), and
 /// camera or microphone use (a green camera dot and an orange mic dot on the pill in every
 /// state; for 4 seconds when a use starts, and on hover, an "In use now" view naming the
 /// apps). Never for notifications: Machitan reads Windows' list but is not told when one arrives.
@@ -60,6 +60,13 @@ public sealed partial class DynalandWindow : Window
     private const double StandardStageWidth = 400;
     /// <summary>The open views' height: the player, and the general page without tray icons.</summary>
     private const double OpenHeight = 152;
+
+    /// <summary>The player's volume line, right below the music controls: its height and the gap above it.</summary>
+    private const double VolumeLineHeight = 24;
+    private const double VolumeLineGap = 2;
+
+    /// <summary>One notch of the mouse wheel over the volume line moves it this many percent.</summary>
+    private const int VolumeWheelStep = 2;
 
     // The tray on the general page: a title, then up to two rows of icon tiles.
     private const double TrayTitleHeight = 24;
@@ -219,6 +226,23 @@ public sealed partial class DynalandWindow : Window
     private readonly TextBlock _total;
     private readonly ColumnDefinition _doneColumn;
     private readonly ColumnDefinition _leftColumn;
+
+    /// <summary>
+    /// The player's volume line, right below the music controls and as wide as they are:
+    /// Windows' default speakers, as in Win+A (the same VolumeService that shows a volume change
+    /// on the pill). The mute button (its icon shows the level, or muted) and a bar like the
+    /// position (a press or drag sets it, at once; the wheel nudges it). Hidden while Windows has
+    /// no speakers or headphones.
+    /// </summary>
+    private readonly Grid _playerVolume;
+    private readonly FontIcon _playerMuteIcon;
+    private readonly Grid _playerVolumeArea;
+    private readonly Ellipse _playerVolumeThumb;
+    private readonly TranslateTransform _playerVolumeThumbMove = new();
+    private readonly ColumnDefinition _playerVolumeDone;
+    private readonly ColumnDefinition _playerVolumeLeft;
+    private bool _playerVolumeDragging;
+    private bool _playerVolumeHover;
 
     // In use now, open (for a moment when a use starts).
     private readonly Grid _privacyContent;
@@ -567,15 +591,24 @@ public sealed partial class DynalandWindow : Window
         controls.Children.Add(_playPause);
         controls.Children.Add(_next);
 
+        // The controls, with the volume line below them (added further down): the column is as
+        // wide as the controls, and the volume line stretches to that.
+        var controlColumn = new StackPanel
+        {
+            Spacing = VolumeLineGap,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        controlColumn.Children.Add(controls);
+
         var mediaPanel = new Grid { Margin = new Thickness(0, 8, 0, 0) };
         mediaPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         mediaPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         mediaPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(words, 1);
-        Grid.SetColumn(controls, 2);
+        Grid.SetColumn(controlColumn, 2);
         mediaPanel.Children.Add(_bigArt);
         mediaPanel.Children.Add(words);
-        mediaPanel.Children.Add(controls);
+        mediaPanel.Children.Add(controlColumn);
 
         _elapsed = Text(11, FontWeights.Normal, _dimBrush);
         _total = Text(11, FontWeights.Normal, _dimBrush);
@@ -653,6 +686,101 @@ public sealed partial class DynalandWindow : Window
         _timeline.Children.Add(_elapsed);
         _timeline.Children.Add(_seekArea);
         _timeline.Children.Add(_total);
+
+        // ---- music, open: the volume line below the controls (Windows' default speakers, as in Win+A)
+        Button playerMute = MakeControl(0xE767, Strings.QsMute, ToggleMuteAsync, out _playerMuteIcon);
+        playerMute.Width = VolumeLineHeight;
+        playerMute.Height = VolumeLineHeight;
+        playerMute.CornerRadius = new CornerRadius(VolumeLineHeight / 2);
+        _playerMuteIcon.FontSize = 13;
+        _playerVolumeDone = new ColumnDefinition { Width = new GridLength(0.0001, GridUnitType.Star) };
+        _playerVolumeLeft = new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) };
+        Grid playerVolumeBar = MakeBar(_playerVolumeDone, _playerVolumeLeft, _accentBrush);
+        _playerVolumeThumb = new Ellipse
+        {
+            Width = 12,
+            Height = 12,
+            Fill = _whiteBrush,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            RenderTransform = _playerVolumeThumbMove,
+            Visibility = Visibility.Collapsed,
+            IsHitTestVisible = false,
+        };
+        _playerVolumeArea = new Grid { Background = new SolidColorBrush(Colors.Transparent) };
+        _playerVolumeArea.Children.Add(playerVolumeBar);
+        _playerVolumeArea.Children.Add(_playerVolumeThumb);
+        AutomationProperties.SetName(_playerVolumeArea, Strings.QsVolume);
+
+        // The thumb's place depends on the bar's width, known only once it is laid out.
+        _playerVolumeArea.SizeChanged += (_, _) => ShowPlayerVolume();
+        _playerVolumeArea.PointerEntered += (_, _) =>
+        {
+            _playerVolumeHover = true;
+            UpdatePlayerVolumeThumb();
+        };
+        _playerVolumeArea.PointerExited += (_, _) =>
+        {
+            _playerVolumeHover = false;
+            UpdatePlayerVolumeThumb();
+        };
+        _playerVolumeArea.PointerPressed += (_, e) =>
+        {
+            if (!_volume.IsAvailable)
+            {
+                return;
+            }
+
+            _playerVolumeDragging = _playerVolumeArea.CapturePointer(e.Pointer);
+            SetVolumeFromBar(e.GetCurrentPoint(_playerVolumeArea).Position.X);
+            e.Handled = true;
+        };
+        _playerVolumeArea.PointerMoved += (_, e) =>
+        {
+            if (_playerVolumeDragging)
+            {
+                SetVolumeFromBar(e.GetCurrentPoint(_playerVolumeArea).Position.X);
+            }
+        };
+        _playerVolumeArea.PointerReleased += (_, e) =>
+        {
+            if (_playerVolumeDragging)
+            {
+                _playerVolumeArea.ReleasePointerCapture(e.Pointer);
+                _playerVolumeDragging = false;
+                UpdatePlayerVolumeThumb();
+            }
+        };
+        _playerVolumeArea.PointerCaptureLost += (_, _) =>
+        {
+            _playerVolumeDragging = false;
+            UpdatePlayerVolumeThumb();
+        };
+
+        // No width of its own: it stretches to the controls' width above it.
+        _playerVolume = new Grid
+        {
+            ColumnSpacing = 4,
+            Height = VolumeLineHeight,
+            Background = new SolidColorBrush(Colors.Transparent),
+            Visibility = Visibility.Collapsed,
+        };
+        _playerVolume.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _playerVolume.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(_playerVolumeArea, 1);
+        _playerVolume.Children.Add(playerMute);
+        _playerVolume.Children.Add(_playerVolumeArea);
+        controlColumn.Children.Add(_playerVolume);
+        _playerVolume.PointerWheelChanged += (_, e) =>
+        {
+            int delta = e.GetCurrentPoint(_playerVolume).Properties.MouseWheelDelta;
+            if (delta != 0 && _volume.IsAvailable && _volumeKnown)
+            {
+                SetPlayerVolume(_volumePercent + (Math.Sign(delta) * VolumeWheelStep));
+            }
+
+            e.Handled = true;
+        };
 
         _mediaContent = new Grid
         {
@@ -3348,6 +3476,7 @@ public sealed partial class DynalandWindow : Window
         if (!_volume.TryRead(out float level, out bool muted))
         {
             _volumeKnown = false;
+            ShowPlayerVolume();
             return;
         }
 
@@ -3358,6 +3487,7 @@ public sealed partial class DynalandWindow : Window
             _volumePercent = percent;
             _volumeMuted = muted;
             ShowVolumeLevel();
+            ShowPlayerVolume();
             return;
         }
 
@@ -3366,13 +3496,113 @@ public sealed partial class DynalandWindow : Window
             return;
         }
 
+        if (_playerVolumeDragging)
+        {
+            // Windows catching up with the drag: the bar already shows it.
+            return;
+        }
+
         _volumePercent = percent;
         _volumeMuted = muted;
         ShowVolumeLevel();
+        ShowPlayerVolume();
         _volumeUntil = Environment.TickCount64 + VolumeShowMs;
         _volumeTimer.Stop();
         _volumeTimer.Start();
         Refresh();
+    }
+
+    /// <summary>The player's volume line as Windows has the volume now (hidden without speakers).</summary>
+    private void ShowPlayerVolume()
+    {
+        bool known = _volume.IsAvailable && _volumeKnown;
+        Show(_playerVolume, known);
+        if (!known)
+        {
+            return;
+        }
+
+        int glyph = _volumeMuted || _volumePercent == 0 ? 0xE74F
+            : _volumePercent > 66 ? 0xE995
+            : _volumePercent > 33 ? 0xE994
+            : 0xE993;
+        _playerMuteIcon.Glyph = ((char)glyph).ToString();
+
+        // No number on screen; screen readers still hear the level.
+        AutomationProperties.SetItemStatus(_playerVolumeArea, _volumeMuted ? Strings.DynMuted : _volumePercent.ToString(CultureInfo.CurrentCulture));
+        double done = _volumeMuted ? 0 : _volumePercent / 100.0;
+        _playerVolumeDone.Width = new GridLength(Math.Max(done, 0.0001), GridUnitType.Star);
+        _playerVolumeLeft.Width = new GridLength(Math.Max(1 - done, 0.0001), GridUnitType.Star);
+        _playerVolumeThumbMove.X = (done * _playerVolumeArea.ActualWidth) - (_playerVolumeThumb.Width / 2);
+    }
+
+    /// <summary>The thumb shows while the pointer is over the volume bar or dragging it.</summary>
+    private void UpdatePlayerVolumeThumb()
+    {
+        Show(_playerVolumeThumb, _playerVolumeHover || _playerVolumeDragging);
+    }
+
+    /// <summary>A press or drag on the volume bar: the level under the pointer.</summary>
+    private void SetVolumeFromBar(double x)
+    {
+        double width = _playerVolumeArea.ActualWidth;
+        if (width <= 0)
+        {
+            return;
+        }
+
+        SetPlayerVolume((int)Math.Round(Math.Clamp(x / width, 0, 1) * 100));
+        UpdatePlayerVolumeThumb();
+    }
+
+    /// <summary>
+    /// Sets Windows' volume from Dynaland's player. Like Windows' own slider, moving it while
+    /// muted turns mute off. What is set here is not shown again as a change on the pill.
+    /// </summary>
+    private void SetPlayerVolume(int percent)
+    {
+        if (!_volume.IsAvailable)
+        {
+            return;
+        }
+
+        percent = Math.Clamp(percent, 0, 100);
+        _volume.SetLevel(percent / 100f);
+        if (_volumeMuted)
+        {
+            _volume.SetMute(false);
+        }
+
+        if (_volume.TryRead(out float level, out bool muted))
+        {
+            _volumeKnown = true;
+            _volumePercent = Math.Clamp((int)Math.Round(level * 100), 0, 100);
+            _volumeMuted = muted;
+        }
+
+        ShowVolumeLevel();
+        ShowPlayerVolume();
+    }
+
+    /// <summary>The player's mute button: mute or unmute Windows' default speakers.</summary>
+    private Task<bool> ToggleMuteAsync()
+    {
+        if (!_volume.IsAvailable)
+        {
+            return Task.FromResult(false);
+        }
+
+        _volume.SetMute(!_volumeMuted);
+        if (_volume.TryRead(out float level, out bool muted))
+        {
+            _volumeKnown = true;
+            _volumePercent = Math.Clamp((int)Math.Round(level * 100), 0, 100);
+            _volumeMuted = muted;
+        }
+
+        ShowVolumeLevel();
+        ShowPlayerVolume();
+        return Task.FromResult(true);
     }
 
     private void ShowVolumeLevel()

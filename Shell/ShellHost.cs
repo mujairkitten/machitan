@@ -22,6 +22,7 @@ internal sealed class ShellHost
     private SettingsWindow? _settingsWindow;
     private KeyboardService? _keyboard;
     private SystemUiWatcher? _systemUi;
+    private AppWatcher? _appWatcher;
     private CalendarFlyout? _calendar;
     private QuickSettingsFlyout? _quickSettings;
     private SwitcherWindow? _switcher;
@@ -81,16 +82,64 @@ internal sealed class ShellHost
         List<DockItem> items = DockModel.Build(Pins.Pins, Tasks.Groups);
         Dictionary<string, List<DockItem>> arranged = BarLayout.Arrange(items);
         IReadOnlyList<string> order = _bar is BarWindow bar && bar.ShownBubbleIds.Count > 0 ? bar.ShownBubbleIds : BarLayout.Order;
+        bool split = Settings.Current.TaskbarSplit != TaskbarSplit.Off;
         var ordered = new List<DockItem>(items.Count);
         foreach (string id in order)
         {
-            if (arranged.TryGetValue(id, out List<DockItem>? list))
+            if (!arranged.TryGetValue(id, out List<DockItem>? list))
+            {
+                continue;
+            }
+
+            if (split)
+            {
+                // A split bar: each bubble's pinned row first, then the open apps not pinned.
+                ordered.AddRange(list.FindAll(item => item.IsPinned));
+                ordered.AddRange(list.FindAll(item => !item.IsPinned));
+            }
+            else
             {
                 ordered.AddRange(list);
             }
         }
 
         return ordered;
+    }
+
+    /// <summary>
+    /// Follows apps being installed, removed or updated: the app list (Start's All apps, search)
+    /// is built again at once.
+    /// </summary>
+    private void StartAppWatcher(DispatcherQueue queue)
+    {
+        try
+        {
+            _appWatcher = new AppWatcher(queue);
+            _appWatcher.Changed += () =>
+            {
+                if (_shuttingDown)
+                {
+                    return;
+                }
+
+                Log.Info("App watcher: apps were installed, removed or updated; the app list is built again.");
+                if (StartMenu is StartMenuWindow menu)
+                {
+                    Catalog.RefreshNow(menu.ListIconPixels, menu.IsDark);
+                }
+                else
+                {
+                    // Machitan's Start is off: the bar's search builds the list when it next opens.
+                    Catalog.MarkStale();
+                }
+            };
+            _appWatcher.Start();
+        }
+        catch (Exception ex)
+        {
+            _appWatcher = null;
+            Log.Error("New apps cannot be followed this run; the app list is built again when Start opens.", ex);
+        }
     }
 
     /// <summary>How many bubbles the bar shows now (custom mode keeps at least one).</summary>
@@ -156,6 +205,17 @@ internal sealed class ShellHost
     /// <summary>Opens the Settings window, or brings it forward when it is already open.</summary>
     internal void OpenSettings()
     {
+        OpenSettingsAt(null);
+    }
+
+    /// <summary>Opens the Settings window at one of its pages (a SettingsPages key), from the top.</summary>
+    internal void OpenSettings(string page)
+    {
+        OpenSettingsAt(page);
+    }
+
+    private void OpenSettingsAt(string? page)
+    {
         if (_shuttingDown)
         {
             return;
@@ -177,6 +237,12 @@ internal sealed class ShellHost
             {
                 _settingsWindow.RefreshStatus();
                 Log.Info("Settings window was already open; brought to the front.");
+            }
+
+            if (page is not null)
+            {
+                _settingsWindow.GoToPage(page);
+                Log.Info("Settings window: page " + page + ".");
             }
 
             _settingsWindow.Activate();
@@ -899,6 +965,7 @@ internal sealed class ShellHost
             Log.Error("Windows' Start cannot be watched this run.", ex);
         }
 
+        StartAppWatcher(queue);
         StartCornerWidgets();
 
         // The listener keeps itself alive on its own background thread.
@@ -970,6 +1037,8 @@ internal sealed class ShellHost
             _keyboard?.Stop();
             AdminKeys.Current?.Dispose();
             _systemUi?.Dispose();
+            _appWatcher?.Dispose();
+            _appWatcher = null;
             _systemUi = null;
         }
         catch (Exception ex)

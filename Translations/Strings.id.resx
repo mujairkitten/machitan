@@ -567,6 +567,12 @@
     <value>Pratinjau {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="QsAirplaneMode" xml:space="preserve">
+    <value>Mode pesawat</value>
+  </data>
+  <data name="QsBluetooth" xml:space="preserve">
+    <value>Bluetooth</value>
+  </data>
   <data name="QsBrightness" xml:space="preserve">
     <value>Kecerahan</value>
   </data>
@@ -577,8 +583,17 @@
     <value>Kecerahan - layar {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="QsCast" xml:space="preserve">
+    <value>Transmisikan</value>
+  </data>
   <data name="QsChecking" xml:space="preserve">
     <value>Memeriksa layar mana yang bisa diatur kecerahannya...</value>
+  </data>
+  <data name="QsHotspot" xml:space="preserve">
+    <value>Hotspot seluler</value>
+  </data>
+  <data name="QsLiveCaptions" xml:space="preserve">
+    <value>Teks langsung</value>
   </data>
   <data name="QsMute" xml:space="preserve">
     <value>Bisukan</value>
@@ -586,12 +601,18 @@
   <data name="QsNothing" xml:space="preserve">
     <value>Windows tidak menyediakan kontrol volume atau kecerahan di PC ini saat ini.</value>
   </data>
+  <data name="QsProject" xml:space="preserve">
+    <value>Proyeksikan</value>
+  </data>
   <data name="QsVolume" xml:space="preserve">
     <value>Volume</value>
   </data>
   <data name="QsVolumeOf" xml:space="preserve">
     <value>Volume - {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="QsWifi" xml:space="preserve">
+    <value>Wi-Fi</value>
   </data>
   <data name="RingBattery" xml:space="preserve">
     <value>Baterai {0}%</value>
@@ -650,11 +671,62 @@
   <data name="RunAsAdmin" xml:space="preserve">
     <value>Jalankan sebagai administrator</value>
   </data>
+  <data name="SearchActBluetooth" xml:space="preserve">
+    <value>Bluetooth &amp; perangkat</value>
+  </data>
+  <data name="SearchActDateTime" xml:space="preserve">
+    <value>Tanggal &amp; waktu</value>
+  </data>
+  <data name="SearchActDefaultApps" xml:space="preserve">
+    <value>Aplikasi default</value>
+  </data>
+  <data name="SearchActDisplay" xml:space="preserve">
+    <value>Tampilan</value>
+  </data>
+  <data name="SearchActMachitan" xml:space="preserve">
+    <value>Machitan</value>
+  </data>
+  <data name="SearchActMachitanSettings" xml:space="preserve">
+    <value>Pengaturan Machitan</value>
+  </data>
+  <data name="SearchActNotifications" xml:space="preserve">
+    <value>Pemberitahuan</value>
+  </data>
+  <data name="SearchActPersonalization" xml:space="preserve">
+    <value>Personalisasi</value>
+  </data>
+  <data name="SearchActPower" xml:space="preserve">
+    <value>Daya</value>
+  </data>
+  <data name="SearchActSignOutAsk" xml:space="preserve">
+    <value>Keluar sekarang? Aplikasi yang terbuka akan ditutup.</value>
+  </data>
+  <data name="SearchActSound" xml:space="preserve">
+    <value>Suara</value>
+  </data>
+  <data name="SearchActStorage" xml:space="preserve">
+    <value>Penyimpanan</value>
+  </data>
+  <data name="SearchActWifi" xml:space="preserve">
+    <value>Wi-Fi</value>
+  </data>
+  <data name="SearchActWindows" xml:space="preserve">
+    <value>Windows</value>
+  </data>
+  <data name="SearchActWindowsSettings" xml:space="preserve">
+    <value>Pengaturan Windows</value>
+  </data>
+  <data name="SearchActWindowsUpdate" xml:space="preserve">
+    <value>Windows Update</value>
+  </data>
   <data name="SearchApps" xml:space="preserve">
     <value>Aplikasi</value>
   </data>
   <data name="SearchBoxName" xml:space="preserve">
     <value>Cari aplikasi, atau ketik files: untuk mencari file</value>
+  </data>
+  <data name="SearchCalcCopy" xml:space="preserve">
+    <value>Kalkulator: Enter atau klik untuk menyalin</value>
   </data>
   <data name="SearchFiles" xml:space="preserve">
     <value>File</value>
@@ -667,6 +739,9 @@
   </data>
   <data name="SearchNoFileMatch" xml:space="preserve">
     <value>Tidak ada file yang cocok di folder Anda.</value>
+  </data>
+  <data name="SearchNothingMatches" xml:space="preserve">
+    <value>Tidak ada yang cocok.</value>
   </data>
   <data name="SearchReadingApps" xml:space="preserve">
     <value>Membaca aplikasi Anda...</value>
@@ -1071,8 +1146,14 @@
   <data name="SetSearchIcon" xml:space="preserve">
     <value>Ikon</value>
   </data>
+  <data name="SetSearchNoPage" xml:space="preserve">
+    <value>Tidak ada halaman yang cocok</value>
+  </data>
   <data name="SetSearchNote" xml:space="preserve">
     <value>Ikon membuka pencarian Windows; Kotak mencari langsung di bilah.</value>
+  </data>
+  <data name="SetSearchSettings" xml:space="preserve">
+    <value>Cari pengaturan</value>
   </data>
   <data name="SetSeconds" xml:space="preserve">
     <value>Detik</value>
@@ -1085,6 +1166,21 @@
   </data>
   <data name="SetSize" xml:space="preserve">
     <value>Ukuran</value>
+  </data>
+  <data name="SetSplit" xml:space="preserve">
+    <value>Aplikasi tersemat dan terbuka</value>
+  </data>
+  <data name="SetSplitNote" xml:space="preserve">
+    <value>Pisahkan bilah: aplikasi tersemat di atas, aplikasi terbuka di bawah. Aplikasi tersemat yang sedang terbuka tampil di keduanya.</value>
+  </data>
+  <data name="SetSplitOff" xml:space="preserve">
+    <value>Bersama</value>
+  </data>
+  <data name="SetSplitRows" xml:space="preserve">
+    <value>Dua baris dalam satu bilah</value>
+  </data>
+  <data name="SetSplitStacked" xml:space="preserve">
+    <value>Dua bilah bertumpuk</value>
   </data>
   <data name="SetStartButton" xml:space="preserve">
     <value>Tombol Mulai</value>

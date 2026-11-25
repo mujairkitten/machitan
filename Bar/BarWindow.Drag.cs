@@ -97,7 +97,14 @@ public sealed partial class BarWindow
     private sealed record SegmentSnap(string Id, RECT Outline, double Radius);
 
     /// <summary>An app bubble on screen when the drag started: its row, outline and app buttons, from the left.</summary>
-    private sealed record BubbleSnap(string Id, RECT Row, RECT Outline, double Radius, List<(DockItem Item, RECT Rect)> Apps);
+    private sealed record BubbleSnap(string Id, RECT Row, RECT Outline, double Radius, List<(DockItem Item, RECT Rect)> Apps)
+    {
+        /// <summary>
+        /// A split bar: all the bubble's apps in its order (the row holds only its pinned or its
+        /// open ones); the drop's place counts in this list. Null otherwise.
+        /// </summary>
+        internal List<DockItem>? Full { get; init; }
+    }
 
     /// <summary>A running drag, with where things were on screen when it started (physical pixels).</summary>
     private sealed class DragState
@@ -609,12 +616,65 @@ public sealed partial class BarWindow
             drag.Bubbles.Add(new BubbleSnap(id, row, outline, radius, apps));
         }
 
+        if (settings.TaskbarSplit != TaskbarSplit.Off && press.Kind == DragKind.App)
+        {
+            SnapSplitRows(drag, press, segmented, pillRadius, inset);
+        }
+
         if (_desktopButton is not null && IsOnBar(_desktopButton))
         {
             drag.Desktop = ScreenRectOf(_desktopButton);
         }
 
         return (drag, picture, pictureDip, radiusDip);
+    }
+
+    /// <summary>
+    /// A split bar (Settings > Taskbar): an app moves within the kind of row it was picked from
+    /// (pinned apps among pinned apps, open apps among open apps), in its bubble or another one.
+    /// Each bubble's full list is kept too, so the new place is saved among all its apps.
+    /// </summary>
+    private void SnapSplitRows(DragState drag, DragPress press, bool segmented, double pillRadius, int inset)
+    {
+        bool pinnedRow = IsPinnedRow(press.Source.Parent as StackPanel);
+        bool stacked = _host.Settings.Current.TaskbarSplit == TaskbarSplit.Stacked;
+        Dictionary<string, List<DockItem>> arranged = ArrangeDock();
+        drag.Bubbles.Clear();
+        foreach (AppBubble bubble in _bubbles)
+        {
+            StackPanel? row = pinnedRow ? bubble.PinnedPanel : bubble.Panel;
+            if (row is null || !IsOnBar(row))
+            {
+                continue;
+            }
+
+            RECT rowRect = ScreenRectOf(row);
+            Grid? pill = stacked && segmented ? (pinnedRow ? bubble.PinnedPill : bubble.Pill) : null;
+            RECT outline;
+            double radius;
+            if (pill is not null && IsOnBar(pill))
+            {
+                outline = ScreenRectOf(pill);
+                radius = pillRadius;
+            }
+            else
+            {
+                outline = Grow(rowRect, inset);
+                radius = ButtonRadius(row.ActualHeight, row.ActualWidth);
+            }
+
+            var apps = new List<(DockItem Item, RECT Rect)>();
+            foreach (UIElement child in row.Children)
+            {
+                if (child is Button { Tag: DockButtonParts parts } appButton && IsOnBar(appButton))
+                {
+                    apps.Add((parts.Item, ScreenRectOf(appButton)));
+                }
+            }
+
+            List<DockItem> full = arranged.TryGetValue(bubble.Id, out List<DockItem>? list) ? list : new List<DockItem>();
+            drag.Bubbles.Add(new BubbleSnap(bubble.Id, rowRect, outline, radius, apps) { Full = full });
+        }
     }
 
     /// <summary>The band the drag layer covers: the bar's row the whole screen wide, with room to lift the piece.</summary>
@@ -772,7 +832,14 @@ public sealed partial class BarWindow
             return;
         }
 
-        layer.ShowMarker(target.MarkerX, _barRect, ReadAccentColor());
+        // A split bar: the mark sits on the row the app goes into, not across both.
+        RECT markerRow = _barRect;
+        if (target.Kind == DropKind.Place && _drag is DragState running && BubbleSnapOf(running, target.Id) is { Full: not null } rowSnap)
+        {
+            markerRow = rowSnap.Row;
+        }
+
+        layer.ShowMarker(target.MarkerX, markerRow, ReadAccentColor());
     }
 
     /// <summary>Where the piece would go if let go now, or null (it would go back).</summary>
@@ -985,7 +1052,55 @@ public sealed partial class BarWindow
             }
         }
 
+        if (over.Full is List<DockItem> full)
+        {
+            // A split bar's row: the same place, counted among all the bubble's apps.
+            index = FullIndex(full, apps, bestSlot, dragged);
+        }
+
         return new DropTarget(DropKind.Place, over.Id, index, null, null, settings.DockAlignment, settings.SearchPlace, bestX, over.Outline, over.Radius);
+    }
+
+    /// <summary>
+    /// A split bar: where a drop at <paramref name="slot"/> in a row goes among all the bubble's
+    /// apps (the dragged one left out): just before the row's next app, else just after its
+    /// previous one, else at the end.
+    /// </summary>
+    private static int FullIndex(List<DockItem> full, List<(DockItem Item, RECT Rect)> row, int slot, DockItem dragged)
+    {
+        var rest = new List<DockItem>(full.Count);
+        foreach (DockItem item in full)
+        {
+            if (!SameKey(item, dragged))
+            {
+                rest.Add(item);
+            }
+        }
+
+        for (int i = slot; i < row.Count; i++)
+        {
+            int at = SameKey(row[i].Item, dragged) ? -1 : rest.FindIndex(item => SameKey(item, row[i].Item));
+            if (at >= 0)
+            {
+                return at;
+            }
+        }
+
+        for (int i = slot - 1; i >= 0; i--)
+        {
+            int at = SameKey(row[i].Item, dragged) ? -1 : rest.FindIndex(item => SameKey(item, row[i].Item));
+            if (at >= 0)
+            {
+                return at + 1;
+            }
+        }
+
+        return rest.Count;
+    }
+
+    private static bool SameKey(DockItem a, DockItem b)
+    {
+        return string.Equals(a.Key, b.Key, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>A tray icon: before any icon of the tray bubble, or after the last; only over the tray.</summary>
@@ -1161,6 +1276,12 @@ public sealed partial class BarWindow
                     foreach ((DockItem Item, RECT Rect) app in destination.Apps)
                     {
                         shown.Add(app.Item);
+                    }
+
+                    if (destination.Full is List<DockItem> full)
+                    {
+                        // A split bar: the place is among all the bubble's apps, not just one row's.
+                        shown = new List<DockItem>(full);
                     }
 
                     _host.BarLayout.PlaceApp(item, target.Id, target.Index, shown);

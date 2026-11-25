@@ -77,7 +77,8 @@ public sealed class AppEntry
 
 /// <summary>
 /// The All apps list: Start menu shortcuts (all users and the current user) plus store apps
-/// that show in Windows' own app list. Built on a worker thread; kept for a minute.
+/// that show in Windows' own app list. Built on a worker thread; kept for a minute, and built
+/// again at once when Machitan sees an app installed, removed or updated (Shell/AppWatcher.cs).
 /// </summary>
 internal sealed class AppCatalog
 {
@@ -86,6 +87,9 @@ internal sealed class AppCatalog
     private DateTime _builtAt = DateTime.MinValue;
     private bool _building;
     private bool _stale;
+
+    /// <summary>A rebuild asked for while one was running: done when that one ends, with these sizes.</summary>
+    private (int IconPixels, bool DarkTheme)? _again;
 
     /// <summary>Raised on the UI thread when a new list is ready.</summary>
     internal event Action? Changed;
@@ -146,6 +150,22 @@ internal sealed class AppCatalog
         _stale = true;
     }
 
+    /// <summary>
+    /// Apps changed: builds the list again now, or right after the build that is running (which
+    /// may have read the folders before the change). Call on the UI thread.
+    /// </summary>
+    internal void RefreshNow(int iconPixels, bool darkTheme)
+    {
+        _stale = true;
+        if (_building)
+        {
+            _again = (iconPixels, darkTheme);
+            return;
+        }
+
+        RefreshIfStale(iconPixels, darkTheme);
+    }
+
     private async Task RefreshAsync(int iconPixels, bool darkTheme)
     {
         _building = true;
@@ -168,6 +188,12 @@ internal sealed class AppCatalog
         finally
         {
             _building = false;
+            if (_again is { } next)
+            {
+                _again = null;
+                _stale = true;
+                RefreshIfStale(next.IconPixels, next.DarkTheme);
+            }
         }
     }
 

@@ -48,7 +48,10 @@ namespace Machitan.Start;
 /// Start menu entries and the app's jump list tasks.
 /// No recent items, no widgets.
 ///
-/// Search scopes: "apps:" (the default) and "files:". There is deliberately no web scope.
+/// Search scopes: "apps:" (apps only), "files:", and the default: apps and actions together,
+/// best fit first (the calculator's answer on top, Settings pages, Windows tools, power; see
+/// SearchActions; one that asks first asks in the strip at the top, as the power menu does).
+/// There is deliberately no web scope.
 /// Everything listed comes from Windows: Start menu shortcuts, store apps, the user's files;
 /// Most used is Machitan's own count of apps opened from Start (AppUsage).
 /// </summary>
@@ -131,6 +134,9 @@ public sealed partial class StartMenuWindow : Window
     private string _fillLook = string.Empty;
     private long _closedByFocusLossAt;
     private bool _filesMode;
+
+    /// <summary>"apps:" was typed: apps only, no actions.</summary>
+    private bool _appsOnly;
     private string _query = string.Empty;
     private string _folderLook = string.Empty;
     private int _popupsOpen;
@@ -888,6 +894,12 @@ public sealed partial class StartMenuWindow : Window
                 return;
             }
 
+            if (element.Tag is SearchAction action)
+            {
+                RunSearchAction(action);
+                return;
+            }
+
             if (element.Tag is string target)
             {
                 LaunchAndClose(target);
@@ -899,6 +911,7 @@ public sealed partial class StartMenuWindow : Window
     private void ParseQuery()
     {
         string text = SearchInput.Text.Trim();
+        _appsOnly = false;
         if (text.StartsWith("files:", StringComparison.OrdinalIgnoreCase))
         {
             _filesMode = true;
@@ -907,6 +920,7 @@ public sealed partial class StartMenuWindow : Window
         else if (text.StartsWith("apps:", StringComparison.OrdinalIgnoreCase))
         {
             _filesMode = false;
+            _appsOnly = true;
             _query = text.Substring("apps:".Length).Trim();
         }
         else
@@ -1047,11 +1061,24 @@ public sealed partial class StartMenuWindow : Window
                 order.Add((rank, i));
             }
 
+            // The actions among them (not with "apps:"), ranked the same way; on equal fits the apps come first.
+            var actionRows = new List<Button>();
+            if (!_appsOnly)
+            {
+                foreach ((int rank, SearchAction action) in SearchActions.Find(_host, _query))
+                {
+                    order.Add((rank, _appRows.Count + actionRows.Count));
+                    actionRows.Add(CreateActionRow(action));
+                }
+
+                shown += actionRows.Count;
+            }
+
             // Best fit at the top (Enter opens the first one), no letters.
             order.Sort(ByRank);
             foreach (var (_, index) in order)
             {
-                wanted.Add(_appRows[index].Row);
+                wanted.Add(index < _appRows.Count ? (UIElement)_appRows[index].Row : actionRows[index - _appRows.Count]);
             }
         }
 
@@ -1077,7 +1104,8 @@ public sealed partial class StartMenuWindow : Window
         }
         else if (shown == 0)
         {
-            ShowNote(AppsEmpty, _appRows.Count == 0 ? Strings.StartNoApps : Strings.SearchNoAppMatch);
+            // Without "apps:" the actions were searched too.
+            ShowNote(AppsEmpty, _appRows.Count == 0 ? Strings.StartNoApps : _appsOnly ? Strings.SearchNoAppMatch : Strings.SearchNothingMatches);
         }
         else
         {
@@ -1181,6 +1209,51 @@ public sealed partial class StartMenuWindow : Window
         row.PointerEntered += (_, _) => ShowPreview(path);
         row.GotFocus += (_, _) => ShowPreview(path);
         return row;
+    }
+
+    /// <summary>A search action's row: its icon, its name and what kind it is.</summary>
+    private Button CreateActionRow(SearchAction action)
+    {
+        var glyph = new FontIcon { Glyph = ((char)action.Glyph).ToString(), FontFamily = IconFont, FontSize = 18, Width = RowIconDip };
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock
+        {
+            Text = action.Name,
+            FontWeight = action.IsAnswer ? FontWeights.SemiBold : FontWeights.Normal,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = action.Detail,
+            FontSize = 11,
+            Opacity = 0.6,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        content.Children.Add(glyph);
+        content.Children.Add(text);
+
+        Button row = MakeRowButton(content, action.Name, 48);
+        row.Tag = action;
+        row.Click += (_, _) => RunSearchAction(action);
+        return row;
+    }
+
+    /// <summary>
+    /// A search action: Start closes and it is done (the calculator's answer is copied); one that
+    /// asks first (shut down, restart, sign out) asks in the strip at the top, as the power menu does.
+    /// </summary>
+    private void RunSearchAction(SearchAction action)
+    {
+        if (action.Ask is string question)
+        {
+            ConfirmPower(new PowerChoice(action.Name, question, action.Run), question);
+            return;
+        }
+
+        HideMenu();
+        action.Run(_hwnd);
     }
 
     // ---------------------------------------------------------------- All apps

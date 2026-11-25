@@ -3,20 +3,26 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
 using Machitan.Core;
+using Machitan.Interop;
 using Machitan.Shell;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 
 namespace Machitan.Flyouts;
 
 /// <summary>
-/// Win+A: volume (Windows' default speakers, through Core Audio) and screen brightness
-/// (the laptop's own screen through WMI, external monitors over DDC/CI), next to the status
-/// ring while it is shown (below it, in a top corner), else lined up with the bar like Start.
-/// Each control is there only when Windows can really do it: no speakers, no volume; no screen
-/// whose brightness can be set, no brightness.
+/// Win+A: the action center's switches on top (Wi-Fi, Bluetooth, airplane mode, mobile hotspot,
+/// live captions, each as Windows reports it, see Shell/QuickToggles.cs; and Project and Cast,
+/// which open Windows' own Win+P and Win+K flyouts), then volume (Windows' default speakers,
+/// through Core Audio) and screen brightness (the laptop's own screen through WMI, external
+/// monitors over DDC/CI); next to the status ring while it is shown (below it, in a top corner),
+/// else lined up with the bar like Start. Each control is there only when Windows can really do
+/// it: no speakers, no volume; no screen whose brightness can be set, no brightness; no Bluetooth
+/// radio, no Bluetooth switch. A switch shows what Windows says, never what was asked: after a
+/// click it waits (greyed) until Windows reports the new state, or gives up after a few seconds.
 /// </summary>
 public sealed partial class QuickSettingsFlyout : FlyoutWindow
 {
@@ -25,6 +31,24 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
     private const double RowHeightDip = 68;
     private const double NoteHeightDip = 40;
     private const double SpacingDip = 12;
+
+    private const double TileButtonDip = 48;
+    private const double TileLabelDip = 18;
+    private const double TileGapDip = 4;
+    private const double TileRowSpacingDip = 12;
+    private const double TileColumnSpacingDip = 8;
+    private const int TileColumns = 3;
+
+    /// <summary>After a switch is clicked, how long it waits for Windows to report the new state.</summary>
+    private const long SwitchWaitMs = 6000;
+
+    private const int WifiGlyph = 0xE701;
+    private const int BluetoothGlyph = 0xE702;
+    private const int AirplaneGlyph = 0xE709;
+    private const int HotspotGlyph = 0xE88A;
+    private const int CaptionsGlyph = 0xE7F0;
+    private const int ProjectGlyph = 0xEBC6;
+    private const int CastGlyph = 0xE703;
 
     private const int VolumeGlyph = 0xE767;
     private const int MutedGlyph = 0xE74F;
@@ -39,6 +63,17 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
     private readonly DispatcherQueueTimer _poll;
     private readonly DispatcherQueueTimer _brightnessPoll;
     private readonly List<(BrightnessDisplay Display, Slider Slider, TextBlock Value)> _brightnessRows = new();
+    private readonly QuickToggles _toggles = new();
+    private readonly DispatcherQueueTimer _togglePoll;
+    private readonly Dictionary<QuickToggle, (ToggleButton Button, TextBlock Label)> _tiles = new();
+    private readonly HashSet<QuickToggle> _busy = new();
+
+    /// <summary>Switches clicked whose new state Windows has not reported yet: the state asked for, and until when to wait.</summary>
+    private readonly Dictionary<QuickToggle, (bool On, long Until)> _waiting = new();
+
+    private Grid? _tileGrid;
+    private int _tileRows;
+    private bool _checkingToggles;
 
     private Slider? _volumeSlider;
     private FontIcon? _volumeIcon;
@@ -71,6 +106,12 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
         _brightnessPoll.Interval = TimeSpan.FromSeconds(1);
         _brightnessPoll.IsRepeating = true;
         _brightnessPoll.Tick += (_, _) => _ = FollowBrightnessAsync();
+
+        // The switches follow changes made elsewhere too (a keyboard key, Windows' own quick settings).
+        _togglePoll = DispatcherQueue.CreateTimer();
+        _togglePoll.Interval = TimeSpan.FromSeconds(1);
+        _togglePoll.IsRepeating = true;
+        _togglePoll.Tick += (_, _) => ShowToggles();
     }
 
     /// <summary>Win+A: open, or close when already open.</summary>
@@ -88,8 +129,10 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
         ReadVolume();
         _poll.Start();
         _brightnessPoll.Start();
+        _togglePoll.Start();
         ShowSized();
         _ = CheckScreensAsync();
+        _ = CheckTogglesAsync();
     }
 
     /// <summary>Opens by the status ring while it is shown (the ring's own click still goes to Windows).</summary>
@@ -99,6 +142,7 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
     {
         _poll.Stop();
         _brightnessPoll.Stop();
+        _togglePoll.Stop();
     }
 
     private void ShowSized()
@@ -107,7 +151,9 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
         double height = 2 * InnerPadDip;
         foreach (UIElement row in _rows.Children)
         {
-            height += row is TextBlock ? NoteHeightDip : RowHeightDip;
+            height += ReferenceEquals(row, _tileGrid) ? TilesHeightDip()
+                : row is TextBlock ? NoteHeightDip
+                : RowHeightDip;
         }
 
         height += Math.Max(0, rows - 1) * SpacingDip;
@@ -148,6 +194,9 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
         _volumeIcon = null;
         _volumeValue = null;
 
+        _tileGrid = MakeTiles();
+        _rows.Children.Add(_tileGrid);
+
         if (_volume.IsAvailable)
         {
             _rows.Children.Add(MakeVolumeRow());
@@ -169,6 +218,248 @@ public sealed partial class QuickSettingsFlyout : FlyoutWindow
             _rows.Children.Add(MakeNote(Strings.QsNothing));
         }
     }
+
+    // ---------------------------------------------------------------- the action center
+
+    /// <summary>
+    /// The switches this PC has, then Project and Cast, three to a row like Windows' own: a
+    /// button with the icon (filled with the accent while on), and its name below.
+    /// </summary>
+    private Grid MakeTiles()
+    {
+        _tiles.Clear();
+        var tiles = new List<FrameworkElement>();
+        foreach (QuickToggle toggle in _toggles.Available)
+        {
+            tiles.Add(MakeToggleTile(toggle));
+        }
+
+        tiles.Add(MakeActionTile(ProjectGlyph, Strings.QsProject, 'P'));
+        tiles.Add(MakeActionTile(CastGlyph, Strings.QsCast, 'K'));
+
+        var grid = new Grid
+        {
+            ColumnSpacing = TileColumnSpacingDip,
+            RowSpacing = TileRowSpacingDip,
+        };
+
+        for (int column = 0; column < TileColumns; column++)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        }
+
+        _tileRows = (tiles.Count + TileColumns - 1) / TileColumns;
+        for (int row = 0; row < _tileRows; row++)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+
+        for (int i = 0; i < tiles.Count; i++)
+        {
+            Grid.SetRow(tiles[i], i / TileColumns);
+            Grid.SetColumn(tiles[i], i % TileColumns);
+            grid.Children.Add(tiles[i]);
+        }
+
+        return grid;
+    }
+
+    private double TilesHeightDip()
+    {
+        return (_tileRows * (TileButtonDip + TileGapDip + TileLabelDip)) + (Math.Max(0, _tileRows - 1) * TileRowSpacingDip);
+    }
+
+    private static StackPanel MakeTile(ButtonBase button, int glyph, string label, out TextBlock text)
+    {
+        button.Content = MakeGlyph(glyph, 16);
+        button.Height = TileButtonDip;
+        button.Padding = new Thickness(0);
+        button.HorizontalAlignment = HorizontalAlignment.Stretch;
+        button.HorizontalContentAlignment = HorizontalAlignment.Center;
+        button.VerticalContentAlignment = VerticalAlignment.Center;
+        button.CornerRadius = new CornerRadius(SmallRadius);
+        AutomationProperties.SetName(button, label);
+
+        text = new TextBlock
+        {
+            Text = label,
+            FontSize = 12,
+            Height = TileLabelDip,
+            MaxLines = 1,
+            TextAlignment = TextAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+
+        var tile = new StackPanel { Spacing = TileGapDip };
+        tile.Children.Add(button);
+        tile.Children.Add(text);
+        return tile;
+    }
+
+    private FrameworkElement MakeToggleTile(QuickToggle toggle)
+    {
+        (int glyph, string label) = toggle switch
+        {
+            QuickToggle.WiFi => (WifiGlyph, Strings.QsWifi),
+            QuickToggle.Bluetooth => (BluetoothGlyph, Strings.QsBluetooth),
+            QuickToggle.AirplaneMode => (AirplaneGlyph, Strings.QsAirplaneMode),
+            QuickToggle.MobileHotspot => (HotspotGlyph, Strings.QsHotspot),
+            _ => (CaptionsGlyph, Strings.QsLiveCaptions),
+        };
+
+        var button = new ToggleButton();
+        StackPanel tile = MakeTile(button, glyph, label, out TextBlock text);
+        button.Click += (_, _) => _ = SwitchAsync(toggle, button);
+        _tiles[toggle] = (button, text);
+        ShowToggle(toggle);
+        return tile;
+    }
+
+    /// <summary>Project (Win+P) and Cast (Win+K): Windows' own flyouts, which open in the same corner, so this one goes first.</summary>
+    private StackPanel MakeActionTile(int glyph, string label, char key)
+    {
+        var button = new Button();
+        StackPanel tile = MakeTile(button, glyph, label, out _);
+        button.Click += (_, _) =>
+        {
+            HideFlyout();
+            if (!KeyChord.SendWin(key))
+            {
+                Log.Warn("Quick settings: Windows did not accept the Win+" + key + " key press.");
+            }
+        };
+        return tile;
+    }
+
+    /// <summary>
+    /// A switch was clicked. The click already flipped the button; it goes back to what Windows
+    /// says at once, greyed, and follows Windows from there (see ShowToggle).
+    /// </summary>
+    private async Task SwitchAsync(QuickToggle toggle, ToggleButton button)
+    {
+        bool on = button.IsChecked == true;
+        if (!_busy.Add(toggle))
+        {
+            ShowToggle(toggle);
+            return;
+        }
+
+        ShowToggle(toggle);
+        bool done = false;
+        try
+        {
+            done = await _toggles.SetAsync(toggle, on);
+            Log.Info("Quick settings: " + toggle + (on ? " on" : " off") + (done ? " asked of Windows." : " not done."));
+        }
+        finally
+        {
+            _busy.Remove(toggle);
+            if (done)
+            {
+                _waiting[toggle] = (on, Environment.TickCount64 + SwitchWaitMs);
+            }
+
+            ShowToggle(toggle);
+        }
+    }
+
+    /// <summary>Asks Windows which switches this PC has; rebuilds the flyout when that changed.</summary>
+    private async Task CheckTogglesAsync()
+    {
+        if (_checkingToggles)
+        {
+            return;
+        }
+
+        _checkingToggles = true;
+        try
+        {
+            var before = new List<QuickToggle>(_toggles.Available);
+            await _toggles.CheckAsync();
+
+            // Back on the UI thread.
+            if (!IsOpen)
+            {
+                return;
+            }
+
+            bool same = before.Count == _toggles.Available.Count;
+            for (int i = 0; same && i < before.Count; i++)
+            {
+                same = before[i] == _toggles.Available[i];
+            }
+
+            if (same)
+            {
+                ShowToggles();
+            }
+            else
+            {
+                Rebuild();
+                ReadVolume();
+                ShowSized();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Quick settings: the switches could not be checked.", ex);
+        }
+        finally
+        {
+            _checkingToggles = false;
+        }
+    }
+
+    private void ShowToggles()
+    {
+        foreach (QuickToggle toggle in _tiles.Keys)
+        {
+            ShowToggle(toggle);
+        }
+    }
+
+    /// <summary>A switch as Windows has it now; greyed while Windows cannot do it, or is still doing what was asked.</summary>
+    private void ShowToggle(QuickToggle toggle)
+    {
+        if (!_tiles.TryGetValue(toggle, out (ToggleButton Button, TextBlock Label) tile))
+        {
+            return;
+        }
+
+        SwitchState state = _toggles.StateOf(toggle);
+        bool waiting = _busy.Contains(toggle);
+        if (_waiting.TryGetValue(toggle, out (bool On, long Until) asked))
+        {
+            if ((state == SwitchState.On) == asked.On || Environment.TickCount64 > asked.Until)
+            {
+                _waiting.Remove(toggle);
+            }
+            else
+            {
+                waiting = true;
+            }
+        }
+
+        bool on = state == SwitchState.On;
+        if (tile.Button.IsChecked != on)
+        {
+            tile.Button.IsChecked = on;
+        }
+
+        tile.Button.IsEnabled = state != SwitchState.Unavailable && !waiting;
+        if (toggle == QuickToggle.WiFi)
+        {
+            string label = on && QuickToggles.WifiName() is string network ? network : Strings.QsWifi;
+            if (tile.Label.Text != label)
+            {
+                tile.Label.Text = label;
+                ToolTipService.SetToolTip(tile.Button, label);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- volume and brightness
 
     private FrameworkElement MakeVolumeRow()
     {

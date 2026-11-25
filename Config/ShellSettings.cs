@@ -18,6 +18,17 @@ public enum TaskbarMode
     Compact = 3,
 }
 
+/// <summary>
+/// Pinned apps and open apps on the bar: together (default), or split with the pinned apps on
+/// top and the open apps below, either as two rows in one bar or as two bars stacked.
+/// </summary>
+public enum TaskbarSplit
+{
+    Off = 0,
+    Rows = 1,
+    Stacked = 2,
+}
+
 /// <summary>How hovering a running app on the bar shows its windows (Windows: "Show taskbar previews as").</summary>
 public enum PreviewStyle
 {
@@ -126,6 +137,9 @@ public sealed record ShellSettings
     public ThemeMode Theme { get; set; } = ThemeMode.Dark;
 
     public TaskbarMode TaskbarMode { get; set; } = TaskbarMode.Segmented;
+
+    /// <summary>Pinned apps on top and open apps below (Settings > Taskbar). Off by default.</summary>
+    public TaskbarSplit TaskbarSplit { get; set; } = TaskbarSplit.Off;
 
     /// <summary>Window previews on the bar: live pictures (default) or a list of titles.</summary>
     public PreviewStyle PreviewStyle { get; set; } = PreviewStyle.Thumbnails;
@@ -444,6 +458,11 @@ public sealed record ShellSettings
         if (!Enum.IsDefined(TaskbarMode))
         {
             TaskbarMode = TaskbarMode.Segmented;
+        }
+
+        if (!Enum.IsDefined(TaskbarSplit))
+        {
+            TaskbarSplit = TaskbarSplit.Off;
         }
 
         if (!Enum.IsDefined(PreviewStyle))

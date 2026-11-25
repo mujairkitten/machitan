@@ -109,6 +109,7 @@ internal sealed class SettingsStore
 
             _document["Theme"] = s.Theme.ToString();
             _document["TaskbarMode"] = s.TaskbarMode.ToString();
+            _document["TaskbarSplit"] = s.TaskbarSplit.ToString();
             _document["PreviewStyle"] = s.PreviewStyle.ToString();
             _document["DockEdge"] = s.DockEdge.ToString();
             _document["DockAlignment"] = s.DockAlignment.ToString();
@@ -282,6 +283,15 @@ internal sealed class SettingsStore
         else
         {
             NoteUnreadable(document, "TaskbarMode");
+        }
+
+        if (TryEnum(document["TaskbarSplit"], out TaskbarSplit split))
+        {
+            s.TaskbarSplit = split;
+        }
+        else
+        {
+            NoteUnreadable(document, "TaskbarSplit");
         }
 
         if (TryEnum(document["PreviewStyle"], out PreviewStyle previews))

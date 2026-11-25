@@ -33,10 +33,20 @@ namespace Machitan.Bar;
 /// shown (the apps bubble stays while search sits in it); with no app on the bar at all,
 /// Show Desktop goes too.
 /// Compact: not built yet (optional per the plan); shown as Segmented.
+///
+/// Split (Settings > Taskbar, off by default): each app bubble's pinned apps on top and its open
+/// apps below; a pinned app that is open shows in both. Two rows in one bar: every segment is
+/// two rows tall, the bubbles hold both rows, Start, search, the tray and Show Desktop sit in the
+/// middle of the height. Two stacked bars: the bar as it is with only the open apps, and above
+/// it a second bar with the pinned apps (a pill per bubble in Segmented, one pill in Joined, full
+/// width in Classic), lined up the same way.
 /// </summary>
 public sealed partial class BarWindow
 {
     private const double SegmentGapDip = 8;
+
+    /// <summary>Two rows in one bar (Settings > Taskbar): the space between the pinned row and the open row.</summary>
+    private const double SplitRowGapDip = 2;
     private const double SegmentPaddingDip = 6;
     private const double ItemSpacingDip = 2;
     private const double ClassicRadiusDip = Radii.Large;
@@ -62,8 +72,14 @@ public sealed partial class BarWindow
     /// <summary>The app bubbles as built, from the left.</summary>
     private readonly List<AppBubble> _bubbles = new();
 
-    /// <summary>The bubbles shown, from the left (Start included), as built.</summary>
+    /// <summary>The bubbles shown, from the left (Start included), as built. Two stacked bars: those of the lower bar.</summary>
     private List<string> _builtIds = new();
+
+    /// <summary>Two stacked bars: the bubbles of the upper bar (those with a pinned app), from the left; else empty.</summary>
+    private List<string> _builtTopIds = new();
+
+    /// <summary>Every bubble shown anywhere on the bar, in the bar's order (the two lists above together).</summary>
+    private List<string> _shownIds = new();
 
     private FrameworkElement? _startGroup;
     private Grid? _startSegment;
@@ -105,14 +121,26 @@ public sealed partial class BarWindow
 
         internal string Id { get; }
 
-        /// <summary>The app buttons.</summary>
+        /// <summary>The app buttons (split: the open apps only).</summary>
         internal StackPanel Panel { get; }
 
-        /// <summary>The buttons' panel, with search before or after it (the apps bubble).</summary>
+        /// <summary>The buttons' panel, with search before or after it (the apps bubble). Two rows in one bar: both rows.</summary>
         internal StackPanel Row { get; }
 
         /// <summary>Its own pill (Segmented).</summary>
         internal Grid? Pill { get; set; }
+
+        /// <summary>Split (Settings > Taskbar): the pinned apps' buttons, above the open ones; else null.</summary>
+        internal StackPanel? PinnedPanel { get; init; }
+
+        /// <summary>Two stacked bars, Segmented: the pinned apps' own pill in the upper bar.</summary>
+        internal Grid? PinnedPill { get; set; }
+
+        /// <summary>Two stacked bars: the bubble is in the lower bar (it has an open app, or search sits in it).</summary>
+        internal bool InMain { get; init; } = true;
+
+        /// <summary>Two stacked bars: the bubble is in the upper bar (it has a pinned app).</summary>
+        internal bool InTop { get; init; }
     }
 
     /// <summary>Builds the whole bar from the current settings.</summary>
@@ -158,15 +186,19 @@ public sealed partial class BarWindow
             _startSegment = null;
             _desktopSpacer = null;
 
-            // Which bubbles show, from the left, and their apps.
+            // Which bubbles show, from the left, and their apps. Two stacked bars: the upper bar's
+            // bubbles too; an app bubble may sit in either bar or both.
             Dictionary<string, List<DockItem>> arranged = ArrangeDock();
+            TaskbarSplit split = settings.TaskbarSplit;
             _builtIds = ShownBubbles(arranged);
+            _builtTopIds = TopBubbles(arranged);
+            _shownIds = Union(_builtIds, _builtTopIds);
             _bubbles.Clear();
             _trayButtons.Clear();
             _trayChevron = null;
             _trayRow = null;
             _traySegment = null;
-            foreach (string id in _builtIds)
+            foreach (string id in _shownIds)
             {
                 if (id == BarLayoutStore.TrayId)
                 {
@@ -174,7 +206,7 @@ public sealed partial class BarWindow
                 }
                 else if (id != BarLayoutStore.StartId)
                 {
-                    _bubbles.Add(MakeBubble(id, place));
+                    _bubbles.Add(MakeBubble(id, place, split, _builtIds.Contains(id), _builtTopIds.Contains(id)));
                 }
             }
 
@@ -192,6 +224,8 @@ public sealed partial class BarWindow
                 mode = TaskbarMode.Segmented;
             }
 
+            // The bar (two stacked bars: the lower one, with the open apps).
+            FrameworkElement main;
             switch (mode)
             {
                 case TaskbarMode.Joined:
@@ -212,7 +246,7 @@ public sealed partial class BarWindow
                     }
 
                     row.Children.Add(desktopStrip);
-                    BarHost.Children.Add(MakeSegment(row, pillRadius, stretch: false));
+                    main = MakeSegment(row, pillRadius, stretch: false);
                     break;
                 }
 
@@ -229,6 +263,11 @@ public sealed partial class BarWindow
                     StackPanel apps = Row(ItemSpacingDip);
                     foreach (AppBubble bubble in _bubbles)
                     {
+                        if (!bubble.InMain)
+                        {
+                            continue;
+                        }
+
                         if (apps.Children.Count > 0)
                         {
                             apps.Children.Add(MakeDivider());
@@ -237,12 +276,7 @@ public sealed partial class BarWindow
                         apps.Children.Add(bubble.Row);
                     }
 
-                    apps.HorizontalAlignment = settings.DockAlignment switch
-                    {
-                        DockAlignment.Left => HorizontalAlignment.Left,
-                        DockAlignment.Right => HorizontalAlignment.Right,
-                        _ => HorizontalAlignment.Center,
-                    };
+                    apps.HorizontalAlignment = AlignmentOf(settings.DockAlignment);
 
                     // The tray sits at the right end, before Show Desktop.
                     StackPanel end = Row(ItemSpacingDip);
@@ -263,7 +297,7 @@ public sealed partial class BarWindow
                     grid.Children.Add(apps);
                     grid.Children.Add(end);
 
-                    BarHost.Children.Add(MakeSegment(grid, ClassicRadiusDip, stretch: true));
+                    main = MakeSegment(grid, ClassicRadiusDip, stretch: true);
                     break;
                 }
 
@@ -271,7 +305,7 @@ public sealed partial class BarWindow
                 {
                     // A pill per bubble. Show Desktop goes in the right-hand pill, with its balancing space.
                     StackPanel segments = Row(SegmentGapDip);
-                    segments.HorizontalAlignment = HorizontalAlignment.Left;
+                    segments.HorizontalAlignment = split == TaskbarSplit.Stacked ? AlignmentOf(settings.DockAlignment) : HorizontalAlignment.Left;
                     _desktopSpacer = MakeDesktopSpacer();
                     for (int i = 0; i < _builtIds.Count; i++)
                     {
@@ -303,9 +337,33 @@ public sealed partial class BarWindow
                         segments.Children.Add(pill);
                     }
 
-                    BarHost.Children.Add(segments);
+                    main = segments;
                     break;
                 }
+            }
+
+            if (split == TaskbarSplit.Stacked)
+            {
+                // The pinned apps' bar above the bar, lined up the same way. Its height stays
+                // while it is empty, so the lower bar keeps its place at the screen's edge.
+                FrameworkElement pinnedLine = BuildPinnedLine(mode, pillRadius);
+                pinnedLine.HorizontalAlignment = mode == TaskbarMode.Classic ? HorizontalAlignment.Stretch : AlignmentOf(settings.DockAlignment);
+                var top = new Grid { Height = PillHeightDip() };
+                top.Children.Add(pinnedLine);
+                main.HorizontalAlignment = mode == TaskbarMode.Classic ? HorizontalAlignment.Stretch : AlignmentOf(settings.DockAlignment);
+                var lines = new StackPanel
+                {
+                    Orientation = Orientation.Vertical,
+                    Spacing = SegmentGapDip,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                lines.Children.Add(top);
+                lines.Children.Add(main);
+                BarHost.Children.Add(lines);
+            }
+            else
+            {
+                BarHost.Children.Add(main);
             }
 
             FillBubbles(arranged, rebuild: true);
@@ -335,14 +393,52 @@ public sealed partial class BarWindow
         return row;
     }
 
+    private static HorizontalAlignment AlignmentOf(DockAlignment alignment)
+    {
+        return alignment switch
+        {
+            DockAlignment.Left => HorizontalAlignment.Left,
+            DockAlignment.Right => HorizontalAlignment.Right,
+            _ => HorizontalAlignment.Center,
+        };
+    }
+
+    /// <summary>The bubbles of both bars (two stacked bars) in the bar's order; else a copy of <paramref name="main"/>.</summary>
+    private List<string> Union(List<string> main, List<string> top)
+    {
+        if (top.Count == 0)
+        {
+            return new List<string>(main);
+        }
+
+        var all = new List<string>(main.Count + top.Count);
+        foreach (string id in _host.BarLayout.Order)
+        {
+            if (main.Contains(id) || top.Contains(id))
+            {
+                all.Add(id);
+            }
+        }
+
+        foreach (string id in main)
+        {
+            if (!all.Contains(id))
+            {
+                all.Add(id);
+            }
+        }
+
+        return all;
+    }
+
     /// <summary>A segment: its fill (acrylic or a translucent colour) with the content on top.</summary>
     private Grid MakeSegment(UIElement content, double radiusDip, bool stretch)
     {
         // A see-through background, so a press anywhere on the pill (its empty space too)
-        // reaches the pill itself: the apps pill drags by it.
+        // reaches the pill itself: the apps pill drags by it. Two rows in one bar: two rows tall.
         var segment = new Grid
         {
-            Height = PillHeightDip(),
+            Height = SegmentHeightDip(),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = stretch ? HorizontalAlignment.Stretch : HorizontalAlignment.Left,
             Background = new SolidColorBrush(Colors.Transparent),
@@ -371,7 +467,7 @@ public sealed partial class BarWindow
         return new Border
         {
             Width = 1,
-            Height = PillHeightDip() * 0.45,
+            Height = SegmentHeightDip() * 0.45,
             Margin = new Thickness(4, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Background = new SolidColorBrush(IsDarkTheme()
@@ -482,6 +578,8 @@ public sealed partial class BarWindow
                         return;
                     }
 
+                    // Like Windows' own taskbar: an open Start closes first, then search opens.
+                    _host.StartMenu?.HideMenu();
                     OpenWindowsSearch();
                 };
                 AttachDrag(search, DragKind.Search);
@@ -629,15 +727,18 @@ public sealed partial class BarWindow
 
     /// <summary>
     /// The bubbles to show, from the left: Start always, the apps while they have an app (or
-    /// search sits there), a group while it has an app.
+    /// search sits there), a group while it has an app. Two stacked bars: the lower bar's, where
+    /// only open apps count.
     /// </summary>
     private List<string> ShownBubbles(Dictionary<string, List<DockItem>> arranged)
     {
         ShellSettings settings = _host.Settings.Current;
+        bool openOnly = settings.TaskbarSplit == TaskbarSplit.Stacked;
         var shown = new List<string>();
         foreach (string id in _host.BarLayout.Order)
         {
-            bool hasApps = arranged.TryGetValue(id, out List<DockItem>? items) && items.Count > 0;
+            bool hasApps = arranged.TryGetValue(id, out List<DockItem>? items)
+                && (openOnly ? items.Exists(item => item.IsRunning) : items.Count > 0);
             bool show = id == BarLayoutStore.StartId ? settings.ShowStartOnBar
                 : id == BarLayoutStore.AppsId ? settings.ShowAppsOnBar && (hasApps || _searchInApps)
                 : id == BarLayoutStore.TrayId ? settings.TrayOnBar && _host.Tray.Icons.Count > 0
@@ -657,7 +758,39 @@ public sealed partial class BarWindow
         return shown;
     }
 
-    private AppBubble MakeBubble(string id, SearchPlace place)
+    /// <summary>Two stacked bars: the app bubbles with a pinned app, from the left (the upper bar). Else empty.</summary>
+    private List<string> TopBubbles(Dictionary<string, List<DockItem>> arranged)
+    {
+        ShellSettings settings = _host.Settings.Current;
+        var top = new List<string>();
+        if (settings.TaskbarSplit != TaskbarSplit.Stacked)
+        {
+            return top;
+        }
+
+        foreach (string id in _host.BarLayout.Order)
+        {
+            if (id == BarLayoutStore.StartId || id == BarLayoutStore.TrayId
+                || (id == BarLayoutStore.AppsId && !settings.ShowAppsOnBar))
+            {
+                continue;
+            }
+
+            if (arranged.TryGetValue(id, out List<DockItem>? items) && items.Exists(item => item.IsPinned))
+            {
+                top.Add(id);
+            }
+        }
+
+        return top;
+    }
+
+    /// <summary>
+    /// An app bubble. Split: a second panel for the pinned apps; two rows in one bar puts it
+    /// above the open apps' panel in the bubble's row (each row keeps its height while empty, so
+    /// the icons never jump), two stacked bars puts it in the upper bar.
+    /// </summary>
+    private AppBubble MakeBubble(string id, SearchPlace place, TaskbarSplit split, bool inMain, bool inTop)
     {
         var panel = new StackPanel
         {
@@ -666,54 +799,180 @@ public sealed partial class BarWindow
             VerticalAlignment = VerticalAlignment.Center,
         };
 
+        StackPanel? pinned = null;
+        UIElement apps = panel;
+        if (split != TaskbarSplit.Off)
+        {
+            pinned = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = ItemSpacingDip,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+
+            if (split == TaskbarSplit.Rows)
+            {
+                double rowHeight = Math.Max(PillHeightDip() - 8, _host.Settings.Current.IconSize + 14);
+                panel.Height = rowHeight;
+                pinned.Height = rowHeight;
+                panel.HorizontalAlignment = HorizontalAlignment.Left;
+                pinned.HorizontalAlignment = HorizontalAlignment.Left;
+                var rows = new StackPanel
+                {
+                    Orientation = Orientation.Vertical,
+                    Spacing = SplitRowGapDip,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                rows.Children.Add(pinned);
+                rows.Children.Add(panel);
+                apps = rows;
+            }
+        }
+
         StackPanel row = Row(ItemSpacingDip);
-        bool apps = id == BarLayoutStore.AppsId;
-        if (apps && place == SearchPlace.BeforeApps && BuildSearch() is FrameworkElement before)
+        bool appsBubble = id == BarLayoutStore.AppsId;
+        if (appsBubble && place == SearchPlace.BeforeApps && BuildSearch() is FrameworkElement before)
         {
             row.Children.Add(before);
         }
 
-        row.Children.Add(panel);
-        if (apps && place == SearchPlace.AfterApps && BuildSearch() is FrameworkElement after)
+        row.Children.Add(apps);
+        if (appsBubble && place == SearchPlace.AfterApps && BuildSearch() is FrameworkElement after)
         {
             row.Children.Add(after);
         }
 
-        return new AppBubble(id, panel, row);
+        return new AppBubble(id, panel, row)
+        {
+            PinnedPanel = pinned,
+            InMain = split != TaskbarSplit.Stacked || inMain,
+            InTop = split == TaskbarSplit.Stacked && inTop,
+        };
     }
 
-    /// <summary>How many bubbles the bar shows now (Start included).</summary>
-    internal int ShownBubbleCount => _builtIds.Count;
+    /// <summary>
+    /// Two stacked bars: the upper bar, with each bubble's pinned apps: a pill per bubble
+    /// (Segmented), one pill with dividers (Joined), or full width (Classic).
+    /// </summary>
+    private FrameworkElement BuildPinnedLine(TaskbarMode mode, double pillRadius)
+    {
+        var bubbles = new List<AppBubble>();
+        foreach (AppBubble bubble in _bubbles)
+        {
+            if (bubble.InTop && bubble.PinnedPanel is not null)
+            {
+                bubbles.Add(bubble);
+            }
+        }
 
-    /// <summary>The bubbles the bar shows now, from the left (Start and the tray included).</summary>
-    internal IReadOnlyList<string> ShownBubbleIds => _builtIds;
+        if (mode == TaskbarMode.Segmented)
+        {
+            StackPanel pills = Row(SegmentGapDip);
+            foreach (AppBubble bubble in bubbles)
+            {
+                Grid pill = MakeSegment(bubble.PinnedPanel!, pillRadius, stretch: false);
+                pill.Tag = bubble.Id;
+                bubble.PinnedPill = pill;
+                pills.Children.Add(pill);
+            }
 
-    /// <summary>Where a shown bubble is on screen (its pill; in Joined and Classic its part of the bar), or null.</summary>
+            return pills;
+        }
+
+        if (bubbles.Count == 0)
+        {
+            // No pinned app: no empty pill either.
+            return new Grid();
+        }
+
+        StackPanel row = Row(ItemSpacingDip);
+        foreach (AppBubble bubble in bubbles)
+        {
+            if (row.Children.Count > 0)
+            {
+                row.Children.Add(MakeDivider());
+            }
+
+            row.Children.Add(bubble.PinnedPanel!);
+        }
+
+        if (mode == TaskbarMode.Classic)
+        {
+            row.HorizontalAlignment = AlignmentOf(_host.Settings.Current.DockAlignment);
+            return MakeSegment(row, ClassicRadiusDip, stretch: true);
+        }
+
+        return MakeSegment(row, pillRadius, stretch: false);
+    }
+
+    /// <summary>How many bubbles the bar shows now (Start included; both bars when they are stacked).</summary>
+    internal int ShownBubbleCount => _shownIds.Count;
+
+    /// <summary>The bubbles the bar shows now, from the left (Start and the tray included; both bars when they are stacked).</summary>
+    internal IReadOnlyList<string> ShownBubbleIds => _shownIds;
+
+    /// <summary>
+    /// Where a shown bubble is on screen (its pill; in Joined and Classic its part of the bar), or
+    /// null. Two stacked bars: around both its parts when it is in both bars.
+    /// </summary>
     internal RECT? BubbleScreenRect(string id)
     {
-        bool segmented = EffectiveMode(_host.Settings.Current) == TaskbarMode.Segmented;
-        FrameworkElement? element;
-        if (string.Equals(id, BarLayoutStore.StartId, StringComparison.OrdinalIgnoreCase))
-        {
-            element = _builtIds.Contains(BarLayoutStore.StartId) ? (segmented ? _startSegment : _startGroup) : null;
-        }
-        else if (string.Equals(id, BarLayoutStore.TrayId, StringComparison.OrdinalIgnoreCase))
-        {
-            element = segmented ? _traySegment : _trayRow;
-        }
-        else
-        {
-            AppBubble? bubble = BubbleById(id);
-            element = bubble is null ? null : segmented ? bubble.Pill : bubble.Row;
-        }
-
-        if (element is null || !IsOnBar(element))
+        List<RECT> parts = BubbleParts(id);
+        if (parts.Count == 0)
         {
             return null;
         }
 
-        RECT rect = ScreenRectOf(element);
-        return segmented ? rect : Grow(rect, (int)Math.Round(4 * Scale()));
+        RECT rect = parts[0];
+        for (int i = 1; i < parts.Count; i++)
+        {
+            rect = Around(rect, parts[i]);
+        }
+
+        return rect;
+    }
+
+    /// <summary>A shown bubble's parts on screen: one, or (two stacked bars) one in each bar.</summary>
+    private List<RECT> BubbleParts(string id)
+    {
+        bool segmented = EffectiveMode(_host.Settings.Current) == TaskbarMode.Segmented;
+        var elements = new List<FrameworkElement?>(2);
+        if (string.Equals(id, BarLayoutStore.StartId, StringComparison.OrdinalIgnoreCase))
+        {
+            elements.Add(_builtIds.Contains(BarLayoutStore.StartId) ? (segmented ? _startSegment : _startGroup) : null);
+        }
+        else if (string.Equals(id, BarLayoutStore.TrayId, StringComparison.OrdinalIgnoreCase))
+        {
+            elements.Add(segmented ? _traySegment : _trayRow);
+        }
+        else if (BubbleById(id) is AppBubble bubble)
+        {
+            elements.Add(!bubble.InMain ? null : segmented ? bubble.Pill : bubble.Row);
+            elements.Add(!bubble.InTop ? null : segmented ? bubble.PinnedPill : bubble.PinnedPanel);
+        }
+
+        var parts = new List<RECT>(2);
+        foreach (FrameworkElement? element in elements)
+        {
+            if (element is not null && IsOnBar(element))
+            {
+                RECT rect = ScreenRectOf(element);
+                parts.Add(segmented ? rect : Grow(rect, (int)Math.Round(4 * Scale())));
+            }
+        }
+
+        return parts;
+    }
+
+    private static RECT Around(RECT a, RECT b)
+    {
+        return new RECT
+        {
+            Left = Math.Min(a.Left, b.Left),
+            Top = Math.Min(a.Top, b.Top),
+            Right = Math.Max(a.Right, b.Right),
+            Bottom = Math.Max(a.Bottom, b.Bottom),
+        };
     }
 
     /// <summary>The bubble under the pointer, as a custom-mode pick, or null.</summary>
@@ -724,12 +983,14 @@ public sealed partial class BarWindow
             return null;
         }
 
-        foreach (string id in _builtIds)
+        foreach (string id in _shownIds)
         {
-            if (BubbleScreenRect(id) is RECT rect
-                && cursor.X >= rect.Left && cursor.X < rect.Right && cursor.Y >= rect.Top && cursor.Y < rect.Bottom)
+            foreach (RECT rect in BubbleParts(id))
             {
-                return TargetOf(id);
+                if (cursor.X >= rect.Left && cursor.X < rect.Right && cursor.Y >= rect.Top && cursor.Y < rect.Bottom)
+                {
+                    return TargetOf(id);
+                }
             }
         }
 
@@ -1040,16 +1301,20 @@ public sealed partial class BarWindow
     /// <summary>
     /// No app on the bar at all (none pinned, none running): Show Desktop goes (there is nothing
     /// to show the desktop from); back with the first app. The apps bubble's buttons panel is
-    /// hidden while empty (search alone keeps the bubble).
+    /// hidden while empty (search alone keeps the bubble). Two rows in one bar: both rows stay,
+    /// empty or not, so neither moves when the other empties.
     /// </summary>
     private void UpdateDockPresence()
     {
+        bool rows = _host.Settings.Current.TaskbarSplit == TaskbarSplit.Rows;
         bool any = false;
         foreach (AppBubble bubble in _bubbles)
         {
             bool has = bubble.Panel.Children.Count > 0;
-            SetShown(bubble.Panel, has);
-            any |= has;
+            bool hasPinned = bubble.PinnedPanel is StackPanel pinned && pinned.Children.Count > 0;
+            SetShown(bubble.Panel, has || rows);
+            SetShown(bubble.PinnedPanel, hasPinned || rows);
+            any |= has || hasPinned;
         }
 
         SetShown(_desktopSpacer, any);
@@ -1073,7 +1338,8 @@ public sealed partial class BarWindow
     /// </summary>
     private FrameworkElement BuildDesktopStrip()
     {
-        double lineHeight = _host.Settings.Current.BarSize * DesktopLineHeightRatio;
+        // As tall as the segment it sits in (two rows in one bar: both rows).
+        double lineHeight = (SegmentHeightDip() + PillInsetDip) * DesktopLineHeightRatio;
 
         _desktopLine = new Border
         {
@@ -1090,7 +1356,7 @@ public sealed partial class BarWindow
         {
             Content = _desktopLine,
             Width = DesktopHitWidthDip,
-            Height = Math.Max(PillHeightDip() - 8, lineHeight),
+            Height = Math.Max(SegmentHeightDip() - 8, lineHeight),
             MinWidth = 0,
             MinHeight = 0,
             Padding = new Thickness(0),

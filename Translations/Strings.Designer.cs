@@ -1519,6 +1519,24 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Airplane mode.
+        /// </summary>
+        internal static string QsAirplaneMode {
+            get {
+                return ResourceManager.GetString("QsAirplaneMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bluetooth.
+        /// </summary>
+        internal static string QsBluetooth {
+            get {
+                return ResourceManager.GetString("QsBluetooth", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Brightness.
         /// </summary>
         internal static string QsBrightness {
@@ -1546,11 +1564,38 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cast.
+        /// </summary>
+        internal static string QsCast {
+            get {
+                return ResourceManager.GetString("QsCast", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Checking which screens can change brightness....
         /// </summary>
         internal static string QsChecking {
             get {
                 return ResourceManager.GetString("QsChecking", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Mobile hotspot.
+        /// </summary>
+        internal static string QsHotspot {
+            get {
+                return ResourceManager.GetString("QsHotspot", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Live captions.
+        /// </summary>
+        internal static string QsLiveCaptions {
+            get {
+                return ResourceManager.GetString("QsLiveCaptions", resourceCulture);
             }
         }
         
@@ -1573,6 +1618,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Project.
+        /// </summary>
+        internal static string QsProject {
+            get {
+                return ResourceManager.GetString("QsProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Volume.
         /// </summary>
         internal static string QsVolume {
@@ -1587,6 +1641,15 @@ namespace Machitan {
         internal static string QsVolumeOf {
             get {
                 return ResourceManager.GetString("QsVolumeOf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wi-Fi.
+        /// </summary>
+        internal static string QsWifi {
+            get {
+                return ResourceManager.GetString("QsWifi", resourceCulture);
             }
         }
         
@@ -1744,6 +1807,150 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Bluetooth &amp; devices.
+        /// </summary>
+        internal static string SearchActBluetooth {
+            get {
+                return ResourceManager.GetString("SearchActBluetooth", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Date &amp; time.
+        /// </summary>
+        internal static string SearchActDateTime {
+            get {
+                return ResourceManager.GetString("SearchActDateTime", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Default apps.
+        /// </summary>
+        internal static string SearchActDefaultApps {
+            get {
+                return ResourceManager.GetString("SearchActDefaultApps", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Display.
+        /// </summary>
+        internal static string SearchActDisplay {
+            get {
+                return ResourceManager.GetString("SearchActDisplay", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Machitan.
+        /// </summary>
+        internal static string SearchActMachitan {
+            get {
+                return ResourceManager.GetString("SearchActMachitan", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Machitan settings.
+        /// </summary>
+        internal static string SearchActMachitanSettings {
+            get {
+                return ResourceManager.GetString("SearchActMachitanSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Notifications.
+        /// </summary>
+        internal static string SearchActNotifications {
+            get {
+                return ResourceManager.GetString("SearchActNotifications", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Personalization.
+        /// </summary>
+        internal static string SearchActPersonalization {
+            get {
+                return ResourceManager.GetString("SearchActPersonalization", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Power.
+        /// </summary>
+        internal static string SearchActPower {
+            get {
+                return ResourceManager.GetString("SearchActPower", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sign out now? Your open apps will close..
+        /// </summary>
+        internal static string SearchActSignOutAsk {
+            get {
+                return ResourceManager.GetString("SearchActSignOutAsk", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sound.
+        /// </summary>
+        internal static string SearchActSound {
+            get {
+                return ResourceManager.GetString("SearchActSound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Storage.
+        /// </summary>
+        internal static string SearchActStorage {
+            get {
+                return ResourceManager.GetString("SearchActStorage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wi-Fi.
+        /// </summary>
+        internal static string SearchActWifi {
+            get {
+                return ResourceManager.GetString("SearchActWifi", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows.
+        /// </summary>
+        internal static string SearchActWindows {
+            get {
+                return ResourceManager.GetString("SearchActWindows", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows Settings.
+        /// </summary>
+        internal static string SearchActWindowsSettings {
+            get {
+                return ResourceManager.GetString("SearchActWindowsSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows Update.
+        /// </summary>
+        internal static string SearchActWindowsUpdate {
+            get {
+                return ResourceManager.GetString("SearchActWindowsUpdate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Apps.
         /// </summary>
         internal static string SearchApps {
@@ -1758,6 +1965,15 @@ namespace Machitan {
         internal static string SearchBoxName {
             get {
                 return ResourceManager.GetString("SearchBoxName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Calculator: Enter or a click copies it.
+        /// </summary>
+        internal static string SearchCalcCopy {
+            get {
+                return ResourceManager.GetString("SearchCalcCopy", resourceCulture);
             }
         }
         
@@ -1794,6 +2010,15 @@ namespace Machitan {
         internal static string SearchNoFileMatch {
             get {
                 return ResourceManager.GetString("SearchNoFileMatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing matches..
+        /// </summary>
+        internal static string SearchNothingMatches {
+            get {
+                return ResourceManager.GetString("SearchNothingMatches", resourceCulture);
             }
         }
         
@@ -2977,11 +3202,29 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to No page matches.
+        /// </summary>
+        internal static string SetSearchNoPage {
+            get {
+                return ResourceManager.GetString("SetSearchNoPage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Icon opens Windows&apos; search; Box searches on the bar..
         /// </summary>
         internal static string SetSearchNote {
             get {
                 return ResourceManager.GetString("SetSearchNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search settings.
+        /// </summary>
+        internal static string SetSearchSettings {
+            get {
+                return ResourceManager.GetString("SetSearchSettings", resourceCulture);
             }
         }
         
@@ -3018,6 +3261,51 @@ namespace Machitan {
         internal static string SetSize {
             get {
                 return ResourceManager.GetString("SetSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Pinned and open apps.
+        /// </summary>
+        internal static string SetSplit {
+            get {
+                return ResourceManager.GetString("SetSplit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Split the bar: pinned apps on top, open apps below. A pinned app that is open shows in both..
+        /// </summary>
+        internal static string SetSplitNote {
+            get {
+                return ResourceManager.GetString("SetSplitNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Together.
+        /// </summary>
+        internal static string SetSplitOff {
+            get {
+                return ResourceManager.GetString("SetSplitOff", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Two rows in one bar.
+        /// </summary>
+        internal static string SetSplitRows {
+            get {
+                return ResourceManager.GetString("SetSplitRows", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Two stacked bars.
+        /// </summary>
+        internal static string SetSplitStacked {
+            get {
+                return ResourceManager.GetString("SetSplitStacked", resourceCulture);
             }
         }
         

@@ -567,6 +567,12 @@
     <value>Preview of {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="QsAirplaneMode" xml:space="preserve">
+    <value>Airplane mode</value>
+  </data>
+  <data name="QsBluetooth" xml:space="preserve">
+    <value>Bluetooth</value>
+  </data>
   <data name="QsBrightness" xml:space="preserve">
     <value>Brightness</value>
   </data>
@@ -577,8 +583,17 @@
     <value>Brightness - display {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="QsCast" xml:space="preserve">
+    <value>Cast</value>
+  </data>
   <data name="QsChecking" xml:space="preserve">
     <value>Checking which screens can change brightness...</value>
+  </data>
+  <data name="QsHotspot" xml:space="preserve">
+    <value>Mobile hotspot</value>
+  </data>
+  <data name="QsLiveCaptions" xml:space="preserve">
+    <value>Live captions</value>
   </data>
   <data name="QsMute" xml:space="preserve">
     <value>Mute</value>
@@ -586,12 +601,18 @@
   <data name="QsNothing" xml:space="preserve">
     <value>Windows offers no volume or brightness control on this PC right now.</value>
   </data>
+  <data name="QsProject" xml:space="preserve">
+    <value>Project</value>
+  </data>
   <data name="QsVolume" xml:space="preserve">
     <value>Volume</value>
   </data>
   <data name="QsVolumeOf" xml:space="preserve">
     <value>Volume - {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
+  </data>
+  <data name="QsWifi" xml:space="preserve">
+    <value>Wi-Fi</value>
   </data>
   <data name="RingBattery" xml:space="preserve">
     <value>Battery {0}%</value>
@@ -650,11 +671,62 @@
   <data name="RunAsAdmin" xml:space="preserve">
     <value>Run as administrator</value>
   </data>
+  <data name="SearchActBluetooth" xml:space="preserve">
+    <value>Bluetooth &amp; devices</value>
+  </data>
+  <data name="SearchActDateTime" xml:space="preserve">
+    <value>Date &amp; time</value>
+  </data>
+  <data name="SearchActDefaultApps" xml:space="preserve">
+    <value>Default apps</value>
+  </data>
+  <data name="SearchActDisplay" xml:space="preserve">
+    <value>Display</value>
+  </data>
+  <data name="SearchActMachitan" xml:space="preserve">
+    <value>Machitan</value>
+  </data>
+  <data name="SearchActMachitanSettings" xml:space="preserve">
+    <value>Machitan settings</value>
+  </data>
+  <data name="SearchActNotifications" xml:space="preserve">
+    <value>Notifications</value>
+  </data>
+  <data name="SearchActPersonalization" xml:space="preserve">
+    <value>Personalization</value>
+  </data>
+  <data name="SearchActPower" xml:space="preserve">
+    <value>Power</value>
+  </data>
+  <data name="SearchActSignOutAsk" xml:space="preserve">
+    <value>Sign out now? Your open apps will close.</value>
+  </data>
+  <data name="SearchActSound" xml:space="preserve">
+    <value>Sound</value>
+  </data>
+  <data name="SearchActStorage" xml:space="preserve">
+    <value>Storage</value>
+  </data>
+  <data name="SearchActWifi" xml:space="preserve">
+    <value>Wi-Fi</value>
+  </data>
+  <data name="SearchActWindows" xml:space="preserve">
+    <value>Windows</value>
+  </data>
+  <data name="SearchActWindowsSettings" xml:space="preserve">
+    <value>Windows Settings</value>
+  </data>
+  <data name="SearchActWindowsUpdate" xml:space="preserve">
+    <value>Windows Update</value>
+  </data>
   <data name="SearchApps" xml:space="preserve">
     <value>Apps</value>
   </data>
   <data name="SearchBoxName" xml:space="preserve">
     <value>Search apps, or type files: to search files</value>
+  </data>
+  <data name="SearchCalcCopy" xml:space="preserve">
+    <value>Calculator: Enter or a click copies it</value>
   </data>
   <data name="SearchFiles" xml:space="preserve">
     <value>Files</value>
@@ -667,6 +739,9 @@
   </data>
   <data name="SearchNoFileMatch" xml:space="preserve">
     <value>No file matches in your folders.</value>
+  </data>
+  <data name="SearchNothingMatches" xml:space="preserve">
+    <value>Nothing matches.</value>
   </data>
   <data name="SearchReadingApps" xml:space="preserve">
     <value>Reading your apps...</value>
@@ -1071,8 +1146,14 @@
   <data name="SetSearchIcon" xml:space="preserve">
     <value>Icon</value>
   </data>
+  <data name="SetSearchNoPage" xml:space="preserve">
+    <value>No page matches</value>
+  </data>
   <data name="SetSearchNote" xml:space="preserve">
     <value>Icon opens Windows' search; Box searches on the bar.</value>
+  </data>
+  <data name="SetSearchSettings" xml:space="preserve">
+    <value>Search settings</value>
   </data>
   <data name="SetSeconds" xml:space="preserve">
     <value>Seconds</value>
@@ -1085,6 +1166,21 @@
   </data>
   <data name="SetSize" xml:space="preserve">
     <value>Size</value>
+  </data>
+  <data name="SetSplit" xml:space="preserve">
+    <value>Pinned and open apps</value>
+  </data>
+  <data name="SetSplitNote" xml:space="preserve">
+    <value>Split the bar: pinned apps on top, open apps below. A pinned app that is open shows in both.</value>
+  </data>
+  <data name="SetSplitOff" xml:space="preserve">
+    <value>Together</value>
+  </data>
+  <data name="SetSplitRows" xml:space="preserve">
+    <value>Two rows in one bar</value>
+  </data>
+  <data name="SetSplitStacked" xml:space="preserve">
+    <value>Two stacked bars</value>
   </data>
   <data name="SetStartButton" xml:space="preserve">
     <value>Start button</value>

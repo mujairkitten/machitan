@@ -154,6 +154,17 @@ internal sealed class SettingsStore
             _document["ShowDuoRing"] = s.ShowDuoRing;
             _document.Remove("DuoRingEnabled");
             _document["ShowPrivacyDots"] = s.ShowPrivacyDots;
+            _document["DynalandLevels"] = s.DynalandLevels;
+            _document["DynalandNotifications"] = s.DynalandNotifications;
+            _document["DynalandCharging"] = s.DynalandCharging;
+            _document["DynalandClipboard"] = s.DynalandClipboard;
+            _document["DynalandLyrics"] = s.DynalandLyrics;
+            _document["SidebarOn"] = s.SidebarOn;
+            _document["SidebarDocked"] = s.SidebarDocked;
+            _document["SidebarLeaveRoom"] = s.SidebarLeaveRoom;
+            _document["SidebarLeft"] = s.SidebarLeft;
+            _document["SidebarEdgeHover"] = s.SidebarEdgeHover;
+            _document["SidebarWidth"] = s.SidebarWidth;
             _document["DynalandStyle"] = s.DynalandStyle.ToString();
             _document["DynalandPosition"] = s.DynalandPosition.ToString();
             _document["DynalandNotchShape"] = s.DynalandNotchShape.ToString();
@@ -180,6 +191,9 @@ internal sealed class SettingsStore
             _document["OfferPreReleases"] = s.OfferPreReleases;
             _document["OfferPreReleasesChosen"] = s.OfferPreReleasesChosen;
             _document["CalendarCollapsed"] = s.CalendarCollapsed;
+            _document["QuickTileOrder"] = s.QuickTileOrder;
+            _document["QuickTilesHidden"] = s.QuickTilesHidden;
+            _document["QuickSliderOrder"] = s.QuickSliderOrder;
             foreach (var option in StartOptions)
             {
                 _document[option.Key] = option.Read(s);
@@ -495,6 +509,52 @@ internal sealed class SettingsStore
         else
         {
             NoteUnreadable(document, "ShowPrivacyDots");
+        }
+
+        ReadBool(document, "DynalandLevels", value => s.DynalandLevels = value);
+        ReadBool(document, "DynalandNotifications", value => s.DynalandNotifications = value);
+        ReadBool(document, "DynalandCharging", value => s.DynalandCharging = value);
+        ReadBool(document, "DynalandClipboard", value => s.DynalandClipboard = value);
+        ReadBool(document, "DynalandLyrics", value => s.DynalandLyrics = value);
+        ReadBool(document, "SidebarOn", value => s.SidebarOn = value);
+        ReadBool(document, "SidebarDocked", value => s.SidebarDocked = value);
+        ReadBool(document, "SidebarLeaveRoom", value => s.SidebarLeaveRoom = value);
+        ReadBool(document, "SidebarLeft", value => s.SidebarLeft = value);
+        ReadBool(document, "SidebarEdgeHover", value => s.SidebarEdgeHover = value);
+        if (TryInt(document["SidebarWidth"], out int sidebarWidth))
+        {
+            s.SidebarWidth = sidebarWidth;
+        }
+        else
+        {
+            NoteUnreadable(document, "SidebarWidth");
+        }
+
+        if (TryString(document["QuickTileOrder"], out string quickTileOrder))
+        {
+            s.QuickTileOrder = quickTileOrder;
+        }
+        else
+        {
+            NoteUnreadable(document, "QuickTileOrder");
+        }
+
+        if (TryString(document["QuickTilesHidden"], out string quickTilesHidden))
+        {
+            s.QuickTilesHidden = quickTilesHidden;
+        }
+        else
+        {
+            NoteUnreadable(document, "QuickTilesHidden");
+        }
+
+        if (TryString(document["QuickSliderOrder"], out string quickSliderOrder))
+        {
+            s.QuickSliderOrder = quickSliderOrder;
+        }
+        else
+        {
+            NoteUnreadable(document, "QuickSliderOrder");
         }
 
         if (TryEnum(document["DynalandStyle"], out DynalandStyle dynalandStyle))
@@ -931,6 +991,19 @@ internal sealed class SettingsStore
     };
 
     /// <summary>A key that is present but whose value is not understood keeps its default; say so.</summary>
+    /// <summary>A true/false setting: set when the file has it, the default kept (and an odd value noted) when not.</summary>
+    private static void ReadBool(JsonObject document, string key, Action<bool> set)
+    {
+        if (TryBool(document[key], out bool value))
+        {
+            set(value);
+        }
+        else
+        {
+            NoteUnreadable(document, key);
+        }
+    }
+
     private static void NoteUnreadable(JsonObject document, string key)
     {
         JsonNode? node = document[key];

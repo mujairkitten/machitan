@@ -7,6 +7,7 @@ using Machitan.Interop;
 using Machitan.Shell;
 using Machitan.Visuals;
 using Microsoft.UI;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -58,6 +59,9 @@ public abstract partial class FlyoutWindow : Window
     /// <summary>A click on the opener this soon after a click elsewhere closed the flyout is that same click.</summary>
     private const long SameClickMs = 500;
 
+    /// <summary>VK_MBUTTON.</summary>
+    private const int MiddleButton = 0x04;
+
     private readonly WindowCutter _cutter;
     private readonly List<(Grid Box, double Radius)> _boxes = new();
     private readonly string _name;
@@ -67,10 +71,15 @@ public abstract partial class FlyoutWindow : Window
     private long _closedByFocusLossAt;
     private POINT _closedByFocusLossWhere;
 
+    /// <summary>While open (when CloseOnMachitanPress): watches for a press on another of Machitan's windows.</summary>
+    private DispatcherQueueTimer? _pressWatch;
+    private bool _buttonWasDown;
+
     /// <summary>True: opened below a widget in the top half (it moves from above); false: from below; null: by the bar.</summary>
     private bool? _fromTop;
 
-    private protected FlyoutWindow(ShellHost host, string name, bool takesFocus = true)
+    /// <param name="onTop">False for a window that lives behind the others (a widget on the desktop); flyouts stay on top.</param>
+    private protected FlyoutWindow(ShellHost host, string name, bool takesFocus = true, bool onTop = true)
     {
         Host = host;
         _name = name;
@@ -86,7 +95,7 @@ public abstract partial class FlyoutWindow : Window
         Content = Root;
 
         Hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        SeeThrough.Prepare(this, Hwnd, alwaysOnTop: true);
+        SeeThrough.Prepare(this, Hwnd, alwaysOnTop: onTop);
         if (!takesFocus)
         {
             // Clicks work, but the window never becomes the active one.
@@ -227,6 +236,16 @@ public abstract partial class FlyoutWindow : Window
     /// <summary>Places the window at an exact spot (physical pixels, padding included) and shows it.</summary>
     private protected void PresentAt(RectInt32 windowRect)
     {
+        PresentAt(windowRect, _takesFocus);
+    }
+
+    /// <summary>
+    /// As PresentAt; with <paramref name="activate"/> false a flyout that takes focus shows
+    /// without taking the keyboard (the widget sidebar, opened by pointing at the screen's
+    /// edge). A click in it then makes it the active window as usual.
+    /// </summary>
+    private protected void PresentAt(RectInt32 windowRect, bool activate)
+    {
         AppWindow.MoveAndResize(windowRect);
         _cutter.Invalidate();
 
@@ -270,7 +289,7 @@ public abstract partial class FlyoutWindow : Window
             }
         }
 
-        if (_takesFocus)
+        if (_takesFocus && activate)
         {
             User32.ShowWindow(Hwnd, User32.SW_SHOW);
             Activate();
@@ -350,6 +369,13 @@ public abstract partial class FlyoutWindow : Window
     /// </summary>
     private protected virtual bool KeepOpenWhenDeactivated => false;
 
+    /// <summary>
+    /// True: a press on another of Machitan's own windows (the bar, Dynaland, the indicators)
+    /// closes the flyout too. Those windows never take the keyboard, so a press on them does
+    /// not close a flyout the way a click on another app does.
+    /// </summary>
+    private protected virtual bool CloseOnMachitanPress => false;
+
     /// <summary>Runs after any settings change (from Settings, a flyout, or a hand edit), once theme and fills are applied.</summary>
     private protected virtual void OnSettingsApplied(ShellSettings settings)
     {
@@ -414,6 +440,7 @@ public abstract partial class FlyoutWindow : Window
 
     private void NoteOpenChanged(bool open)
     {
+        WatchPresses(open);
         try
         {
             OnOpenChanged(open);
@@ -424,8 +451,91 @@ public abstract partial class FlyoutWindow : Window
         }
     }
 
+    private void WatchPresses(bool open)
+    {
+        if (!open || !CloseOnMachitanPress || !_takesFocus)
+        {
+            _pressWatch?.Stop();
+            return;
+        }
+
+        if (_pressWatch is null)
+        {
+            _pressWatch = DispatcherQueue.CreateTimer();
+            _pressWatch.Interval = TimeSpan.FromMilliseconds(30);
+            _pressWatch.IsRepeating = true;
+            _pressWatch.Tick += (_, _) => CheckPress();
+        }
+
+        // A button already held (the press that opened it) is not a new press.
+        _buttonWasDown = AnyButtonDown();
+        _pressWatch.Start();
+    }
+
+    /// <summary>Every 30 ms while open: a new press outside the flyout, on a window of Machitan's own (not one of this flyout's menus), closes it.</summary>
+    private void CheckPress()
+    {
+        bool down = AnyButtonDown();
+        bool pressed = down && !_buttonWasDown;
+        _buttonWasDown = down;
+        if (!pressed || !IsOpen || !User32.GetCursorPos(out POINT at))
+        {
+            return;
+        }
+
+        if (User32.GetWindowRect(Hwnd, out RECT mine) && mine.Contains(at, 0))
+        {
+            return;
+        }
+
+        nint hit = User32.WindowFromPoint(at);
+        nint top = hit == 0 ? 0 : User32.GetAncestor(hit, User32.GA_ROOTOWNER);
+        if (top == 0 || top == Hwnd)
+        {
+            return;
+        }
+
+        // A menu or tip of a WinUI window (this flyout's own included) is a window of its own: not "elsewhere".
+        nint popup = User32.GetAncestor(hit, User32.GA_ROOT);
+        if (WindowInfo.GetClassName(popup).StartsWith("Xaml_WindowedPopup", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // Another app's window takes the keyboard, which closes the flyout already.
+        User32.GetWindowThreadProcessId(top, out uint processId);
+        if (processId != (uint)Environment.ProcessId)
+        {
+            return;
+        }
+
+        Log.Info(_name + ": closed by a press on another part of Machitan.");
+        HideFlyout();
+        _closedByFocusLossAt = Environment.TickCount64;
+        _closedByFocusLossWhere = at;
+    }
+
+    private static bool AnyButtonDown()
+    {
+        return (User32.GetAsyncKeyState(User32.VK_LBUTTON) & 0x8000) != 0
+            || (User32.GetAsyncKeyState(User32.VK_RBUTTON) & 0x8000) != 0
+            || (User32.GetAsyncKeyState(MiddleButton) & 0x8000) != 0;
+    }
+
+    /// <summary>The window's raw messages, for a derived window (before the erase handling). Return true to stop one there.</summary>
+    private protected virtual bool OnRawMessage(uint message, nint wParam, nint lParam, out nint result)
+    {
+        result = 0;
+        return false;
+    }
+
     private bool OnWindowMessage(uint message, nint wParam, nint lParam, out nint result)
     {
+        if (OnRawMessage(message, wParam, lParam, out result))
+        {
+            return true;
+        }
+
         return SeeThrough.TryHandleErase(Hwnd, message, wParam, out result);
     }
 

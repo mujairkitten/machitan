@@ -32,6 +32,8 @@ internal sealed class ShellHost
     private WinXMenuWindow? _winX;
     private InfoLineWindow? _infoLine;
     private DuoRingWindow? _duoRing;
+    private SidebarWindow? _sidebar;
+    private DesktopWidgets? _desktopWidgets;
     private DynalandWindow? _dynaland;
     private TopStrip? _topStrip;
     private DispatcherQueueTimer? _fitTimer;
@@ -53,7 +55,14 @@ internal sealed class ShellHost
         Accent = new AccentService(DispatcherQueue.GetForCurrentThread());
         Custom = new CustomMode(this);
         Tray = new TrayIconService(DispatcherQueue.GetForCurrentThread());
+        Weather = new WeatherService(DispatcherQueue.GetForCurrentThread());
     }
+
+    /// <summary>The weather, for the info line and the Weather widgets together: runs while any of them wants it.</summary>
+    internal WeatherService Weather { get; }
+
+    /// <summary>Synced lyrics, for Dynaland and the Now playing widgets together (one search per song).</summary>
+    internal LyricsService Lyrics { get; } = new();
 
     /// <summary>
     /// The tray icons, received straight from the apps (Batch 6): shown in Dynaland's general
@@ -182,6 +191,9 @@ internal sealed class ShellHost
 
     /// <summary>Dynaland's file shelf: files and folders parked by dropping them on Dynaland (paths only).</summary>
     internal ShelfStore Shelf { get; } = new(AppPaths.ShelfFile);
+
+    /// <summary>The widgets added to the sidebar (widgets.json).</summary>
+    internal WidgetStore WidgetItems { get; } = new(AppPaths.WidgetsFile);
 
     /// <summary>Volume up, down and mute handled by Machitan while Dynaland is on screen (Settings > Dynaland).</summary>
     internal VolumeKeys VolumeKeys { get; }
@@ -602,6 +614,43 @@ internal sealed class ShellHost
         return before;
     }
 
+    /// <summary>
+    /// Where the indicators shown in a corner are on screen (physical pixels, their row as one
+    /// rectangle); null when none shows there. A docked sidebar that leaves room for them stops
+    /// short of it.
+    /// </summary>
+    internal RECT? CornerRowRect(ScreenCorner corner)
+    {
+        RECT? row = null;
+        foreach (CornerWidgetWindow? widget in new CornerWidgetWindow?[] { _infoLine, _duoRing })
+        {
+            if (widget is not null && widget.IsShown && widget.Corner == corner && widget.ShapeScreenRect() is RECT shape)
+            {
+                row = row is RECT kept
+                    ? new RECT
+                    {
+                        Left = Math.Min(kept.Left, shape.Left),
+                        Top = Math.Min(kept.Top, shape.Top),
+                        Right = Math.Max(kept.Right, shape.Right),
+                        Bottom = Math.Max(kept.Bottom, shape.Bottom),
+                    }
+                    : shape;
+            }
+        }
+
+        return row;
+    }
+
+    /// <summary>
+    /// The side edge the indicators of a left (or right) corner line up from: the free area's
+    /// (<paramref name="workEdge"/>), so they stand beside a docked sidebar; or, while the docked
+    /// sidebar on that side leaves room for them, the screen's edge past it.
+    /// </summary>
+    internal int CornerSideEdge(bool left, int workEdge)
+    {
+        return _sidebar?.RoomEdge(left) ?? workEdge;
+    }
+
     /// <summary>The whole row of shown widgets in a corner (DIP): their widths and the gaps between.</summary>
     internal double CornerRowWidth(ScreenCorner corner)
     {
@@ -683,6 +732,9 @@ internal sealed class ShellHost
             _dynaland?.Place();
             _infoLine?.Place();
             _duoRing?.Place();
+
+            // A docked sidebar that leaves room for the indicators follows them.
+            _sidebar?.FollowCorners();
         }
         catch (Exception ex)
         {
@@ -895,6 +947,7 @@ internal sealed class ShellHost
                 _infoLine?.KeepOnTop();
                 _duoRing?.KeepOnTop();
                 _dynaland?.KeepOnTop();
+                _sidebar?.KeepOnTop();
             }
         }
         catch (Exception ex)
@@ -920,6 +973,7 @@ internal sealed class ShellHost
         Pins.Load();
         StartPins.Load();
         Shelf.Load();
+        WidgetItems.Load();
         Usage.Load(Settings.Current.StartMostUsed);
         BarLayout.Load();
 
@@ -1028,6 +1082,61 @@ internal sealed class ShellHost
             _dynaland = null;
             Log.Error("Dynaland could not be created; it stays off this run.", ex);
         }
+
+        try
+        {
+            _sidebar = new SidebarWindow(this);
+            _sidebar.Start();
+        }
+        catch (Exception ex)
+        {
+            _sidebar = null;
+            Log.Error("The widget sidebar could not be created; it stays off this run.", ex);
+        }
+
+        try
+        {
+            _desktopWidgets = new DesktopWidgets(this);
+            _desktopWidgets.Start();
+        }
+        catch (Exception ex)
+        {
+            _desktopWidgets = null;
+            Log.Error("The desktop widgets could not be shown; they stay off this run.", ex);
+        }
+    }
+
+    /// <summary>Settings > Widgets > Show the sidebar.</summary>
+    internal void ShowSidebar()
+    {
+        _sidebar?.ShowFromCommand();
+    }
+
+    /// <summary>A desktop widget is being dragged, the pointer here (physical pixels): the sidebar marks where it would go.</summary>
+    internal void SidebarDragOver(POINT at)
+    {
+        _sidebar?.DesktopDragOver(at);
+    }
+
+    /// <summary>The desktop widget being dragged was let go.</summary>
+    internal void SidebarDragEnded()
+    {
+        _sidebar?.DesktopDragEnded();
+    }
+
+    /// <summary>
+    /// A desktop widget let go here (physical pixels): true when that is on the shown sidebar,
+    /// with the card it goes before (null: at the end).
+    /// </summary>
+    internal bool SidebarDropAt(POINT at, out string? before)
+    {
+        if (_sidebar is SidebarWindow sidebar)
+        {
+            return sidebar.DesktopDropAt(at, out before);
+        }
+
+        before = null;
+        return false;
     }
 
     /// <summary>
@@ -1081,6 +1190,8 @@ internal sealed class ShellHost
             _infoLine?.Stop();
             _duoRing?.Stop();
             _dynaland?.Stop();
+            _sidebar?.Stop();
+            _desktopWidgets?.Stop();
             _cover?.HideCover();
 
             // Maximised windows get the top of the screen back at once.
@@ -1138,6 +1249,16 @@ internal sealed class ShellHost
         if (_dynaland is DynalandWindow dynaland)
         {
             steps.Enqueue(("Dynaland", dynaland.Close));
+        }
+
+        if (_sidebar is SidebarWindow sidebar)
+        {
+            steps.Enqueue(("the widget sidebar", sidebar.Close));
+        }
+
+        if (_desktopWidgets is DesktopWidgets desktopWidgets)
+        {
+            steps.Enqueue(("the desktop widgets", desktopWidgets.Close));
         }
 
         if (_cover is TopStripCoverWindow cover)

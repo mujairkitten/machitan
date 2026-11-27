@@ -191,6 +191,43 @@ internal sealed class MediaService : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// A Winamp-style player (WACUP): its position read again now. A jump made in the player's
+    /// own window does not always reach Windows' controls, so synced lyrics would run from the
+    /// old place. Only the position and length change; Changed is raised when the player is
+    /// more than a second away from where it was expected to be. UI thread; two short messages.
+    /// </summary>
+    internal void CheckWinampPosition()
+    {
+        nint winamp = _winamp;
+        MediaSnapshot now = Current;
+        if (winamp == 0 || !now.HasMedia || _reading
+            || !WinampInterop.TryGetTimeline(winamp, out TimeSpan position, out TimeSpan length))
+        {
+            return;
+        }
+
+        bool moved = Math.Abs((position - now.PositionNow).TotalSeconds) > 1 || Math.Abs((length - now.Duration).TotalSeconds) > 1;
+        Current = now with
+        {
+            Position = position,
+            Duration = length,
+            PositionAt = DateTimeOffset.Now,
+            HasTimeline = length > TimeSpan.FromSeconds(1),
+        };
+        if (moved)
+        {
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>The file a Winamp-style player (WACUP) plays now, or null (another player, a stream, or no answer).</summary>
+    internal string? PlayingFile()
+    {
+        nint winamp = _winamp;
+        return winamp != 0 && Current.HasMedia && WinampInterop.TryGetPlayingFile(winamp, out string path) ? path : null;
+    }
+
     private async Task<bool> Send(string what, Func<GlobalSystemMediaTransportControlsSession, Task<bool>> action)
     {
         GlobalSystemMediaTransportControlsSession? session = _session;

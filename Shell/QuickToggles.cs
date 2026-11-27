@@ -225,7 +225,10 @@ internal sealed class QuickToggles
         return false;
     }
 
-    /// <summary>The Wi-Fi network the PC uses, by the name Windows lists it under, or null.</summary>
+    /// <summary>
+    /// The Wi-Fi network the PC is connected to, by the name Windows lists it under, or null: the
+    /// one it uses for the internet, else any Wi-Fi it is connected to (a network without internet).
+    /// </summary>
     internal static string? WifiName()
     {
         try
@@ -235,10 +238,19 @@ internal sealed class QuickToggles
             {
                 return profile.ProfileName;
             }
+
+            foreach (ConnectionProfile other in NetworkInformation.GetConnectionProfiles())
+            {
+                if (other.IsWlanConnectionProfile && !string.IsNullOrWhiteSpace(other.ProfileName)
+                    && other.GetNetworkConnectivityLevel() != NetworkConnectivityLevel.None)
+                {
+                    return other.ProfileName;
+                }
+            }
         }
         catch (Exception)
         {
-            // No name is a valid answer: the switch is then just called Wi-Fi.
+            // No name is a valid answer: the tile then says Not connected.
         }
 
         return null;

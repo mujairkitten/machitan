@@ -201,7 +201,7 @@
     <value>Tidak ada</value>
   </data>
   <data name="CmNoneAbout" xml:space="preserve">
-    <value>Tanpa widget sudut.</value>
+    <value>Tanpa indikator.</value>
   </data>
   <data name="CmNothingRemoved" xml:space="preserve">
     <value>Tidak ada yang dihapus: semuanya tampil</value>
@@ -405,6 +405,12 @@
   <data name="DynShelfClearAll" xml:space="preserve">
     <value>Kosongkan rak (file tetap di tempatnya)</value>
   </data>
+  <data name="DynShelfClipboardFailed" xml:space="preserve">
+    <value>Papan klip tidak dapat digunakan.</value>
+  </data>
+  <data name="DynShelfCopied" xml:space="preserve">
+    <value>Catatan disalin.</value>
+  </data>
   <data name="DynShelfCount" xml:space="preserve">
     <value>{0} dipilih</value>
   </data>
@@ -412,13 +418,17 @@
     <value>Lepaskan untuk menambahkan ke rak</value>
   </data>
   <data name="DynShelfEmpty" xml:space="preserve">
-    <value>Letakkan file atau folder di Dynaland untuk menyimpannya di sini. Hanya lokasinya yang diingat: tidak ada yang disalin.</value>
+    <value>Letakkan atau tempel file, folder, tautan, atau teks untuk menyimpannya di sini. Untuk file, hanya lokasinya yang diingat: tidak ada yang disalin.</value>
   </data>
   <data name="DynShelfFull" xml:space="preserve">
     <value>Rak penuh (paling banyak {0}): {1} tidak ditambahkan.</value>
   </data>
   <data name="DynShelfIsSelected" xml:space="preserve">
     <value>Dipilih</value>
+  </data>
+  <data name="DynShelfLink" xml:space="preserve">
+    <value>Tautan, {0}</value>
+    <comment>{0} = the site, e.g. github.com</comment>
   </data>
   <data name="DynShelfMissing" xml:space="preserve">
     <value>Tidak ditemukan: dipindahkan atau dihapus</value>
@@ -428,6 +438,23 @@
   </data>
   <data name="DynShelfNotSaved" xml:space="preserve">
     <value>shelf.json tidak bisa dibaca, jadi perubahan pada rak tidak disimpan kali ini.</value>
+  </data>
+  <data name="DynShelfNote" xml:space="preserve">
+    <value>Catatan</value>
+  </data>
+  <data name="DynShelfNoteCut" xml:space="preserve">
+    <value>Teksnya lebih dari {0} karakter: sisanya tidak disimpan.</value>
+    <comment>{0} = the longest text kept, 20000</comment>
+  </data>
+  <data name="DynShelfNoteLines" xml:space="preserve">
+    <value>Catatan, {0} baris</value>
+    <comment>{0} = how many lines the note has (2 or more)</comment>
+  </data>
+  <data name="DynShelfNothing" xml:space="preserve">
+    <value>Tidak ada yang ditambahkan: tidak ada file, tautan, atau teks.</value>
+  </data>
+  <data name="DynShelfPaste" xml:space="preserve">
+    <value>Tempel file, tautan, atau teks dari papan klip</value>
   </data>
   <data name="DynShelfRemove" xml:space="preserve">
     <value>Hapus {0} dari rak</value>
@@ -650,8 +677,18 @@
     <value>Pratinjau {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="QsAdd" xml:space="preserve">
+    <value>Tambah</value>
+  </data>
   <data name="QsAirplaneMode" xml:space="preserve">
     <value>Mode pesawat</value>
+  </data>
+  <data name="QsAllSettings" xml:space="preserve">
+    <value>Semua pengaturan</value>
+  </data>
+  <data name="QsBack" xml:space="preserve">
+    <value>Kembali</value>
+    <comment>Quick settings: back from the Wi-Fi list to the tiles.</comment>
   </data>
   <data name="QsBluetooth" xml:space="preserve">
     <value>Bluetooth</value>
@@ -672,6 +709,21 @@
   <data name="QsChecking" xml:space="preserve">
     <value>Memeriksa layar mana yang bisa diatur kecerahannya...</value>
   </data>
+  <data name="QsConnected" xml:space="preserve">
+    <value>Terhubung</value>
+  </data>
+  <data name="QsDone" xml:space="preserve">
+    <value>Selesai</value>
+  </data>
+  <data name="QsDragSliderToMove" xml:space="preserve">
+    <value>Seret ke penggeser lain untuk memindahkannya</value>
+  </data>
+  <data name="QsDragToMove" xml:space="preserve">
+    <value>Seret ke tombol lain untuk memindahkannya</value>
+  </data>
+  <data name="QsEdit" xml:space="preserve">
+    <value>Edit pengaturan cepat</value>
+  </data>
   <data name="QsHotspot" xml:space="preserve">
     <value>Hotspot seluler</value>
   </data>
@@ -681,11 +733,28 @@
   <data name="QsMute" xml:space="preserve">
     <value>Bisukan</value>
   </data>
+  <data name="QsNotConnected" xml:space="preserve">
+    <value>Tidak terhubung</value>
+  </data>
   <data name="QsNothing" xml:space="preserve">
     <value>Windows tidak menyediakan kontrol volume atau kecerahan di PC ini saat ini.</value>
   </data>
+  <data name="QsNothingToAdd" xml:space="preserve">
+    <value>Semua tombol sudah tampil</value>
+  </data>
+  <data name="QsPercent" xml:space="preserve">
+    <value>{0}%</value>
+    <comment>{0}: the battery level.</comment>
+  </data>
   <data name="QsProject" xml:space="preserve">
     <value>Proyeksikan</value>
+  </data>
+  <data name="QsRemoveTile" xml:space="preserve">
+    <value>Hapus {0}</value>
+    <comment>{0}: the tile's name, such as Bluetooth.</comment>
+  </data>
+  <data name="QsUnavailable" xml:space="preserve">
+    <value>Tidak tersedia</value>
   </data>
   <data name="QsVolume" xml:space="preserve">
     <value>Volume</value>
@@ -696,6 +765,10 @@
   </data>
   <data name="QsWifi" xml:space="preserve">
     <value>Wi-Fi</value>
+  </data>
+  <data name="QsWifiNetworks" xml:space="preserve">
+    <value>Tampilkan jaringan Wi-Fi</value>
+    <comment>Quick settings: the chevron beside the Wi-Fi switch (name and tooltip).</comment>
   </data>
   <data name="RingBattery" xml:space="preserve">
     <value>Baterai {0}%</value>
@@ -756,6 +829,28 @@
   </data>
   <data name="RunAsAdmin" xml:space="preserve">
     <value>Jalankan sebagai administrator</value>
+  </data>
+  <data name="SbAdd" xml:space="preserve">
+    <value>Tambah widget</value>
+  </data>
+  <data name="SbDock" xml:space="preserve">
+    <value>Biarkan terbuka (tetap terpasang)</value>
+  </data>
+  <data name="SbEmpty" xml:space="preserve">
+    <value>Belum ada widget di bilah samping. Tambahkan dengan + di atas.</value>
+  </data>
+  <data name="SbReadOnly" xml:space="preserve">
+    <value>widgets.json tidak dapat dibaca, jadi perubahan tidak disimpan kali ini. Salinannya disimpan di sebelahnya.</value>
+  </data>
+  <data name="SbResize" xml:space="preserve">
+    <value>Seret untuk mengubah lebar bilah samping</value>
+    <comment>The sidebar's inner edge.</comment>
+  </data>
+  <data name="SbSettings" xml:space="preserve">
+    <value>Pengaturan widget</value>
+  </data>
+  <data name="SbUndock" xml:space="preserve">
+    <value>Biarkan muncul dari tepi</value>
   </data>
   <data name="SearchActBluetooth" xml:space="preserve">
     <value>Bluetooth &amp; perangkat</value>
@@ -972,6 +1067,12 @@
   <data name="SetDynLevelsNote" xml:space="preserve">
     <value>Machitan menangani tombol volume dan menyembunyikan flyout volume dan kecerahan Windows, sehingga hanya Dynaland yang menampilkan levelnya. Saat Dynaland tersembunyi (aplikasi layar penuh), flyout bawaan Windows kembali.</value>
   </data>
+  <data name="SetDynLyrics" xml:space="preserve">
+    <value>Lirik tersinkron</value>
+  </data>
+  <data name="SetDynLyricsNote" xml:space="preserve">
+    <value>Lirik lagu yang diputar, selaras dengan lagunya, dari LRCLIB (lrclib.net), di Dynaland dan di widget Sedang diputar. Untuk setiap lagu, judul, artis, dan durasinya dikirim ke sana.</value>
+  </data>
   <data name="SetDynNotifications" xml:space="preserve">
     <value>Pemberitahuan baru tampil di Dynaland</value>
   </data>
@@ -1145,6 +1246,10 @@
   <data name="SetPageAbout" xml:space="preserve">
     <value>Tentang</value>
   </data>
+  <data name="SetPageBoard" xml:space="preserve">
+    <value>Widget</value>
+    <comment>Settings page and the sidebar's title: the widget sidebar.</comment>
+  </data>
   <data name="SetPageDynaland" xml:space="preserve">
     <value>Dynaland</value>
   </data>
@@ -1167,7 +1272,7 @@
     <value>Bilah tugas</value>
   </data>
   <data name="SetPageWidgets" xml:space="preserve">
-    <value>Widget sudut</value>
+    <value>Indikator</value>
   </data>
   <data name="SetPeekDesktop" xml:space="preserve">
     <value>Intip desktop</value>
@@ -1237,17 +1342,24 @@
     <value>Log pemecahan masalah di {0}. Isinya bisa berupa nama aplikasi, jalur file, dan judul jendela, dan tetap di PC ini kecuali Anda membagikannya.</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="SetPrivacyLyrics" xml:space="preserve">
+    <value>Dengan lirik tersinkron aktif, Machitan mengirim judul, artis, dan durasi lagu yang diputar ke LRCLIB (lrclib.net) untuk mencari liriknya, dan untuk pemutar bergaya Winamp kata-kata dari nama filenya bila tidak ada yang ditemukan. File .lrc di samping lagu dibaca di PC ini.</value>
+  </data>
   <data name="SetPrivacyRing" xml:space="preserve">
     <value>Baterai, jaringan, dan volume berasal dari Windows di PC ini. Nama Wi-Fi berasal dari daftar jaringan Windows, jadi izin lokasi tidak diperlukan.</value>
   </data>
   <data name="SetPrivacyShelf" xml:space="preserve">
-    <value>Jalur file dan folder yang Anda taruh di rak Dynaland, di {0}. Hanya jalurnya: tidak ada yang disalin, dan tidak ada yang keluar dari PC ini.</value>
+    <value>Apa yang Anda taruh di rak Dynaland, di {0}: jalur file dan folder (hanya jalurnya: tidak ada yang disalin), serta tautan dan teks apa adanya. Tidak ada yang keluar dari PC ini.</value>
   </data>
   <data name="SetPrivacyUpdates" xml:space="preserve">
     <value>Saat pembaruan diperiksa (saat mulai dan sekali sehari selama opsi itu aktif, dan saat Anda memeriksa), Machitan menanyakan rilis terbarunya ke GitHub (api.github.com), sehingga GitHub melihat alamat internet PC ini dan versi Machitan. Pembaruan hanya diunduh dari GitHub saat Anda setuju.</value>
   </data>
   <data name="SetPrivacyWeather" xml:space="preserve">
-    <value>Saat cuaca aktif, Machitan meminta lokasi PC ini kepada Windows paling banyak sekali sejam, membulatkannya hingga sekitar 1 km, lalu mengirimkannya ke Open-Meteo (open-meteo.com) setiap 15 menit. Jika Windows memblokir lokasi untuk aplikasi desktop, cuaca tetap tersembunyi. Dengan tempat yang Anda pilih, koordinat bulatnya yang dikirim, dan pencarian tempat mengirim nama yang Anda ketik ke Open-Meteo. Tidak ada hal lain yang keluar dari PC ini.</value>
+    <value>Saat cuaca aktif di baris info, atau widget Cuaca tampil, Machitan meminta lokasi PC ini kepada Windows paling banyak sekali sejam, membulatkannya hingga sekitar 1 km, lalu mengirimkannya ke Open-Meteo (open-meteo.com) setiap 15 menit. Jika Windows memblokir lokasi untuk aplikasi desktop, cuaca tetap tersembunyi. Dengan tempat yang Anda pilih, koordinat bulatnya yang dikirim, dan pencarian tempat mengirim nama yang Anda ketik ke Open-Meteo. Tidak ada hal lain yang keluar dari PC ini.</value>
+  </data>
+  <data name="SetPrivacyWidgets" xml:space="preserve">
+    <value>Widget yang Anda tambahkan, apa yang Anda ketik di catatan, serta letak dan ukuran widget, di {0}. Tidak ada yang keluar dari PC ini.</value>
+    <comment>{0} = the path of widgets.json</comment>
   </data>
   <data name="SetRecentItems" xml:space="preserve">
     <value>Item terbaru</value>
@@ -1290,10 +1402,61 @@
     <value>Bentuk</value>
   </data>
   <data name="SetShelf" xml:space="preserve">
-    <value>Rak file</value>
+    <value>Rak</value>
   </data>
   <data name="SetShowsWhileUpdate" xml:space="preserve">
     <value>Tampil saat ada pembaruan yang menunggu.</value>
+  </data>
+  <data name="SetSidebar" xml:space="preserve">
+    <value>Bilah samping</value>
+  </data>
+  <data name="SetSidebarAddNote" xml:space="preserve">
+    <value>Tambahkan widget dengan + di bagian atas bilah samping. Tidak ada yang ditambahkan secara bawaan.</value>
+  </data>
+  <data name="SetSidebarDocked" xml:space="preserve">
+    <value>Tetap terpasang</value>
+  </data>
+  <data name="SetSidebarEdge" xml:space="preserve">
+    <value>Buka dengan menunjuk tepi layar</value>
+  </data>
+  <data name="SetSidebarEdgeNote" xml:space="preserve">
+    <value>Diamkan penunjuk di tepi layar sebentar (tidak di dekat bagian atas atau bawahnya).</value>
+  </data>
+  <data name="SetSidebarFull" xml:space="preserve">
+    <value>Setinggi layar</value>
+  </data>
+  <data name="SetSidebarHeight" xml:space="preserve">
+    <value>Tinggi saat tetap terpasang</value>
+  </data>
+  <data name="SetSidebarHeightNote" xml:space="preserve">
+    <value>Setinggi layar: dari atas layar sampai bawah; indikator di sudut itu berada di sampingnya. Sisakan ruang: indikator tetap di sudutnya, dan bilah samping dimulai di bawahnya (atau berakhir di atasnya).</value>
+  </data>
+  <data name="SetSidebarMode" xml:space="preserve">
+    <value>Cara tampil</value>
+  </data>
+  <data name="SetSidebarModeNote" xml:space="preserve">
+    <value>Tetap terpasang membuatnya selalu terbuka, dan jendela yang dimaksimalkan berhenti di sampingnya.</value>
+  </data>
+  <data name="SetSidebarNote" xml:space="preserve">
+    <value>Panel di sisi layar yang memuat widget Anda.</value>
+  </data>
+  <data name="SetSidebarRoom" xml:space="preserve">
+    <value>Sisakan ruang untuk indikator</value>
+  </data>
+  <data name="SetSidebarShow" xml:space="preserve">
+    <value>Tampilkan bilah samping</value>
+  </data>
+  <data name="SetSidebarShowNote" xml:space="preserve">
+    <value>Membukanya sekarang, siap untuk keyboard.</value>
+  </data>
+  <data name="SetSidebarSide" xml:space="preserve">
+    <value>Sisi</value>
+  </data>
+  <data name="SetSidebarSlides" xml:space="preserve">
+    <value>Muncul dari tepi</value>
+  </data>
+  <data name="SetSidebarWidthNote" xml:space="preserve">
+    <value>Atau seret tepi dalam bilah samping; klik dua kali untuk lebar standar. Mulai lebar 560, widget tampil dua berdampingan.</value>
   </data>
   <data name="SetSize" xml:space="preserve">
     <value>Ukuran</value>
@@ -1656,6 +1819,310 @@
   </data>
   <data name="UpdWhatsNew" xml:space="preserve">
     <value>Yang baru</value>
+  </data>
+  <data name="WgClock" xml:space="preserve">
+    <value>Jam</value>
+  </data>
+  <data name="WgClockCalendar" xml:space="preserve">
+    <value>Jam dan kalender</value>
+  </data>
+  <data name="WgCustomize" xml:space="preserve">
+    <value>Sesuaikan</value>
+  </data>
+  <data name="WgDragHint" xml:space="preserve">
+    <value>{0}: seret di sini untuk memindahkannya</value>
+    <comment>{0} is the widget's name; its name row on the desktop.</comment>
+  </data>
+  <data name="WgMoveDown" xml:space="preserve">
+    <value>Pindah ke bawah</value>
+  </data>
+  <data name="WgMoveUp" xml:space="preserve">
+    <value>Pindah ke atas</value>
+  </data>
+  <data name="WgNote" xml:space="preserve">
+    <value>Catatan teks</value>
+  </data>
+  <data name="WgNoteHint" xml:space="preserve">
+    <value>Ketik catatan</value>
+  </data>
+  <data name="WgNothingPlaying" xml:space="preserve">
+    <value>Tidak ada yang diputar.</value>
+  </data>
+  <data name="WgNowPlaying" xml:space="preserve">
+    <value>Sedang diputar</value>
+  </data>
+  <data name="WgOpt12" xml:space="preserve">
+    <value>12 jam</value>
+  </data>
+  <data name="WgOpt24" xml:space="preserve">
+    <value>24 jam</value>
+  </data>
+  <data name="WgOptAlign" xml:space="preserve">
+    <value>Perataan</value>
+  </data>
+  <data name="WgOptAnalog" xml:space="preserve">
+    <value>Analog</value>
+  </data>
+  <data name="WgOptBar" xml:space="preserve">
+    <value>Bilah kemajuan</value>
+  </data>
+  <data name="WgOptButtons" xml:space="preserve">
+    <value>Tombol</value>
+  </data>
+  <data name="WgOptCelsius" xml:space="preserve">
+    <value>Celsius</value>
+  </data>
+  <data name="WgOptCenter" xml:space="preserve">
+    <value>Tengah</value>
+  </data>
+  <data name="WgOptCompact" xml:space="preserve">
+    <value>Ringkas</value>
+  </data>
+  <data name="WgOptCover" xml:space="preserve">
+    <value>Sampul</value>
+  </data>
+  <data name="WgOptDate" xml:space="preserve">
+    <value>Tanggal</value>
+  </data>
+  <data name="WgOptDateOnly" xml:space="preserve">
+    <value>Tanggal saja</value>
+  </data>
+  <data name="WgOptDigital" xml:space="preserve">
+    <value>Digital</value>
+  </data>
+  <data name="WgOptFace" xml:space="preserve">
+    <value>Tampilan jam</value>
+  </data>
+  <data name="WgOptFahrenheit" xml:space="preserve">
+    <value>Fahrenheit</value>
+  </data>
+  <data name="WgOptFull" xml:space="preserve">
+    <value>Lengkap</value>
+  </data>
+  <data name="WgOptHours" xml:space="preserve">
+    <value>Format jam</value>
+  </data>
+  <data name="WgOptLarge" xml:space="preserve">
+    <value>Besar</value>
+  </data>
+  <data name="WgOptLayout" xml:space="preserve">
+    <value>Tata letak</value>
+  </data>
+  <data name="WgOptLeft" xml:space="preserve">
+    <value>Kiri</value>
+  </data>
+  <data name="WgOptLong" xml:space="preserve">
+    <value>Panjang</value>
+  </data>
+  <data name="WgOptLyrics" xml:space="preserve">
+    <value>Lirik (bila Lirik tersinkron aktif di Pengaturan &gt; Dynaland)</value>
+  </data>
+  <data name="WgOptMedium" xml:space="preserve">
+    <value>Sedang</value>
+  </data>
+  <data name="WgOptPlace" xml:space="preserve">
+    <value>Tempat</value>
+  </data>
+  <data name="WgOptRange" xml:space="preserve">
+    <value>Tertinggi dan terendah hari ini</value>
+  </data>
+  <data name="WgOptRight" xml:space="preserve">
+    <value>Kanan</value>
+  </data>
+  <data name="WgOptSeconds" xml:space="preserve">
+    <value>Detik</value>
+  </data>
+  <data name="WgOptShort" xml:space="preserve">
+    <value>Pendek</value>
+  </data>
+  <data name="WgOptShow" xml:space="preserve">
+    <value>Tampilkan</value>
+  </data>
+  <data name="WgOptSize" xml:space="preserve">
+    <value>Ukuran</value>
+  </data>
+  <data name="WgOptSmall" xml:space="preserve">
+    <value>Kecil</value>
+  </data>
+  <data name="WgOptSystem" xml:space="preserve">
+    <value>Seperti Windows</value>
+  </data>
+  <data name="WgOptTextSize" xml:space="preserve">
+    <value>Ukuran teks</value>
+  </data>
+  <data name="WgOptTimeDate" xml:space="preserve">
+    <value>Waktu dan tanggal</value>
+  </data>
+  <data name="WgOptTimeOnly" xml:space="preserve">
+    <value>Waktu saja</value>
+  </data>
+  <data name="WgOptUnit" xml:space="preserve">
+    <value>Suhu</value>
+  </data>
+  <data name="WgOptions" xml:space="preserve">
+    <value>Opsi untuk {0}</value>
+    <comment>{0} is the widget's name.</comment>
+  </data>
+  <data name="WgRemove" xml:space="preserve">
+    <value>Hapus</value>
+  </data>
+  <data name="WgRemoveAsk" xml:space="preserve">
+    <value>Hapus widget ini? Yang Anda ketik di dalamnya ikut terhapus.</value>
+  </data>
+  <data name="WgResize" xml:space="preserve">
+    <value>{0}: seret untuk mengubah ukuran; klik dua kali untuk ukuran standar</value>
+    <comment>{0} = the widget's name</comment>
+  </data>
+  <data name="WgResizeHeight" xml:space="preserve">
+    <value>{0}: seret untuk mengubah tinggi; klik dua kali agar pas dengan isinya</value>
+    <comment>{0} = the widget's name</comment>
+  </data>
+  <data name="WgToDesktop" xml:space="preserve">
+    <value>Pindahkan ke desktop</value>
+    <comment>A sidebar widget's menu: it goes on the desktop, behind the windows.</comment>
+  </data>
+  <data name="WgToSidebar" xml:space="preserve">
+    <value>Pindahkan ke bilah samping</value>
+  </data>
+  <data name="WgWeather" xml:space="preserve">
+    <value>Cuaca</value>
+  </data>
+  <data name="WgWeatherHere" xml:space="preserve">
+    <value>Di sini (lokasi Windows)</value>
+  </data>
+  <data name="WgWeatherNone" xml:space="preserve">
+    <value>Belum ada cuaca untuk ditampilkan. Perlu internet dan lokasi Windows (diizinkan untuk aplikasi desktop), atau tempat yang dipilih di Pengaturan &gt; Indikator.</value>
+  </data>
+  <data name="WgWeatherRange" xml:space="preserve">
+    <value>Tertinggi {0}, terendah {1}</value>
+    <comment>{0}, {1} = today's highest and lowest temperature, with the degree sign</comment>
+  </data>
+  <data name="WgWeatherSettings" xml:space="preserve">
+    <value>Pengaturan cuaca</value>
+  </data>
+  <data name="WgWeatherSource" xml:space="preserve">
+    <value>Open-Meteo, pukul {0}</value>
+    <comment>{0} = the time the weather was read</comment>
+  </data>
+  <data name="WifiConnect" xml:space="preserve">
+    <value>Hubungkan</value>
+  </data>
+  <data name="WifiConnectAuto" xml:space="preserve">
+    <value>Hubungkan secara otomatis</value>
+  </data>
+  <data name="WifiConnectedOpen" xml:space="preserve">
+    <value>Terhubung, terbuka</value>
+  </data>
+  <data name="WifiConnectedSecured" xml:space="preserve">
+    <value>Terhubung, diamankan</value>
+  </data>
+  <data name="WifiConnecting" xml:space="preserve">
+    <value>Menghubungkan...</value>
+  </data>
+  <data name="WifiDisconnect" xml:space="preserve">
+    <value>Putuskan</value>
+  </data>
+  <data name="WifiEnterKey" xml:space="preserve">
+    <value>Masukkan kunci keamanan jaringan</value>
+  </data>
+  <data name="WifiEnterSsid" xml:space="preserve">
+    <value>Masukkan nama (SSID) jaringan</value>
+  </data>
+  <data name="WifiErrDisconnect" xml:space="preserve">
+    <value>Windows tidak dapat memutuskan sambungan.</value>
+  </data>
+  <data name="WifiErrFailed" xml:space="preserve">
+    <value>Windows tidak dapat terhubung ke jaringan ini.</value>
+  </data>
+  <data name="WifiErrGone" xml:space="preserve">
+    <value>Jaringan ini sedang di luar jangkauan.</value>
+  </data>
+  <data name="WifiErrKey" xml:space="preserve">
+    <value>Kunci keamanan jaringan itu salah.</value>
+  </data>
+  <data name="WifiErrNoAccess" xml:space="preserve">
+    <value>Windows tidak lagi mengizinkan Machitan menghubungkan Wi-Fi.</value>
+  </data>
+  <data name="WifiErrSignIn" xml:space="preserve">
+    <value>Nama pengguna atau kata sandi itu salah.</value>
+  </data>
+  <data name="WifiErrTimeout" xml:space="preserve">
+    <value>Windows terlalu lama menghubungkan. Coba lagi.</value>
+  </data>
+  <data name="WifiErrUnsupported" xml:space="preserve">
+    <value>Windows tidak dapat masuk ke jaringan ini dari sini. Gunakan Pengaturan Wi-Fi lainnya.</value>
+  </data>
+  <data name="WifiFailed" xml:space="preserve">
+    <value>Windows tidak dapat menampilkan jaringan Wi-Fi. Alasannya ada di diagnostics.log.</value>
+  </data>
+  <data name="WifiHidden" xml:space="preserve">
+    <value>Jaringan tersembunyi</value>
+  </data>
+  <data name="WifiLocationSettings" xml:space="preserve">
+    <value>Buka pengaturan lokasi</value>
+  </data>
+  <data name="WifiLooking" xml:space="preserve">
+    <value>Mencari jaringan...</value>
+    <comment>Wi-Fi list: while Windows looks and nothing is listed yet.</comment>
+  </data>
+  <data name="WifiMoreSettings" xml:space="preserve">
+    <value>Pengaturan Wi-Fi lainnya</value>
+    <comment>Wi-Fi list: opens Windows' Wi-Fi settings.</comment>
+  </data>
+  <data name="WifiNext" xml:space="preserve">
+    <value>Berikutnya</value>
+  </data>
+  <data name="WifiNoAdapter" xml:space="preserve">
+    <value>Windows tidak menemukan adaptor Wi-Fi di PC ini.</value>
+  </data>
+  <data name="WifiNoInternetOpen" xml:space="preserve">
+    <value>Tanpa internet, terbuka</value>
+  </data>
+  <data name="WifiNoInternetSecured" xml:space="preserve">
+    <value>Tanpa internet, diamankan</value>
+  </data>
+  <data name="WifiNoLocation" xml:space="preserve">
+    <value>Windows hanya menampilkan jaringan Wi-Fi ke aplikasi yang boleh memakai lokasi Anda. Aktifkan "Izinkan aplikasi desktop mengakses lokasi Anda", lalu buka daftar ini lagi.</value>
+    <comment>Wi-Fi list: Windows 11 24H2 and later. Use Windows' own name for the location setting in your language.</comment>
+  </data>
+  <data name="WifiNone" xml:space="preserve">
+    <value>Tidak ada jaringan Wi-Fi yang ditemukan.</value>
+  </data>
+  <data name="WifiOffNote" xml:space="preserve">
+    <value>Wi-Fi nonaktif. Aktifkan untuk melihat jaringan di sekitar.</value>
+  </data>
+  <data name="WifiOpen" xml:space="preserve">
+    <value>Terbuka</value>
+    <comment>Wi-Fi list: a network without a key (not the verb).</comment>
+  </data>
+  <data name="WifiPassword" xml:space="preserve">
+    <value>Kata sandi</value>
+  </data>
+  <data name="WifiRefresh" xml:space="preserve">
+    <value>Cari jaringan lagi</value>
+    <comment>Wi-Fi list: the refresh button (name and tooltip).</comment>
+  </data>
+  <data name="WifiSavedFailed" xml:space="preserve">
+    <value>Windows tidak dapat terhubung ke jaringan ini. Mungkin di luar jangkauan.</value>
+  </data>
+  <data name="WifiSavedNote" xml:space="preserve">
+    <value>Tanpa akses lokasi, Windows tidak menampilkan jaringan di sekitar. Ini jaringan yang disimpan Windows; salah satunya terhubung bila dalam jangkauan.</value>
+  </data>
+  <data name="WifiSavedState" xml:space="preserve">
+    <value>Tersimpan</value>
+    <comment>Wi-Fi list without location: a network Windows has saved.</comment>
+  </data>
+  <data name="WifiSavedTitle" xml:space="preserve">
+    <value>Jaringan tersimpan</value>
+  </data>
+  <data name="WifiSecured" xml:space="preserve">
+    <value>Diamankan</value>
+  </data>
+  <data name="WifiUnavailableNote" xml:space="preserve">
+    <value>Windows melaporkan Wi-Fi sedang tidak tersedia.</value>
+  </data>
+  <data name="WifiUserName" xml:space="preserve">
+    <value>Nama pengguna</value>
   </data>
   <data name="WinXComputerManagement" xml:space="preserve">
     <value>Manajemen Kompute&amp;r</value>

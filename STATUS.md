@@ -431,6 +431,383 @@ antislop Delivery Gate (during mode), UI: the plug is drawn with the Wi-Fi icon'
 - Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 N/A. R-27 PASS (battery not readable: track only, said so in the tooltip; no network name: "Ethernet"). R-32 N/A. R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; code inspection). R-39 PASS (the tooltip and name say what the rim means). Others N/A.
 - Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
 
+### Quick settings in Windows 11's look (2026-11-26)
+
+Sam (00:19), with two pictures (Windows 11's own quick settings: Wi-Fi wide "POCO X5 5G / Connected", Bluetooth, Energy saver; Live captions, Night light (on), Mobile hotspot, Nearby sharing; Cast, Project, Airplane mode; "Volume - Headphones (Realtek(R) Audio)" 50; Brightness 40; and its bottom band: a red battery and "15%", the cogwheel): "change the Quick Settings flyout to this. 2nd image if the bottom part, after the brightness slider. before the cogwheel, add pencil icon for customization."
+
+Told Sam first: Energy saver, Night light and Nearby sharing are left out of this build: Windows offers apps no supported way to switch them (Energy saver: only `PowerManager.EnergySaverStatus` to read; the known ways to switch are an admin-only registry value, `HKLM\SYSTEM\CurrentControlSet\Control\Power\EcoModeState`, or Windows' internal settings; Night light: only Windows' internal CloudStore data; Nearby sharing: only the CDP registry values). They get their own test before any of them ships. Also found and told: the four Settings > Dynaland switches of part 5b were never saved (SettingsStore writes and reads each setting by name, and they were not added).
+
+**Status: delivered, waiting for build and Sam's test.** No new packages. Settings: `QuickTileOrder` (all tile ids, comma separated; new tiles land at their default place, as FolderOrder) and `QuickTilesHidden` (ids taken off; none by default). 11 new strings (`QsConnected`, `QsNotConnected`, `QsUnavailable`, `QsEdit`, `QsAllSettings`, `QsAdd`, `QsDone`, `QsNothingToAdd`, `QsRemoveTile`, `QsDragToMove`, `QsPercent`).
+
+- `Flyouts/QuickSettingsFlyout.cs`: 392 DIP wide (was 360). Tiles four to a row, 72 DIP tall, 9 DIP apart, 8 DIP corners: a ToggleButton for each switch (WinUI's own checked look is the accent fill with dark text, as in the picture), a Button for Cast and Project; the icon (16) above the name (12, two lines at most). Wi-Fi spans two columns (to the next row when only one is left): its icon (18), the network's name (14 semi-bold; "Wi-Fi" when none) and "Connected", "Not connected", "Off" or "Not available". The sliders as before (the speaker is now a plain icon button, as in the picture). The bottom band (48 DIP, a shade darker with a hairline, as Windows'): the battery (drawn: Windows' outline with the level filled in, red under the status ring's low-battery level, a bolt while charging; "15%"; not shown without a battery; opens `ms-settings:batterysaver`), the pencil (E70F) and the cogwheel (E713, opens `ms-settings:`). The edit mode: tiles do not switch; each has a pin (E77A) to take it off; a tile dragged onto another takes its place (the ones between move over by one); Add (greyed when nothing is off) lists the tiles taken off that this PC has; Done or Escape ends it; closing the flyout ends it too. The tiles taken off and the order go to settings.json at once.
+- `Shell/QuickToggles.cs`: Wi-Fi's name also when the PC is connected to a Wi-Fi without internet (any connected WLAN profile), so the tile does not say "Not connected" then.
+- `Config/ShellSettings.cs`: `QuickTileIds`, `QuickTileOrder`, `QuickTilesHidden`, their parsers (the folder order's parser now serves both), and Normalize.
+- `Config/SettingsStore.cs`: **fix:** `DynalandLevels`, `DynalandNotifications`, `DynalandCharging`, `DynalandClipboard` are saved and read now (a `ReadBool` helper); `QuickTileOrder` and `QuickTilesHidden` too.
+
+To check (Sam):
+1. Build: 0 errors, 0 warnings.
+2. Win+A: the tiles as in the picture (without Energy saver, Night light, Nearby sharing): Wi-Fi wide with the network's name and "Connected"; each tile switches as before (greyed while Windows works); Cast and Project open Windows' own.
+3. The sliders as before; the band: the battery and its level (red under the low level, a bolt while charging), the pencil, the cogwheel (Windows' Settings); the battery opens Windows' battery settings.
+4. The pencil: take Bluetooth off (its pin), bring it back (Add), drag a tile onto another, Done. Close and open again (and restart Machitan): the same tiles in the same order.
+5. Settings > Dynaland: turn one switch off, restart Machitan: still off.
+
+antislop Delivery Gate (during mode), UI: built from WinUI's own ToggleButton and Button (their states, focus and accent come with them) to Windows 11's own quick settings in Sam's picture; sizes from the picture (at 150 %: tiles about 85 x 70 DIP, 9 DIP apart, 8 DIP corners); the band's battery drawn as Windows' outline. Nothing decorative. Real data only: every tile is a switch Windows reports, the name is Windows' Wi-Fi profile, the battery is Windows' reading. Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 PASS (the edit mode always has Done and Escape; nothing is lost: a tile taken off comes back with Add). R-27 PASS (no battery: no battery; no tiles left: Add brings them back). R-32 PASS (every control is a button with a name; the pins and Add/Done are reachable by keyboard; moving a tile needs the pointer, the order is otherwise kept). R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; text and name checks, code inspection). R-39 PASS (tiles, pins, the battery and the band's buttons have names; Wi-Fi's name says the network and whether it is connected). Others N/A.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+### Quick settings: the sliders move too (2026-11-26)
+
+Built after a one-line fix (Sam, 00:31: CS1929, `IReadOnlyList<QuickToggle>` has no `Contains` without LINQ, QuickSettingsFlyout.cs line 352: a loop now). Sam (00:42): "now, make the brightness and volume sliders movable"; asked which (the edit mode's order, Dynaland's bars, or a bug): "Quick Settings, edit mode".
+
+**Status: delivered, waiting for build and Sam's test.** No new packages. Setting: `QuickSliderOrder` ("Volume,Brightness" by default, parsed as the other orders). 1 new string (`QsDragSliderToMove`).
+
+- `Flyouts/QuickSettingsFlyout.cs`: the sliders are added in their order (every screen's brightness row together, as one). In the edit mode each slider row takes no input, shows a gripper (E76F) on its right, and can be dragged onto the other slider to take its place (tiles and sliders do not mix: each only accepts its own kind).
+- `Config/ShellSettings.cs`, `Config/SettingsStore.cs`: `QuickSliderIds`, `QuickSliderOrder`, its parser, Normalize, saved and read.
+
+To check (Sam): build; Win+A, the pencil: drag the brightness row onto the volume row: brightness first; Done; close, open, restart: still so. A tile dropped on a slider (or a slider on a tile) does nothing.
+
+antislop Delivery Gate (during mode), UI: the edit mode's slider rows get Windows' gripper glyph, nothing else new. Real data only (no change). Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-26 PASS (Done and Escape as before). R-32 PASS (moving needs the pointer, as for the tiles). R-35 NOT RUN (Claude cannot run on this PC; code inspection). R-39 PASS (the rows keep their names; the gripper's tooltip says what to do). Others N/A or as before.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+### Quick settings: the Wi-Fi list (2026-11-26)
+
+Sam (06:44): "also, how i can switch to another wifi?" Two ways offered (Windows' own Wi-Fi settings, or Machitan's own list inside Win+A). Sam (06:48): "2nd option. but with arrow/chevron to access it."
+
+Found first: since Windows 11 24H2 an app may only list Wi-Fi networks while "Let desktop apps access your location" is on (Settings > Privacy & security > Location); otherwise `WiFiAdapter.RequestAccessAsync` answers DeniedBySystem (and the WLAN API error 5). Windows asks once per app, and shows its location icon while an app looks for networks. So the list says so plainly when it is off and opens that setting; nothing is looked at once the list closes.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, no new settings. 36 new strings (`QsWifiNetworks`, `QsBack`, `Wifi*`).
+
+- `Shell/WifiList.cs` (new): Windows' Wi-Fi API (Windows.Devices.WiFi). Access (not Allowed: NoLocation, logged once), the first adapter, `ScanAsync`, `NetworkReport` grouped by name (the strongest access point; every hidden network is one "Hidden network"; Wi-Fi Direct and ad hoc left out, as in Windows' list), the connected network and whether it reaches the internet (`NetworkAdapter.GetConnectedProfileAsync`), `ConnectAsync` (Windows' saved key first; then a typed key as a `PasswordCredential`, with a user name for work or school networks and the name for a hidden one), `Disconnect`, `AvailableNetworksChanged` followed only while the list is open. Secured and enterprise are read from `NetworkAuthenticationType` by number (Owe is 12, SDK 19041). The log has counts and results only, never a network's name.
+- `Flyouts/QuickSettingsFlyout.Wifi.cs` (new, the same class): the chevron (E76C; a Button 40 DIP wide, 2 DIP from the switch, WinUI's `AccentButtonStyle` while Wi-Fi is on and `DefaultButtonStyle` while off, so it matches the switch's fill). The list replaces the tiles and sliders (the band stays): back (E76B), "Wi-Fi", look again (E72C), Windows' Wi-Fi switch (a ToggleSwitch that waits for Windows as the tiles do); a thin moving bar while Windows looks; the networks (signal bars E872/E873/E874/E701 over a faint E701, a lock E72E when secured, the name, "Connected, secured", "No internet, open", "Secured" and the like); a network opens with "Connect automatically" (on, as in Windows) and Connect, or Disconnect for the connected one; Connect tries Windows' saved key first and asks for the key only when that does not work (a user name and password for work or school networks, the name first for a hidden network); what went wrong shows under the name. When nothing can be listed it says why: Wi-Fi off, Wi-Fi not available, no location access (with "Open location settings", `ms-settings:privacy-location`), no adapter, Windows failed, still looking, none found. "More Wi-Fi settings" opens `ms-settings:network-wifi`. While open, Windows' list is read again every 4 s and Windows looks again every 30 s; nothing moves while a network is open (a key may be half typed). Escape: drops a key or name being typed, then back to the tiles, then closes. The page is min(432 DIP, 75 % of the screen minus the band), at least 260.
+- `Flyouts/QuickSettingsFlyout.cs`: the Wi-Fi tile is the switch plus the chevron (the edit mode moves them as one tile); `ShowSized` and `Rebuild` know the list (Rebuild keeps it as it is); `ReadSwitch` is shared by the tiles and the list's switch; `SwitchAsync` takes the state asked for; the pencil from the list goes to the edit mode.
+
+To check (Sam):
+1. Build: 0 errors, 0 warnings.
+2. Win+A: the Wi-Fi tile has a chevron on its right, filled with the accent while Wi-Fi is on; the left part still switches Wi-Fi.
+3. The chevron opens the list. The first time Windows may ask whether Machitan may use the location; the flyout closes when Windows asks: answer, then open the list again. With location for desktop apps off: the message and "Open location settings".
+4. The networks: the connected one first, the rest by signal, a lock on the secured ones; the thin bar moves while Windows looks; the round arrow looks again.
+5. A network Windows knows: Connect connects without asking. A new one: Connect asks for the key; a wrong key says so; the right one connects (and Windows keeps it in its known networks). Disconnect on the connected one (Windows may connect again by itself to a known network set to connect automatically).
+6. The switch at the top: Wi-Fi off (the list empties: "Wi-Fi is off") and on (it looks again).
+7. Back, or Escape: the tiles again. "More Wi-Fi settings": Windows' page.
+
+antislop Delivery Gate (during mode), UI: built from WinUI's own Button, ToggleSwitch, ProgressBar, ProgressRing, CheckBox, TextBox and PasswordBox (their states, focus and accent come with them), to Windows 11's own quick settings Wi-Fi list (chevron, back, switch, rows with bars and a lock, Connect at the right, "More Wi-Fi settings" at the bottom). Nothing decorative. Real data only: every network, its bars, lock and state are Windows' report; nothing is shown that Windows did not report; empty states say why. Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 PASS (back, Escape and Cancel everywhere; a typed key is dropped when its step closes). R-27 PASS (off, not available, no location, no adapter, failed, looking, none found: each its own message). R-32 PASS (every row, button and box is reachable by keyboard; Enter sends the key or name). R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; code inspection). R-39 PASS (each row's name says the network and its state; the chevron says "Show Wi-Fi networks"; the boxes have visible labels). Others N/A.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+### Widgets, part 1: the sidebar and the text note; corner widgets are Indicators (2026-11-26)
+
+Sam (07:24): "1. Make sidebar so i can place widgets. also, made widgets also placed at anywhere in desktop. 'Corner Widgets' needs new name though. 2. Synced lyrics in Dynaland. 3. Text note widget (see no. 1). 4. Ability to save links and notes in the Shelf." Asked: the sidebar: "Both, as a setting"; widgets on the desktop: "On the desktop" (behind windows); the name: "well, both info line and status ring aren't 'widgets' actually", then "Indicators"; lyrics: "LRCLIB online". The first widgets: "Clock and calendar, Weather, Now playing, Text note, focus timer/pomodoro, RCS news [RSS, assumed], time and date (clock only), system usage, photo gallery"; (07:37) "also, made those widgets optional". Plan told to Sam: 1 sidebar + text note + rename; 2 widgets on the desktop (spike first: Show desktop); 3 lyrics; 4 the shelf; 5 and 6 the other widgets in two batches. Each part is reported and waits for his go-ahead.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages. Settings: `SidebarOn` (off), `SidebarDocked` (off: slides in), `SidebarLeft` (off: right), `SidebarEdgeHover` (on). New file widgets.json (the widgets added, in order, with their own data; nothing is added by itself). 26 new strings; `SetPageWidgets` is now "Indicators" ("Indikator") and `CmNoneAbout` "No indicators." (the code keeps its CornerWidget names).
+
+- `Shell/WidgetStore.cs` (new): widgets.json (`{"Widgets":[{"Id","Kind","Data":{...}}]}`), at most 30, a value at most 20,000 characters. Kinds this version does not know are kept as they are and not shown. As the pins and the shelf: a file that cannot be read is never written over (a copy is kept, the sidebar says so). `Changed` only for adds, removals and moves; a widget's own data is saved without it.
+- `Widgets/WidgetViews.cs` (new): `WidgetView` (a widget's content, its name and icon, start/stop, save, focus) and `NoteWidget` (a TextBox, Enter for new lines, saved 0.8 s after the last key, when it loses the keyboard, when the sidebar hides and at exit).
+- `Widgets/SidebarWindow.cs` (new, a FlyoutWindow): 360 DIP wide, the free area's full height, 8 DIP from the edges, in the bar's fill. Top: "Widgets", + (the kinds: Text note), the pin (dock or let it slide in), the cogwheel (Settings > Widgets). Each widget in a card (icon, name, the ... menu: Move up, Move down, Remove; removing one with typed text asks first). Slides in: opens when the pointer rests 0.4 s at the edge of the bar's screen, at least 96 DIP away from the free area's top and bottom, never while a mouse button is held or a full-screen app is in front, and without taking the keyboard; it hides 0.6 s after the pointer left it, unless it was clicked (then a click elsewhere hides it); Escape hides it; it opens again only after the pointer left the edge. Docked: always shown, without taking the keyboard, hidden while a full-screen app is in front; Escape and clicks elsewhere leave it.
+- `Widgets/SideStrip.cs` (new): the docked sidebar's AppBar at the left or right edge (made as TopStrip; its messages also go through AppBarRelay).
+- `Flyouts/FlyoutWindow.cs`: `PresentAt(rect, activate)`, so a flyout that takes focus can show without taking it.
+- `Shell/ShellHost.cs`: `WidgetItems` (loaded at start), the sidebar made after Dynaland, `ShowSidebar()`, stopped and closed at exit. `Config/*`: the four settings. `Interop/Shell32.cs`: ABE_LEFT, ABE_RIGHT. `Core/AppPaths.cs`: `WidgetsFile`.
+- `SettingsUi/*`: the "Widgets" page after "Indicators": the sidebar on or off, the side, slides in or docked, opening by pointing, "Show the sidebar", and how widgets are added.
+- README: "Indicators" (was "Corner widgets") and a "Widgets" section.
+
+Not yet: Win+W (Windows keeps it for its own widgets board; taking it only while the sidebar is on needs a change in the keyboard hook: asked Sam). The sidebar does not slide (no animation yet).
+
+**After Sam's first test (09:48, two screenshots, docked):** "fix these. also, make the sidebar resizable." The + menu and the ... menu opened left of the sidebar, their right edge at the strip's left edge. Cause: a WinUI menu is a window of its own, and Windows keeps it inside the screen's free area; the docked sidebar's strip is outside it. Fix (v093-11): the sidebar's menus and the remove question are kept inside the sidebar's own window (`ShouldConstrainToRootBounds`), under their button's right edge; the note has its own cut/copy/paste menus kept inside too. Resizable: `SidebarWidth` (280 to 640 DIP, 360 by default): drag the sidebar's inner edge (a 6 DIP strip with the left-right pointer; the outer edge stays; docked, the strip is made that wide when the drag ends); double-click it for 360; also a Width slider in Settings > Widgets. Tooltips may still open beside a docked sidebar (they cannot be kept inside): to check. Asked about the Wi-Fi list without location: no way around it (Windows' own rule; also Sam's rule: no working around a denied permission); offered a list of Windows' saved networks to connect to, which needs no location (WlanGetProfileList and WlanConnect are not on Microsoft's list of blocked calls; to test).
+
+To check (Sam):
+1. Build: 0 errors, 0 warnings.
+2. Settings: "Indicators" (the info line and the status ring, as before) and "Widgets" after it. Turn the sidebar on.
+3. Rest the pointer at the right edge of the screen (middle height): the sidebar opens; move away: it hides. Near the top-right corner (a window's close button) it does not open.
+4. +, Text note: a note with the keyboard in it; type; close and open the sidebar, restart Machitan: the text is there. Add a second note; Move up/down; Remove one with text (it asks).
+5. Settings: Left; Docked: the sidebar stays, a maximised window stops beside it, the indicators in the corners move beside it; the pin in the sidebar switches back to sliding.
+6. A full-screen video: the docked sidebar goes away and comes back.
+
+antislop Delivery Gate (during mode), UI: the bar's own fill and Machitan's flyout box (as Win+A); cards a shade lighter with a hairline; WinUI's own Button, MenuFlyout, Flyout and TextBox (their states and focus come with them). Nothing decorative; no widget is added by itself. Real data only: a note is what the user typed. Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-26 PASS (a removal that loses text asks first; Escape hides). R-27 PASS (no widgets: says how to add one; widgets.json unreadable: says so). R-32 PASS (every button has a name and is reachable by keyboard once the sidebar has it; Show the sidebar gives it the keyboard). R-33, R-34 PASS. R-35 NOT RUN (Claude cannot run on this PC; code inspection). R-39 PASS (buttons and the note box have names; the ... menu says which widget). Others N/A.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+### Sidebar tips, Win+A closing on Machitan presses, saved Wi-Fi networks (2026-11-26, v093-12)
+
+Sam (11:26, a screenshot of "Widget settings" showing beside the docked sidebar): "fix this. also, do your roundabout, continue to the other rounds, and close Action Center if other elements are clicked." Read as: the tooltip fix; "roundabout" = the saved-networks fallback offered for the Wi-Fi list without location; then go on with parts 2 to 6; and Machitan's Win+A flyout (the "action center in Win+A" of 0.9.2) closes when another part of Machitan is pressed. Told Sam this reading.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, no new settings. 4 new strings.
+
+- `Widgets/SidebarWindow.cs`: no WinUI tooltips (a tooltip is a window of its own and Windows kept it inside the free area, beside the docked sidebar, like the menus before). The header buttons and each card's ... show their name in a tip drawn inside the sidebar (a Popup with ShouldConstrainToRootBounds): under the button, right-aligned, after 0.5 s of pointing or at once when the keyboard reaches it; gone at a press, when the pointer leaves, and when the sidebar hides; Windows' tooltip colours, dark or light.
+- `Flyouts/FlyoutWindow.cs`: `CloseOnMachitanPress` (off by default). While such a flyout is open, every 30 ms: a new press (left, right or middle button) outside it, on a window of Machitan's own (by its owner's process), closes it, as a click on another app does by taking the keyboard. Not a press on a WinUI menu or tip window (class Xaml_WindowedPopup...). The press is kept as the closing click, so TakeClosingClick still works for openers. `Flyouts/QuickSettingsFlyout.cs`: on.
+- Saved Wi-Fi networks: `Interop/Wlan.cs` (WlanGetProfileList, WlanConnect by profile, WlanDisconnect), `Shell/WifiList.cs` (`WifiSaved`), `Flyouts/QuickSettingsFlyout.Saved.cs` (new). When Windows refuses the list for lack of location access, the Wi-Fi list shows: why (and "Open location settings"), then "Saved networks": each with the Wi-Fi sign without bars (nothing nearby is measured), its name, "Saved" or "Connected" (from Windows' network list, every 2 s); open: Connect (Windows connects in the background; the list waits up to 15 s for Windows to report that network, else "Windows could not connect to it. It may be out of reach."), or Disconnect. With no saved network, the location note stays as before. Not a way around Windows' rule: these calls are not on Microsoft's list of calls that need location, and nothing nearby is looked at.
+
+To check (Sam):
+1. Build.
+2. Docked sidebar: point at +, the pin, the cogwheel, a card's ...: the tip shows under the button, inside the sidebar.
+3. Win+A, then click the bar (an app, Start), Dynaland or an indicator: Win+A closes. A click inside Win+A (also its Add menu in the edit mode) does not.
+4. Location off: Win+A > Wi-Fi chevron: the saved networks; Connect one in reach (it connects; "Connected"); one out of reach (after 15 s: may be out of reach); Disconnect.
+
+### Widgets, part 2: widgets on the desktop (2026-11-26, v093-13)
+
+Sam asked: "made widgets also placed at anywhere in desktop", and chose "On the desktop" (behind the windows, like Windows 7 gadgets). Started after Sam's "continue to the other rounds" (11:26).
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, no new settings. 3 new strings; `SbEmpty` now says "No widgets in the sidebar yet".
+
+- `Shell/WidgetStore.cs`: each widget has a place (`Place`: "Sidebar" or "Desktop", read and written by name) and, on the desktop, its window's top-left corner (`X`, `Y`, physical pixels). `SetPlace` (Changed), `SetPosition` (no Changed). Move up and down step only over the sidebar's widgets.
+- `Widgets/DesktopWidgetWindow.cs` (new, a FlyoutWindow that is not on top and not closed by clicks elsewhere or Escape): the widget in a card in the bar's fill, 320 DIP wide, its content 200 DIP tall (`WidgetView.DesktopHeightDip`); name row with the ... menu (Move to the sidebar, while the sidebar is on; Remove, asking first when it holds typed text). Drag it by the name row; when let go it is kept inside its screen's free area and its place is saved. Behind every other window: placed at the bottom of the stacking order, and every stacking change asked of it (a click that gives it the keyboard) is turned into "bottom" (WM_WINDOWPOSCHANGING). A new one goes 24 DIP in from the free area's top-right corner (left of a right-hand sidebar), each next one 28 DIP further. The first time, a test line says whether it is in front of Windows' desktop window (GetShellWindow), walking the stacking order.
+- `Widgets/DesktopWidgets.cs` (new): a window for each widget on the desktop, made and closed as the store changes; started after the sidebar, stopped and closed at exit. They show whether or not the sidebar is on.
+- `Widgets/SidebarWindow.cs`: widgets on the desktop are not in the sidebar; each card's menu has "Move to the desktop". `Flyouts/FlyoutWindow.cs`: `onTop` (constructor) and `OnRawMessage` for derived windows. `Interop/User32.Desktop.cs` (new): GetShellWindow, GW_HWNDNEXT.
+- Show desktop: Machitan's Win+D and the bar's desktop strip minimise the apps' windows only, so the widgets stay and show. Windows' own Show desktop (if anything still calls it) was not tried.
+
+To check (Sam):
+1. Build.
+2. Sidebar: a note's ... > Move to the desktop: it leaves the sidebar and shows near the top right of the screen, behind open windows.
+3. Drag it by its name row; restart Machitan: it comes back there.
+4. Click into it and type: it takes the keyboard but stays behind the other windows. Win+D: the apps go, the note stays.
+5. Its ... > Move to the sidebar: back in the sidebar with its text. Remove with text: it asks.
+6. Your log: the line "Desktop widget (test): ..." (in front of Windows' desktop window, or not).
+
+### Synced lyrics in Dynaland (2026-11-26, v093-14)
+
+Sam asked (07:24): "Synced lyrics in Dynaland"; source: "LRCLIB online", off until turned on.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages. Setting `DynalandLyrics` (off). 2 new strings.
+
+- `Shell/LyricsService.cs` (new): LRCLIB's search (https://lrclib.net/api/search?track_name=&artist_name=; no key; a User-Agent naming Machitan and its page, as LRCLIB asks), once per song as it starts; the answer with synced lyrics whose length is within 2 s of the song's (closest wins). LRC lines parsed ("[mm:ss.xx]", several times on one line, ':' as decimal mark; tags like [ar:] left out), sorted; the line at a time by binary search. Found and not-found songs remembered (64) while Machitan runs. 10 s timeout. The log has line counts and failures only, never a song's title or artist.
+- `Widgets/DynalandWindow.Lyrics.cs` (new, the same class): asks on each new song (its TrackKey) while the setting is on and the app reports a position (HasTimeline); a 200 ms tick while it plays (the line shows 150 ms early); the pill's music line shows the line being sung in place of "title - artist" (an empty line, a pause in the singing, shows the title again); the player shows it in the accent colour under the artist. Turned off: the lookups stop and the title comes back.
+- `Widgets/DynalandWindow.cs`: the player's lyric line, the tick, ApplyMedia and the settings change call FollowLyrics; closing stops the tick and cancels a lookup. `Config/*`, `SettingsUi/SettingsWindow.xaml.cs`: the switch (Settings > Dynaland > Synced lyrics, with what is sent where). README: the Dynaland section says it.
+
+To check (Sam):
+1. Build.
+2. Settings > Dynaland > Synced lyrics on. Play a known song in Spotify (or another app that shows a position in Dynaland's player): within a moment the pill shows the line being sung, changing in time; the player shows it under the artist.
+3. Pause: it stops; seek: it follows. A song LRCLIB does not have: the title as before (log: "Lyrics: none with synced lines for this song.").
+4. Turn it off: the title comes back.
+
+### Lyrics: WACUP, local .lrc, a pill as wide as the line (2026-11-26, v093-15)
+
+Sam (13:06): "does lrclib works with WACUP?" Yes (its title and artist through Windows' media controls, its position and length through Winamp's messages), with two caveats told: tags must match LRCLIB; a jump in WACUP's own window may not reach Windows' controls. Offered a re-read and a local .lrc. Sam (13:14): "yes (local .lrc is used as fallback). plus, make the width adaptive to the lyrics."
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings.
+
+- `Shell/MediaService.cs`: `CheckWinampPosition()` (a Winamp-style player's position and length read again; Changed when more than a second away from where it was expected) and `PlayingFile()`.
+- `Interop/WinampInterop.cs`: `TryGetPlayingFile`: IPC_GETLISTPOS (125), then IPC_GETPLAYLISTFILEW (214), which answers with the address of the path in the player's memory; read there with read access only (OpenProcess PROCESS_VM_READ, ReadProcessMemory, in pieces that never cross a 4 KB page, up to 32,767 characters). Only full local paths count (not streams). The class's description now says so.
+- `Shell/LyricsService.cs`: `ReadLocalAsync`: the .lrc with the song file's name next to it, used when LRCLIB has none or cannot be asked. The log never names the file.
+- `Widgets/DynalandWindow.Lyrics.cs`: the song's file is taken as the lookup starts; the tick reads a Winamp-style player's position every second; while a lyric line shows, the pill may widen to 470 DIP (at the standard width; never wider than Dynaland's own width) and its text to 360 DIP (music: 270 and 160), and narrows back when the title shows; each new line re-measures the pill (Refresh animates the width). `Widgets/DynalandWindow.cs`: ApplyWidth sets the widths through `ApplyLyricWidth`.
+
+To check (Sam):
+1. Build.
+2. WACUP, a song LRCLIB has: lines in time; drag WACUP's own seek bar: within a second the lines follow.
+3. A song LRCLIB lacks, with "Song.lrc" next to "Song.mp3": its lines (log: "lines from a local .lrc file").
+4. Long and short lines: the pill grows and shrinks with them; between lines (title) back to the music width.
+
+### Lyrics: more ways to find a song on LRCLIB (2026-11-26, v093-16)
+
+Sam (13:25): "is i possible for LRCLIB to give lyrics just from the song title/file name?" Yes: LRCLIB's search takes track_name alone, or q (keywords across title, artist and album). Offered a chain; Sam (13:26): "yes".
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings.
+
+- `Shell/LyricsService.cs`: `FindAsync` now makes up to three searches, each only when the one before found nothing: title and artist (when there is an artist); the title alone without bracketed parts ("(Remastered)", "[Live]"); for a Winamp-style player, the song file's name as keywords (q), without folder, extension, a leading track number ("01 - ", "01. ", "1-01 ", "07 "; not "7 Rings" or "1979 - ") or bracketed parts. Every answer must still match the song's length within 2 s. The result (also "none") is remembered per song; a failed request is not, so the song is asked again next time. The log says which search found it (or how many found nothing), never the song. The local .lrc stays the last fallback.
+- `Widgets/DynalandWindow.Lyrics.cs`: passes the song's file to the search.
+
+To check (Sam): a WACUP file with a wrong or missing artist tag, or a messy title: its lines (log: "lines found (by title)" or "(by file name)").
+
+### Lyrics: room for long lines; a softer trapezoid (2026-11-26, v093-17)
+
+Sam (13:29, a screenshot of a long lyric line cut off in the pill, trapezoid, width 360): "for some width, there's still not enough room". (13:30): "the trapezoid shape's corners are too sharp". His log shows v093-14 and v093-15 built and running (lyrics found and shown), so v093-12 to v093-15 build; v093-16 not built yet ("lines found" has no "(by ...)").
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings.
+
+- Why it was cut: the lyric pill was kept 28 DIP narrower than the open views (room = stage - 2 x 10 - 8, wrongly counting the curves inside the stage), and its text 110 DIP narrower than the pill (scaled with the width), though the picture, play state and gaps take 76 DIP. At width 360 that left 233 DIP for the line.
+- `Widgets/DynalandWindow.Lyrics.cs`: a lyric line's pill may now be as wide as the open views (the stage; its curves then sit where the open views' do); the trapezoid as wide as its slanted top fits in the window (stage + 2 x (Pad + EarRadius - reach) - 2; 323 DIP at width 360). The text gets the pill less what the row's other visible parts measure (picture, play state, camera and microphone dots) and the gaps, worked out at each new line. A line still too long gets smaller in half steps down to 10 (from 12); still too long, it slides once: its start for a fifth of the time left before the next line, the slide over three fifths, then its end stays (the last line: 4 s; 1 to 15 s). The title keeps its 12 and its round-and-round slide. The 470/360 lyric caps are gone (they never applied: the stage was always narrower).
+- `Visuals/Marquee.cs`: `Show(text, smallestSize, slideOnceWithin, again)`: shrinking (only with a cap) and the one-time slide; `Text` works as before.
+- `Widgets/DynalandWindow.cs`: trapezoid radii 22 (bottom corners, was 8) and 18 (curves into the screen's edge, was 8). A slanted side turns about 56 degrees at each corner, so a curve of radius R reaches only R x 0.53 along its lines; 22 and 18 reach as far as the standard notch's 12 and 10. DrawSilhouette's limit on the curves now follows the slant (each curve at most half the side, the corners at most half the bottom; for upright sides the same as before). The top band of the window's outline uses the real reach (TrapezoidReach). A shape change while a lyric line shows re-measures the pill.
+
+To check (Sam):
+1. Build.
+2. Trapezoid, width 360, the same song: the long line fits (perhaps a little smaller), or slides once to its end and stays there until the next line.
+3. Standard notch: the pill can grow to the open Dynaland's width; the island too.
+4. The trapezoid's corners: soft at the bottom and where it meets the screen's edge; opening and closing still smooth.
+
+antislop Delivery Gate (during mode), UI: no new parts; the trapezoid's own curves made rounder (as soft as the standard notch's), the lyric line's room and size. Real data only (no change: the line is LRCLIB's or the .lrc's). Dials unchanged. Desktop WinUI: web-only items N/A.
+- Block 1: R-02 PASS. R-17, R-18, R-28, R-36, R-38 PASS. R-33, R-34 PASS (10 is the smallest, still readable; past that it slides rather than shrinks). R-35 NOT RUN (Claude cannot run on this PC; the shape was drawn from the same formulas in Python and compared with the old one and the standard notch). Others N/A.
+- Block 2: PASS. Block 3: dials kept. Block 4: C-1 to C-5 PASS.
+
+### Docked sidebar height; desktop widgets after Win+D (2026-11-26, v093-18)
+
+Sam (13:46): "add those options: if the sidebar is docked, either it's full vertically side-to-side, or leave some room for Indicator(s)". (13:49): "the desktop's widgets is still hidden when Win+D is pressed". Before: the docked sidebar started below Machitan's top strip while the indicator of its corner stood beside it in the strip, so neither had the corner.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages. Setting `SidebarLeaveRoom` (off = full height). 4 new strings.
+
+- Height (Settings > Widgets > Height when docked: Full height / Leave room for indicators; only while docked). `Widgets/SidebarWindow.cs` WantedRect, docked: from the top of Machitan's top strip (or the free area) to the bottom of its bottom strip (or the free area), 8 DIP in; leaving room: 8 DIP past the row of indicators in its side's top and bottom corners (`ShellHost.CornerRowRect`, from their windows). `RoomEdge(left)`: while leaving room, the indicators of that side's corners line up from the strip's outer edge (the screen's edge) instead of the free area's (`ShellHost.CornerSideEdge`, used in `CornerWidgetWindow.Place`), so they keep the corner above or below the sidebar; at full height they stand beside it, as before. `ShellHost.LayoutCorners` ends with `FollowCorners()` (the sidebar follows the indicators); the strip's cover raises the docked sidebar too (`KeepOnTop`).
+- (Replaced in v093-19: Win+D is now caught and Machitan's own Show desktop runs.) Win+D: Sam's log says Windows owns Win+D (error 1409, left to Windows), so it is Windows' Show desktop, which puts the desktop in front of every normal window, not Machitan's (which minimises). The v093-13 note ("Win+D minimises the apps") was wrong for this PC. `Widgets/DesktopWidgets.cs`: a foreground event hook (other programs only); when the window in front is the desktop ("Progman" or "WorkerW") and no app window (one the bar shows, not minimised, not always-on-top) is in front of it, the widgets go always-on-top (`DesktopWidgetWindow.SetAboveDesktop`; its "stay at the bottom" rule pauses); another program's window in front, or every second an app window in front of the desktop again, sends them back to the bottom. Clicks in a widget (Machitan's own window) change nothing. As Rainmeter's "on desktop" skins. Also after every window is minimised and the desktop is clicked. One log line each way.
+
+To check (Sam):
+1. Build.
+2. Docked, Full height: the sidebar from the top of the screen (8 DIP) to the bottom; the status ring stands left of it in the top strip.
+3. Leave room for indicators: the status ring goes to the screen's top-right corner, and the sidebar starts 8 DIP below it. Move the ring to the bottom right: the sidebar ends above it. The info line at the top left: no change on the right.
+4. A desktop widget, Win+D: it stays on the desktop; click into it and type; Win+D again (or click an app on the bar): it goes back behind the windows. Log: "Desktop widgets: the desktop is in front of the windows ..." and "... back behind the windows."
+
+### Win+D: Machitan's own Show desktop (2026-11-26, v093-19)
+
+Sam's test of v093-18 (14:17): "1. All windows showed, with note widget in the desktop 2. Win+D pressed, only note widget showed. 3. Win+D again, note widget dissapreared. 4. Win+D again, back to the no. 1". His log: at each press "in front of the desktop", then 0.4 s later "back behind", right when Windows put Explorer's own (hidden) taskbar in front; and Windows' toggle took three presses for a round, as if the widget's moves in the stacking order had ended its "desktop shown" state.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings.
+
+- `Shell/HotkeyActions.cs`: Win+D is caught in the keyboard hook when Windows keeps it (like Win+A, Win+N, Win+X, Win+Tab), and runs Machitan's Show desktop, the bar's strip's: the apps' windows are minimised, the next press brings back exactly those, in their order. The desktop widgets are not touched, so they stay in view; nothing moves them in the stacking order.
+- `Widgets/DesktopWidgets.cs`, `Widgets/DesktopWidgetWindow.cs`: back to v093-13 (the foreground hook and "in front of the desktop" taken out).
+
+To check (Sam):
+1. Build. Log: "Owned by Windows, caught in the keyboard hook instead: ... Win+D".
+2. Windows open, a note on the desktop. Win+D: the windows go (they minimise), the note stays. Win+D again: the same windows come back, the note behind them. Every press does one of the two.
+3. Win+D, then click an app on the bar: that app comes back; the next Win+D minimises again.
+
+### Resizable widgets (2026-11-26, v093-20)
+
+Sam (19:56): "everything works. continue." So v093-17 (lyrics room, trapezoid corners), v093-18 (docked sidebar height) and v093-19 (Win+D) build and work. Then (19:57): "oh btw, make the widgets resizable". Done before Part 4 (Shelf links and notes, started: read only).
+
+**Status: delivered, waiting for build and Sam's test.** No new packages or settings. 2 new strings.
+
+- `Shell/WidgetStore.cs`: each widget keeps `Width` (a desktop card's width, DIP) and `Height` (its content's height, DIP, on the desktop and in the sidebar); null = standard; clamped to 200..1000 and 60..1000. `SetSize(id, width, height)` saves without Changed. Sizes stay when a widget moves between the sidebar and the desktop.
+- `Widgets/DesktopWidgetWindow.cs`: 8 grips inside the card (the window is cut to it): 6 DIP edges, 10 DIP corners, with the resize pointers (`SizeGrip(shape)`). Dragging moves the dragged edges only (left/top move the window), within the limits; let go: the size is kept and the spot kept on screen. Double-click a grip: standard size (320 wide, 200 tall content), top-left corner kept. The card's content always fills its height (`SetFixedHeight(true)`).
+- `Widgets/SidebarWindow.cs`: each card's content sits in a box of its own; a 6 DIP grip on the card's bottom edge sets its height (pointer moves in DIP, so no scale); let go: kept. Double-click: as tall as its content again (the note: 120 to 400 DIP, growing with its text).
+- `Widgets/WidgetViews.cs`: `SetFixedHeight` (the note's box fills a given height, or grows 120..400 as before). `Widgets/SizeGrip.cs`: any resize pointer.
+
+To check (Sam):
+1. Build.
+2. A note on the desktop: drag each edge and corner; the left and top ones move the card's other side; it stops at the limits. Restart Machitan: the size is kept. Double-click an edge: standard size.
+3. A note in the sidebar: drag its card's bottom edge; the text box fills the height and scrolls. Double-click: back to growing with the text.
+4. Move a resized note between the desktop and the sidebar: its height goes with it.
+
+### Part 4: links and notes on the Shelf (2026-11-26, v093-21)
+
+Sam (07:24, item 4): "Ability to save links and notes in the Shelf." Built after the resizable widgets (v093-20).
+
+**Status: delivered, waiting for build and Sam's test.** No new packages or settings. 10 new strings, 3 changed (DynShelfEmpty, SetPrivacyShelf, SetShelf "Shelf").
+
+- `Shell/ShelfStore.cs`: items of three kinds (`ShelfItem`: File, Link, Note; `Key` unique: a file's path itself, "link:" + address, "note:" + id). shelf.json entries: `{"Path"}` (as before), `{"Link", "Title"?}`, `{"Note", "Id"}`; an entry of none of these makes the file unreadable (read-only run, a copy kept), as before. Links: absolute http or https only, one address with no spaces, at most 4096 characters; title one line, at most 300. Notes: cut at 20,000 characters; the same text again moves to the top (as a file). `AddLink`, `AddNote`, `Get`, `Items`, `TryLink`. The log gets counts only, never a link, a title or text. An older Machitan reading a shelf with links or notes treats the file as unreadable and does not overwrite it.
+- `Widgets/DynalandWindow.cs`: drops and the new Paste button (title row, glyph E77F) read files first, else a web link (with the drop's page title, when given), else text (one web address alone: a link; else a note); `ReadParcelAsync`, `Park`. Link rows: link glyph (E71B), the title (or the address without "https://"), "Link, site"; click opens it in the default browser (ShellExecute) and closes Dynaland; drag gives the link and its text. Note rows: note glyph, the first line, "Note" or "Note, N lines"; click copies it ("The note was copied." under the title); drag gives the text. Links and notes are never removed after a drag (copies). Picks work for every kind; a drag of a picked file takes only the picked files and folders. Dynaland does not take back a row dragged out over itself (`_draggingOut`). The clipboard is read only when Paste is clicked.
+- `SettingsUi/SettingsWindow.xaml.cs` (Privacy page): the shelf row now says links and text are kept as they are; two new rows: Synced lyrics (what goes to LRCLIB: title, artist, length, and for Winamp-style players file-name words; .lrc read locally) and Widgets (widgets.json: the widgets, note text, place and size). These were missing since v093-10 and v093-14.
+- README and CHANGELOG.
+
+To check (Sam):
+1. Build.
+2. Drag a link from the browser (the address bar's padlock, or a link in a page) onto Dynaland: a link row with its title or address. Click: it opens. Drag it into a chat or the browser.
+3. Select some text in an app and drag it onto Dynaland: a note row. Click: "The note was copied."; paste it somewhere.
+4. Copy a link, then a file in File Explorer, then some text, and click Paste each time.
+5. Settings > Privacy: the new rows.
+
+### Sidebar: two columns when wide (2026-11-26, v093-22)
+
+Sam (20:43): "looks good. continue. plus, at certain width, make the sidebar has more rows." So v093-20 (resizable widgets) and v093-21 (Shelf links and notes) work. Read as: widgets side by side when the sidebar is wide (said so to Sam; to change if he meant something else).
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings (SetSidebarWidthNote changed).
+
+- `Widgets/SidebarWindow.cs`: the cards sit in a Grid (`_cardGrid`, 12 DIP gaps) under the two notes: one column, or two from 560 DIP wide (`TwoColumnsFromDip`; the width range is 280 to 640), left to right then down, each row as tall as its taller card, cards at the top of their cell. Laid out again after a rebuild, a settings change and while the width is dragged (`LayoutCards`, only when the column or row count changes). Move up and down still go by the list's order. One log line when the column count changes.
+
+To check (Sam):
+1. Build.
+2. Sidebar at 360: one column. Drag the inner edge past 560: two side by side, live. Back under 560: one column.
+3. Settings > Widgets > Width: the same at 560.
+
+### Widgets, batch 1: Clock and calendar, Clock, Weather, Now playing (2026-11-26, v093-23)
+
+Sam (07:24 list; 07:37 "made those widgets optional"; 20:43 "continue"). Every widget is one the user adds (Add menu, in Sam's list's order: Clock and calendar, Clock, Weather, Now playing, Note); none is there by default.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages or settings. 10 new strings, SetPrivacyWeather changed.
+
+- `Shell/WidgetStore.cs`: kinds ClockCalendar, Clock, Weather, NowPlaying. `Widgets/WidgetViews.cs`: made, named and given glyphs (E787, E917, E753, EC4F).
+- `Widgets/ClockWidgets.cs`: Clock: the time (40 DIP, Windows' short time, or long with seconds when the Win+N calendar shows seconds: CalendarShowSeconds) and the long date, checked every second while shown. Clock and calendar: the clock (28 DIP) above Windows' CalendarView (336 DIP, three-letter day names, today marked), in a Viewbox that only makes it smaller (a narrow card, two columns, a short desktop card); moves to the new day at midnight.
+- `Widgets/WeatherWidget.cs`: symbol, temperature (C), description, today's high and low, the place (the chosen place's name, or "Here (Windows' location)"), "Open-Meteo, at HH:mm". No fresh reading (2 hours): says why it may be missing, with a "Weather settings" button (Settings > Indicators). Follows the place settings. Runs the weather only while shown.
+- `Shell/WeatherService.cs`: one service for all (`ShellHost.Weather`); `SetWanted(user, on)` (runs while anyone wants it); the request also asks for today's max and min (`daily=temperature_2m_max,temperature_2m_min&forecast_days=1`; `WeatherReading.TodayMaxC/TodayMinC`, null when missing). `Widgets/InfoLineWindow.cs` uses the shared one.
+- `Widgets/NowPlayingWidget.cs`: its own MediaService while shown (disposed when hidden): cover (or the music glyph), title, artist, app, progress and times (only with a timeline), previous, play or pause, next (enabled as the app allows). "Nothing is playing." otherwise. No tooltips (a docked sidebar's would show outside it). The log never gets titles or artists.
+- `Shell/MediaAppNames.cs`: Dynaland's app naming moved here, used by both.
+- Privacy text: weather also runs while a Weather widget is shown.
+
+To check (Sam):
+1. Build.
+2. Add each new widget in the sidebar and on the desktop (move it there); resize them: the calendar gets smaller to fit, never cut.
+3. Clock: a new minute on time; turn on seconds for the Win+N calendar: the widget shows them too.
+4. Weather: the same reading as the info line (one request: the log's "Weather: first reading" once); with a chosen place, its name. Turn the info line's weather off: the widget still has weather while shown.
+5. Now playing: play something in WACUP or a browser; the buttons work; pause: the time stops; close the player: "Nothing is playing."
+
+### Fixes: see-through menus, a seek bar and lyrics in Now playing, bigger lyrics in Dynaland (2026-11-26, v093-24)
+
+Sam (21:07, a screenshot of the sidebar's Add menu with the cards showing through it): "1. for widgets like clock and weather, give styling options, like centered text, time only, analog, etc etc etc. 2. fix the issue in the image. 3. make slider in the 'now playing' slideable, and also give lyrics on both widgets and dynaland hover more visibility." So v093-23 builds and its widgets show. Items 2 and 3 here; item 1 next (v093-25).
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings (SetDynLyricsNote changed).
+
+- `Widgets/SidebarWindow.cs`: the menus (Add, each card's) and the "Remove?" flyout are kept inside the window (ShouldConstrainToRootBounds, for the docked sidebar); there their see-through in-app background showed the cards through them. They now get a solid background and edge (`SolidStyle`: the tip's colours, #2C2C2C / #F9F9F9, following the theme).
+- `Widgets/NowPlayingWidget.cs`: the progress bar is a Slider (0..1000), enabled when the app takes jumps (CanSeek). A drag jumps when let go; a click or arrow keys jump 300 ms after the last change; for 1.5 s after a jump the bar waits for the app's new place. Lyrics (when Synced lyrics is on, Settings > Dynaland): the line being sung (16 SemiBold, up to 3 lines) and the next one (dim), from the same search as Dynaland's, with the local .lrc fallback; a 250 ms tick while playing (the bar, the line, and every second a Winamp-style player's place). Desktop height 270 (room for lyrics).
+- `Shell/LyricsService.cs`: one for Dynaland and the widgets (`ShellHost.Lyrics`); a second asker for the same song waits for the same search (`_asking`); an asker's cancel stops only its wait, the search goes on and is remembered.
+- `Widgets/DynalandWindow.cs`, `DynalandWindow.Lyrics.cs`: the player's lyric line beside the cover (12, one line, often cut) is replaced by a lyric area across the player under the cover row: the sung line 15 SemiBold white, up to 2 lines, the next line 12 dim. While the song has synced lyrics the player is 66 DIP taller (`_mediaHeight`, `SetMediaHeight`, as the general page's height); the height stays for the whole song.
+- Settings: the Synced lyrics note says it is also for the Now playing widget.
+
+To check (Sam):
+1. Build.
+2. The sidebar's + menu and a card's ... menu: solid, nothing shows through.
+3. Now playing: drag the bar, click on it, use the arrow keys on it: the song jumps; the bar does not jump back.
+4. Synced lyrics on: the widget shows the line and the next one; Dynaland's player is taller with the big line; a song without lyrics: the player as before.
+
+### Widget style options (2026-11-26, v093-25)
+
+Sam (21:07, item 1): "for widgets like clock and weather, give styling options, like centered text, time only, analog, etc etc etc."
+
+**Status: delivered, waiting for build and Sam's test.** No new packages or settings (choices are kept per widget in widgets.json, its Data). 37 new strings.
+
+- `Widgets/WidgetViews.cs`: `HasOptions`, `BuildOptions()`, `ApplyOptions()`; helpers `Option`, `OptionOn`, `Choice` (RadioButtons, side by side when two, or three short labels, else one under the other; RadioButton MinWidth 0), `Switch` (ToggleSwitch), `AlignChoice`, `SizeChoice`, `Across`, `TextAcross`, `BySize`. A change is kept at once (`SetData`, no rebuild) and shown. No ComboBox (its drop-down would be a window of its own, outside a docked sidebar).
+- Clock (and the clock part of Clock and calendar): face Digital / Analog (a drawn face: ring, 12 marks, hour, minute and second hands, the second hand and centre in the accent colour, lines white on dark and black on light, following the card's theme); Show: time and date / time only / date only (date alone large); alignment left / centre / right (the calendar too); size small / medium / large (digital 28/40/56, analog 80/120/160 DIP; Clock and calendar 22/28/36, 64/90/120); seconds (now per widget, off by default; before, it followed the Win+N calendar's); hours as Windows / 12-hour / 24-hour; date long / short (as the info line's). Clock desktop height 150.
+- Weather: layout full / compact (symbol, temperature, description); Celsius / Fahrenheit (C x 9/5 + 32, the high and low too); left / centre; place on/off; today's high and low on/off.
+- Now playing: left (cover beside the title) / centre (cover above, all centred); cover, lyrics (no search when off), bar, buttons on/off.
+- Note: text size 12/14/18, left / centre.
+- `Widgets/SidebarWindow.cs`, `Widgets/DesktopWidgetWindow.cs`: "Customize" (E771) first in a widget's menu; opens its choices in a flyout by the menu button (sidebar: inside the window, solid; desktop: its own popup), in the card's theme, scrolling past 480 DIP.
+
+To check (Sam):
+1. Build.
+2. A clock: Customize > Analog, Time only, Center, Large, Seconds: each shows at once; restart Machitan: kept.
+3. Weather: Compact, Fahrenheit, Center. Now playing: Center, cover off. Note: Large.
+4. The choices panel in the docked sidebar: solid, inside the sidebar, readable in light and dark.
+
+### Customize opens beside the widget (2026-11-26, v093-26)
+
+Sam (22:11): "1. on the sidebar, make the 'customize' flyout doesn't cover the widget that i want to customize. 2. on the desktop, it's the same, plus don't put the flyout inside the widget itself." So v093-25 builds and Customize works.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings.
+
+- `Widgets/SidebarWindow.cs`: the choices open beside the widget's card, on the screen's open side (LeftEdgeAlignedTop for a sidebar at the right, RightEdgeAlignedTop at the left), as a popup window of its own (ShouldConstrainToRootBounds false): it sits in the screen's free area, which a docked sidebar is not in, so Windows does not push it. In two columns, a card in the inner column has its choices over the outer column's card, never its own.
+- `Widgets/DesktopWidgetWindow.cs`: a Flyout is kept inside its window by default, which put the choices (and "Remove?") inside the widget. Both are now popups of their own (ShouldConstrainToRootBounds false); the choices open beside the card, on its right when the free area has 340 DIP there, else on its left.
+
+To check (Sam):
+1. Build.
+2. Docked sidebar at the right: Customize: the panel opens left of the widget's card, its top level with the card's; the widget changes while you choose.
+3. A desktop widget: Customize opens beside it (right, or left near the screen's right edge), not inside it; "Remove" asks below its button, outside it too.
+
+### Two columns without gaps; calendar day names on one line (2026-11-26, v093-27)
+
+Sam (22:14, a screenshot of the sidebar in two columns: Text note, Clock, Weather, Now playing, Clock and calendar): "here's what 2-row view looks like. i want to fix both calendar days and the empty spaces." The calendar's "Mon" and "Wed" broke in two ("Mo / n", "We / d"); each row was as tall as its taller card, leaving gaps under the shorter ones and beside the calendar.
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings.
+
+- `Widgets/MasonryPanel.cs` (new): a Panel with `Columns` and `Spacing`; each card, in order, goes under the column that is shortest so far (leftmost of equal ones), measured at the column's width; hidden cards take no room. A card that changes height moves the ones after it at once (its measure). `Widgets/SidebarWindow.cs`: the cards are in it (`_cardGrid`), `LayoutCards` only sets 1 or 2 columns. With Sam's five widgets: note, clock, then weather under the note, Now playing under the clock, the calendar under the weather.
+- `Widgets/CalendarDayNames.cs` (new): the Win+N calendar's fix for the day names (CalendarFlyout), for the widget's CalendarView: once laid out, the seven day-name labels are found (a panel with seven labels, or labels with day names, or WeekDay1..7), set to one line without margins, and made a point smaller (down to 10) while one does not fit its column; then it stops listening. `Widgets/ClockWidgets.cs` uses it. (The flyout keeps its own copy for now; to be shared later.)
+
+To check (Sam):
+1. Build.
+2. The sidebar past 560: no gaps between cards in a column; the calendar under the weather.
+3. Clock and calendar: "Mon" and "Wed" on one line.
+
+### Widgets dragged; Now playing's title scrolls (2026-11-26, v093-28)
+
+Sam (22:23): "make the widgets draggable (just swapping positions and in to/out from the sidebar)"; (22:24): "also make the title (not lyrics) scrolls automatically in the widget (both sidebar and desktop". ("do it" at 22:23 is the next widgets, v093-29.)
+
+**Status: delivered, waiting for build and Sam's test.** No new packages, settings or strings.
+
+- `Shell/WidgetStore.cs`: `SetPlace(id, desktop, x, y, before, atEnd)`: to the desktop at a spot (physical pixels), or into the sidebar before a widget or at the end. `Swap(a, b)`: two widgets change places.
+- `Widgets/SidebarWindow.cs`: a card's name row is its handle (WgDragHint as its name). Pressed and moved 6 DIP, the card follows the pointer (a TranslateTransform, on top, faded to 0.8); the card under the pointer gets an accent edge and tint (an overlay, so nothing shifts). Let go on it: `Swap`. Past the sidebar's inner edge by 24 DIP the card fades to 0.45 and nothing is marked; let go there: `SetPlace(desktop)` with the card's top-left where it was let go (minus the window's 4 DIP padding). Near the list's top or bottom (40 DIP) it scrolls 24 DIP every 50 ms, and the card keeps up. The changes run after the release (queued). A lost pointer puts the card back. Not while the widgets file is read-only.
+- From the desktop: `DesktopWidgetWindow` tells the sidebar (via ShellHost `SidebarDragOver`, `SidebarDropAt`, `SidebarDragEnded`) where the pointer is while its name row is dragged. Over the shown sidebar, the card it would go before is marked; let go there: `SetPlace(sidebar, before: that card, or at the end)`. Held at the screen's edge for 400 ms, a sliding sidebar slides in for it (Poll; also when pointing at the edge is off). Only a real release drops it; a lost pointer just keeps it where it is.
+- `Widgets/NowPlayingWidget.cs`: the title is a Marquee (as Dynaland's): as wide as its text up to the room it has (it follows the room); longer, it scrolls round after 1.5 s; it stops while paused, or with nothing playing or the widget hidden. Its colour follows the widget's theme. Left or centred as the Align choice says.
+
+To check (Sam):
+1. Build.
+2. Sidebar: drag a card by its name onto another: the other is marked; let go: they swap.
+3. Drag a card out past the sidebar's inner edge and let go: it is on the desktop about where you let go.
+4. Drag a desktop widget by its name onto the sidebar: the card under the pointer is marked; let go: it is in the sidebar before that card (or at the end). Sliding sidebar: hold the widget at the screen's edge: the sidebar slides in.
+5. Now playing with a long title, in the sidebar and on the desktop: it scrolls; pause: it stops; centred: a short title is centred.
+
 ## Before v0.9.2 (history, short)
 
 The details are in `CHANGELOG-i1.md`, by date.

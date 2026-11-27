@@ -18,7 +18,12 @@ namespace Machitan.Shell;
 /// Win+Shift+1..9 (and 0): start another copy of that app.
 /// Win+0..9 and Win+Shift+0..9 are caught in the keyboard hook when Windows keeps them for
 ///   itself, because Windows' versions act on Explorer's hidden taskbar instead of the dock.
-/// Win+D: Show desktop (the same as the bar's Show Desktop strip).
+/// Win+D: Show desktop (the same as the bar's Show Desktop strip: the apps' windows are
+///   minimised, and brought back by the next press), caught in the hook when Windows keeps it.
+///   Windows' own Show desktop puts the desktop in front of every window, the desktop widgets
+///   too (Sam, 2026-11-26: "the desktop's widgets is still hidden when Win+D is pressed");
+///   lifting the widgets in front of it then confused Windows' own toggle (three presses for a
+///   round, Sam's test of v093-18).
 /// Win+E: File Explorer. Win+L: lock the PC. Win+R: Windows' Run box.
 /// Alt+Esc: the next open window, in the bar's order (minimised windows are skipped).
 /// Win+N: Machitan's calendar. Win+A: Machitan's quick settings (both caught in the hook
@@ -65,7 +70,7 @@ internal static class HotkeyActions
             list.Add(new HotkeyDefinition("Win+Shift+" + digit, "Win+Shift+0..9", User32.MOD_WIN | User32.MOD_SHIFT, key, () => StartNewCopy(host, place), catchWhenWindowsOwnsIt: true));
         }
 
-        list.Add(new HotkeyDefinition("Win+D", "Win+D", User32.MOD_WIN, KeyD, () => host.Desktop.Toggle(host.Tasks.Groups)));
+        list.Add(new HotkeyDefinition("Win+D", "Win+D", User32.MOD_WIN, KeyD, () => host.Desktop.Toggle(host.Tasks.Groups), catchWhenWindowsOwnsIt: true));
         list.Add(new HotkeyDefinition("Win+E", "Win+E", User32.MOD_WIN, KeyE, () => Launcher.Start("explorer.exe")));
         list.Add(new HotkeyDefinition("Win+L", "Win+L", User32.MOD_WIN, KeyL, LockPc));
         list.Add(new HotkeyDefinition("Win+R", "Win+R", User32.MOD_WIN, KeyR, ShowRunBox));

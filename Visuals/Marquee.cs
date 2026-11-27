@@ -14,6 +14,9 @@ namespace Machitan.Visuals;
 /// so the loop is seamless; it waits 1.5 s before it starts moving. The sliding runs in
 /// Composition (Translation.X), not in layout. Two widths: a cap (the line is as wide as its
 /// text, up to the cap) or the width its parent gives it (pass NaN).
+/// With a cap, Show can also let a long line get smaller (in half steps, down to a smallest
+/// size) before it slides, and make it slide once instead of round and round: it shows its
+/// start, slides to its end within a given time, and stays there (Dynaland's lyric lines).
 /// </summary>
 internal sealed class Marquee
 {
@@ -21,6 +24,9 @@ internal sealed class Marquee
 
     /// <summary>DIP per second.</summary>
     private const double Speed = 32;
+
+    /// <summary>A line that may get smaller does so in steps this big.</summary>
+    private const double SizeStep = 0.5;
 
     private readonly Grid _root;
     private readonly Canvas _canvas;
@@ -36,6 +42,13 @@ internal sealed class Marquee
     private readonly ScalarKeyFrameAnimation _scroll;
     private string _text = string.Empty;
     private double _textWidth;
+
+    /// <summary>The line's own size, and the smallest it may get when it does not fit (its own size: never smaller).</summary>
+    private readonly double _baseSize;
+    private double _smallestSize;
+
+    /// <summary>Set: a line that still does not fit slides once, to its end within this time; null: round and round.</summary>
+    private TimeSpan? _slideOnceWithin;
     private bool _scrolling;
     private bool _paused;
 
@@ -45,6 +58,8 @@ internal sealed class Marquee
     internal Marquee(double fontSize, Windows.UI.Text.FontWeight weight, Brush foreground, double maxWidth = double.NaN)
     {
         _maxWidth = maxWidth;
+        _baseSize = fontSize;
+        _smallestSize = fontSize;
         _first = MakeText(fontSize, weight, foreground);
         _second = MakeText(fontSize, weight, foreground);
         _second.Visibility = Visibility.Collapsed;
@@ -119,24 +134,40 @@ internal sealed class Marquee
         }
     }
 
+    /// <summary>The line, at its own size, sliding round and round when it does not fit.</summary>
     internal string Text
     {
         get => _text;
-        set
-        {
-            value ??= string.Empty;
-            if (value == _text)
-            {
-                return;
-            }
+        set => Show(value, _baseSize, null, again: false);
+    }
 
-            _text = value;
-            _first.Text = value;
-            _second.Text = value;
-            MeasureText();
-            _dirty = true;
-            Update(force: true);
+    /// <summary>
+    /// Shows a line. With a cap, a line too long for it gets smaller, down to
+    /// <paramref name="smallestSize"/> (the line's own size: never smaller). If it still does not
+    /// fit, it slides: once, to its end within <paramref name="slideOnceWithin"/>, or (null) round
+    /// and round. The same line again changes nothing, unless <paramref name="again"/> starts
+    /// its sliding over (the same words as a new lyric line).
+    /// </summary>
+    internal void Show(string text, double smallestSize, TimeSpan? slideOnceWithin, bool again)
+    {
+        text ??= string.Empty;
+        double smallest = Math.Clamp(smallestSize, 1, _baseSize);
+        if (!again
+            && text == _text
+            && Math.Abs(smallest - _smallestSize) < 0.01
+            && slideOnceWithin.HasValue == _slideOnceWithin.HasValue)
+        {
+            return;
         }
+
+        _text = text;
+        _first.Text = text;
+        _second.Text = text;
+        _smallestSize = smallest;
+        _slideOnceWithin = slideOnceWithin;
+        MeasureText();
+        _dirty = true;
+        Update(force: true);
     }
 
     private static TextBlock MakeText(double fontSize, Windows.UI.Text.FontWeight weight, Brush foreground)
@@ -155,8 +186,22 @@ internal sealed class Marquee
     {
         // Measured with the text at least one character long, so an empty line keeps its height.
         _measure.Text = _text.Length > 0 ? _text : " ";
-        _measure.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
-        _textWidth = _text.Length > 0 ? Math.Ceiling(_measure.DesiredSize.Width) : 0;
+        double size = _baseSize;
+        double width = MeasureAt(size);
+
+        // Too long for the cap: smaller, a half step at a time, down to the smallest allowed.
+        if (!double.IsNaN(_maxWidth) && _text.Length > 0)
+        {
+            while (Math.Ceiling(width) > _maxWidth + 0.5 && size - SizeStep >= _smallestSize - 0.001)
+            {
+                size -= SizeStep;
+                width = MeasureAt(size);
+            }
+        }
+
+        _first.FontSize = size;
+        _second.FontSize = size;
+        _textWidth = _text.Length > 0 ? Math.Ceiling(width) : 0;
         double height = Math.Ceiling(_measure.DesiredSize.Height);
         _root.Height = height;
         _canvas.Height = height;
@@ -165,6 +210,14 @@ internal sealed class Marquee
             // One pixel of room for rounding, so a line that fits is never clipped at its end.
             _root.Width = Math.Min(_textWidth + 1, _maxWidth);
         }
+    }
+
+    /// <summary>The text's width at this size (the measuring copy keeps the size, for its height).</summary>
+    private double MeasureAt(double size)
+    {
+        _measure.FontSize = size;
+        _measure.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        return _measure.DesiredSize.Width;
     }
 
     /// <summary>
@@ -203,9 +256,29 @@ internal sealed class Marquee
         _scrolling = scroll;
         _visual.StopAnimation("Translation.X");
         _visual.Properties.InsertVector3("Translation", Vector3.Zero);
-        _second.Visibility = scroll ? Visibility.Visible : Visibility.Collapsed;
+        bool once = _slideOnceWithin.HasValue;
+        _second.Visibility = scroll && !once ? Visibility.Visible : Visibility.Collapsed;
         if (!scroll)
         {
+            return;
+        }
+
+        if (_slideOnceWithin is TimeSpan within)
+        {
+            // Once: its start for a fifth of the time, the slide to its end, then its end stays.
+            double seconds = Math.Clamp(within.TotalSeconds, 0.5, 30);
+            _scroll.InsertKeyFrame(0f, 0f);
+            _scroll.InsertKeyFrame(1f, (float)-(_textWidth - available), _linear);
+            _scroll.Duration = TimeSpan.FromSeconds(seconds * 0.6);
+            _scroll.DelayTime = TimeSpan.FromSeconds(seconds * 0.2);
+            _scroll.IterationBehavior = AnimationIterationBehavior.Count;
+            _scroll.IterationCount = 1;
+            _visual.StartAnimation("Translation.X", _scroll);
+            if (_paused)
+            {
+                ApplyPause();
+            }
+
             return;
         }
 

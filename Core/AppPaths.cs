@@ -20,6 +20,9 @@ internal static class AppPaths
     /// <summary>Dynaland's file shelf: where the parked files and folders are (paths only).</summary>
     internal static string ShelfFile { get; } = Path.Combine(DataFolder, "shelf.json");
 
+    /// <summary>The widgets added to the sidebar (and their own data, such as a note's text).</summary>
+    internal static string WidgetsFile { get; } = Path.Combine(DataFolder, "widgets.json");
+
     /// <summary>The bar's bubbles (Start, the apps, app groups) and which apps sit where.</summary>
     internal static string BarLayoutFile { get; } = Path.Combine(DataFolder, "bar-layout.json");
 

@@ -25,7 +25,9 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage.Streams;
 using Color = Windows.UI.Color;
+using DataPackage = Windows.ApplicationModel.DataTransfer.DataPackage;
 using DataPackageOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation;
+using DataPackageView = Windows.ApplicationModel.DataTransfer.DataPackageView;
 using Ellipse = Microsoft.UI.Xaml.Shapes.Ellipse;
 using Rectangle = Microsoft.UI.Xaml.Shapes.Rectangle;
 using ShapePath = Microsoft.UI.Xaml.Shapes.Path;
@@ -36,6 +38,7 @@ using StorageFolder = Windows.Storage.StorageFolder;
 using StorageItemThumbnail = Windows.Storage.FileProperties.StorageItemThumbnail;
 using ThumbnailMode = Windows.Storage.FileProperties.ThumbnailMode;
 using ThumbnailOptions = Windows.Storage.FileProperties.ThumbnailOptions;
+using WinClipboard = Windows.ApplicationModel.DataTransfer.Clipboard;
 
 namespace Machitan.Widgets;
 
@@ -57,10 +60,11 @@ namespace Machitan.Widgets;
 /// microphone, the tray, and Windows' own notifications as Windows' notification centre holds
 /// them, with a button for that centre), with an arrow back to the
 /// player while music plays, and a button to the file shelf. Moving away closes it.
-/// The file shelf (ShelfStore): files and folders dragged onto the pill are parked there (it
-/// opens on the shelf while they are dragged over); a click opens one, a drag takes it out, the
-/// X takes it off; Ctrl or Shift + click picks several (as in File Explorer), to drag out or
-/// take off together. Only their paths are kept; one moved or deleted since says so.
+/// The shelf (ShelfStore): files and folders, web links and text dragged onto the pill are
+/// parked there (it opens on the shelf while they are dragged over), or pasted with its Paste
+/// button; a click opens a file or a link and copies a note, a drag takes one out, the X takes
+/// it off; Ctrl or Shift + click picks several (as in File Explorer), to drag out (files) or
+/// take off together. Of files only their paths are kept; one moved or deleted since says so.
 /// The window has one fixed size and never resizes: the pill is a Composition shape whose
 /// size, position and corner radius animate inside it, and the window is cut to the pill, so
 /// everything outside the pill lets clicks through. Never takes focus; steps aside for
@@ -115,6 +119,11 @@ public sealed partial class DynalandWindow : Window
     private const double ShelfRowHeight = 40;
     private const double ShelfRowSpacing = 2;
     private const double ShelfIconDip = 24;
+
+    /// <summary>The shelf's link and note rows' icons, and its Paste button (Segoe Fluent Icons).</summary>
+    private const int ShelfLinkGlyph = 0xE71B;
+    private const int ShelfNoteGlyph = 0xE70B;
+    private const int ShelfPasteGlyph = 0xE77F;
     private const double ShelfEmptyHeight = 54;
 
     /// <summary>The open pages' padding, top and bottom together (every look: see ApplyLook).</summary>
@@ -147,9 +156,12 @@ public sealed partial class DynalandWindow : Window
 
     // Trapezoid notch (Settings), closed pill only: how far each slanted side reaches out at
     // the screen's edge, the round bottom corners, and the curves into the screen's edge (DIP).
+    // A slanted side turns only about 56 degrees at each corner, so the radii are bigger than
+    // the standard notch's 12 and 10, for corners just as soft (Sam, 2026-11-26: "the trapezoid
+    // shape's corners are too sharp" at 8 and 8).
     private const double TrapezoidSlant = 22;
-    private const double TrapezoidRadius = 8;
-    private const double TrapezoidFlare = 8;
+    private const double TrapezoidRadius = 22;
+    private const double TrapezoidFlare = 18;
 
     /// <summary>The one-piece notch reaches this far past the screen's edge, so no soft edge shows there.</summary>
     private const double SilhouetteBleed = 4;
@@ -360,6 +372,9 @@ public sealed partial class DynalandWindow : Window
     private readonly Border _shelfDropHint;
     private readonly Dictionary<string, ImageSource> _shelfIcons = new(StringComparer.OrdinalIgnoreCase);
     private double _shelfHeight = OpenHeight;
+
+    /// <summary>The player's height: taller while the song has synced lyrics.</summary>
+    private double _mediaHeight = OpenHeight;
     private string _shelfShown = string.Empty;
     private string _shelfMessage = string.Empty;
     private int _shelfVersion;
@@ -377,11 +392,14 @@ public sealed partial class DynalandWindow : Window
     private string? _shelfAnchor;
     private string? _shelfHovered;
 
-    /// <summary>The rows shown now, by path, with what each is.</summary>
+    /// <summary>The rows shown now, by key (a file's path), with what each is.</summary>
     private readonly Dictionary<string, (Grid Row, ShelfKind Kind)> _shelfRowOf = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>What the drag out under way takes, for after it.</summary>
     private List<string>? _shelfDragged;
+
+    /// <summary>A shelf row is being dragged out: Dynaland does not take it back if it is let go over the pill.</summary>
+    private bool _draggingOut;
     private readonly TextBlock _shelfCount;
     private readonly Button _shelfSelectAll;
     private readonly FontIcon _shelfSelectAllIcon;
@@ -662,7 +680,7 @@ public sealed partial class DynalandWindow : Window
             Visibility = Visibility.Collapsed,
         };
         // "Title - Artist", scrolling when it does not fit.
-        _miniText = new Marquee(12, FontWeights.SemiBold, _whiteBrush, maxWidth: Math.Round(MiniTextMaxWidth * WidthRatio));
+        _miniText = new Marquee(MiniTextSize, FontWeights.SemiBold, _whiteBrush, maxWidth: Math.Round(MiniTextMaxWidth * WidthRatio));
         _miniState = Glyph(0xEC4F, 12, _accentBrush);
         _miniRow = Row();
         _miniRow.Children.Add(_miniArt);
@@ -999,6 +1017,11 @@ public sealed partial class DynalandWindow : Window
         _mediaContent.Children.Add(top);
         _mediaContent.Children.Add(mediaPanel);
         _mediaContent.Children.Add(_timeline);
+
+        // The lyrics, between the cover row and the timeline (the player grows for them).
+        StackPanel lyricArea = MakeLyricArea();
+        Grid.SetRow(lyricArea, 2);
+        _mediaContent.Children.Add(lyricArea);
         _stage.Children.Add(_mediaContent);
 
         // ---- in use now, open
@@ -1245,6 +1268,8 @@ public sealed partial class DynalandWindow : Window
         _shelfSelectAll.Visibility = Visibility.Collapsed;
         Button shelfBack = MakeControl(0xE76B, Strings.DynBackToGeneral, () => ShowPage(general: true), out FontIcon shelfBackIcon);
         SmallArrow(shelfBack, shelfBackIcon);
+        Button shelfPaste = MakeControl(ShelfPasteGlyph, Strings.DynShelfPaste, PasteToShelfAsync, out FontIcon shelfPasteIcon);
+        SmallArrow(shelfPaste, shelfPasteIcon);
         var shelfButtons = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -1252,6 +1277,7 @@ public sealed partial class DynalandWindow : Window
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
         };
+        shelfButtons.Children.Add(shelfPaste);
         shelfButtons.Children.Add(_shelfClearAll);
         shelfButtons.Children.Add(_shelfRemovePicked);
         shelfButtons.Children.Add(_shelfSelectAll);
@@ -1430,6 +1456,7 @@ public sealed partial class DynalandWindow : Window
 
         _heal = MakeTimer(TimeSpan.FromSeconds(2), repeating: true, Heal);
         _tick = MakeTimer(TimeSpan.FromMilliseconds(500), repeating: true, UpdateTimeline);
+        _lyricsTick = MakeTimer(TimeSpan.FromMilliseconds(200), repeating: true, TickLyrics);
         _hoverTimer = MakeTimer(TimeSpan.FromMilliseconds(140), repeating: false, StartHover);
         _leaveTimer = MakeTimer(TimeSpan.FromMilliseconds(380), repeating: false, EndHover);
         _cursorTimer = MakeTimer(TimeSpan.FromMilliseconds(120), repeating: true, CheckCursor);
@@ -1487,6 +1514,8 @@ public sealed partial class DynalandWindow : Window
                 timer.Stop();
             }
 
+            _lyricsTick?.Stop();
+            _lyricsCancel?.Cancel();
             _host.Settings.Changed -= OnSettingsChanged;
             _host.FullScreenChanged -= OnFullScreenChanged;
             _media.Changed -= ApplyMedia;
@@ -1904,7 +1933,10 @@ public sealed partial class DynalandWindow : Window
     /// past the screen's edge; each side comes down from the edge with a curve into it (radius
     /// Flare), straight (slanting out by Slant at the edge for the trapezoid, upright otherwise),
     /// then turns into the bottom edge with a round corner (radius Radius), every curve meeting
-    /// its straight parts smoothly. The pill's width is its width at the bottom.
+    /// its straight parts smoothly. The pill's width is its width at the bottom. A curve of
+    /// radius R reaches R * k along each line it joins, k being the tangent of half its turn
+    /// (1 for an upright side, less for a slanted one); the curves are kept small enough that
+    /// they never cross (each at most half the side, and the corners at most half the bottom).
     /// </summary>
     private void DrawSilhouette()
     {
@@ -1916,14 +1948,14 @@ public sealed partial class DynalandWindow : Window
         double w = Math.Max(1, _silhouetteNow.Width);
         double h = Math.Max(1, _silhouetteNow.Height);
         double s = Math.Max(0, _silhouetteNow.Slant);
+        double length = Math.Sqrt((s * s) + (h * h));
+        double k = h / (length + s);
 
-        // Kept small enough that the curves never cross (each at most half the height or width).
-        double r = Math.Clamp(_silhouetteNow.Radius, 0, Math.Min(h / 2, w / 2));
-        double f = Math.Clamp(_silhouetteNow.Flare, 0, h / 2);
+        double r = Math.Clamp(_silhouetteNow.Radius, 0, Math.Min(length / 2, w / 2) / k);
+        double f = Math.Clamp(_silhouetteNow.Flare, 0, length / 2 / k);
 
         double left = (_stageWidth - w) / 2;
         double right = left + w;
-        double length = Math.Sqrt((s * s) + (h * h));
         double dx = s / length;
         double dy = h / length;
 
@@ -2129,7 +2161,7 @@ public sealed partial class DynalandWindow : Window
     {
         return shape switch
         {
-            PillShape.Media => (_stageWidth, OpenHeight, _openRadius),
+            PillShape.Media => (_stageWidth, _mediaHeight, _openRadius),
             PillShape.General => (_stageWidth, _generalHeight, _openRadius),
             PillShape.Shelf => (_stageWidth, _shelfHeight, _openRadius),
             PillShape.Privacy => (PrivacyWidth, PrivacyHeight, _privacyRadius),
@@ -2303,6 +2335,7 @@ public sealed partial class DynalandWindow : Window
         UpdateFlyouts();
         FillTray();
         UpdateDots();
+        FollowLyrics(_media.Current);
         _placed = default;
         _host.LayoutCorners();
         Refresh();
@@ -2347,9 +2380,10 @@ public sealed partial class DynalandWindow : Window
         }
 
         _stageWidth = width;
-        _maxCollapsedWidth = Math.Round(MaxCollapsedWidth * WidthRatio);
         _idleWidth = Math.Round(IdleWidth * WidthRatio);
-        _miniText.SetMaxWidth(Math.Round(MiniTextMaxWidth * WidthRatio));
+
+        // The music line's widest (wider while a lyric line shows).
+        ApplyLyricWidth();
         _root.Width = DesignWidth;
         _stage.Width = width;
         _expandedHit.Width = width;
@@ -2401,6 +2435,9 @@ public sealed partial class DynalandWindow : Window
         _style = style;
         _atBottom = atBottom;
         _trapezoid = trapezoid;
+
+        // A lyric line's widest depends on the shape (the trapezoid's slanted sides need room).
+        ApplyLyricWidth();
         bool island = style == DynalandStyle.Island;
         _gap = island ? IslandGap : 0;
         _topExtension = island ? 0 : TopExtension;
@@ -2467,6 +2504,12 @@ public sealed partial class DynalandWindow : Window
         SettleRegion();
         _cutter.Invalidate();
         Log.Info("Dynaland: " + (island ? "island" : trapezoid ? "trapezoid notch" : "notch") + " shape, " + (atBottom ? "bottom" : "top") + " edge.");
+
+        // A lyric line showing takes its widest for the new shape.
+        if (_lyricWide)
+        {
+            Refresh();
+        }
     }
 
     /// <summary>
@@ -2709,9 +2752,19 @@ public sealed partial class DynalandWindow : Window
     {
         bool expanded = _expandedHit.Visibility == Visibility.Visible;
         double open = expanded ? _expandedHit.Width + (2 * EarRadius) : 0;
-        double closed = _collapsedHit.Width + (2 * (_trapezoid ? TrapezoidSlant + TrapezoidFlare : EarRadius));
+        double closed = _collapsedHit.Width + (2 * (_trapezoid ? Math.Ceiling(TrapezoidReach()) + 1 : EarRadius));
         _earHit.Width = Math.Max(open, closed);
         _earHit.Height = _trapezoid ? CollapsedHeight : EarRadius;
+    }
+
+    /// <summary>
+    /// How far the trapezoid's top reaches past the closed pill's bottom on each side (DIP): its
+    /// slant and the curve into the screen's edge (see DrawSilhouette).
+    /// </summary>
+    private static double TrapezoidReach()
+    {
+        double length = Math.Sqrt((TrapezoidSlant * TrapezoidSlant) + (CollapsedHeight * CollapsedHeight));
+        return TrapezoidSlant + (TrapezoidFlare * CollapsedHeight / (length + TrapezoidSlant));
     }
 
     /// <summary>After an animation: the window's outline matches the pill again.</summary>
@@ -3440,6 +3493,24 @@ public sealed partial class DynalandWindow : Window
     }
 
     /// <summary>The general page's height; while it is open, the pill follows.</summary>
+    /// <summary>The player's height; while it is open, the pill follows.</summary>
+    private void SetMediaHeight(double height)
+    {
+        if (Math.Abs(height - _mediaHeight) < 0.5)
+        {
+            return;
+        }
+
+        _mediaHeight = height;
+        _mediaContent.Height = height;
+        if (_pill == PillShape.Media)
+        {
+            HoldRegion(_collapsedWidth);
+            (double w, double h, double r) = Dimensions(PillShape.Media, _collapsedWidth);
+            AnimatePill(w, h, r);
+        }
+    }
+
     private void SetGeneralHeight(double height)
     {
         if (Math.Abs(height - _generalHeight) < 0.5)
@@ -3811,10 +3882,14 @@ public sealed partial class DynalandWindow : Window
 
     // ---------------------------------------------------------------- the file shelf
 
-    /// <summary>True when a drag over Dynaland carries files or folders it can park.</summary>
+    /// <summary>True when a drag over Dynaland carries what it can park: files or folders, a web link, or text (not one of its own rows going out).</summary>
     private bool CanTakeDrop(DragEventArgs e)
     {
-        return _shown && !_closed && !_host.Custom.IsOn && e.DataView.Contains(StandardDataFormats.StorageItems);
+        DataPackageView view = e.DataView;
+        return _shown && !_closed && !_host.Custom.IsOn && !_draggingOut
+            && (view.Contains(StandardDataFormats.StorageItems)
+                || view.Contains(StandardDataFormats.WebLink)
+                || view.Contains(StandardDataFormats.Text));
     }
 
     /// <summary>
@@ -3831,7 +3906,7 @@ public sealed partial class DynalandWindow : Window
         return (e.AllowedOperations & DataPackageOperation.Link) != 0 ? DataPackageOperation.Link : DataPackageOperation.None;
     }
 
-    /// <summary>Files dragged over the pill: open on the shelf, ready for the drop.</summary>
+    /// <summary>Files, a link or text dragged over the pill: open on the shelf, ready for the drop.</summary>
     private void OnShelfDragOver(object sender, DragEventArgs e)
     {
         DataPackageOperation operation = CanTakeDrop(e) ? DropOperation(e) : DataPackageOperation.None;
@@ -3866,9 +3941,9 @@ public sealed partial class DynalandWindow : Window
     }
 
     /// <summary>
-    /// The drop: the files' and folders' paths go on the shelf (items without a path on this
-    /// PC, such as a file still inside an archive, and those past a full shelf are said so),
-    /// and the shelf stays open as when hovered, until the pointer leaves.
+    /// The drop: files' and folders' paths, a web link, or text go on the shelf (items without
+    /// a path on this PC, such as a file still inside an archive, and those past a full shelf
+    /// are said so), and the shelf stays open as when hovered, until the pointer leaves.
     /// </summary>
     private async void OnShelfDrop(object sender, DragEventArgs e)
     {
@@ -3883,23 +3958,11 @@ public sealed partial class DynalandWindow : Window
             }
 
             e.AcceptedOperation = DropOperation(e);
-            var paths = new List<string>();
-            int noPath = 0;
+            ShelfParcel parcel;
             DragOperationDeferral deferral = e.GetDeferral();
             try
             {
-                IReadOnlyList<IStorageItem> items = await e.DataView.GetStorageItemsAsync();
-                foreach (IStorageItem item in items)
-                {
-                    if (string.IsNullOrEmpty(item.Path))
-                    {
-                        noPath++;
-                    }
-                    else
-                    {
-                        paths.Add(item.Path);
-                    }
-                }
+                parcel = await ReadParcelAsync(e.DataView);
             }
             finally
             {
@@ -3911,13 +3974,7 @@ public sealed partial class DynalandWindow : Window
                 return;
             }
 
-            ShelfAdded result = _host.Shelf.Add(paths);
-            _shelfMessage = result.Full > 0 ? Fmt.F(Strings.DynShelfFull, ShelfStore.MaxItems, result.Full)
-                : noPath > 0 ? Fmt.F(Strings.DynShelfNoPath, noPath)
-                : string.Empty;
-            Log.Info("Dynaland: " + result.Added.ToString(CultureInfo.InvariantCulture) + " item(s) parked on the shelf"
-                + (result.Full > 0 ? ", " + result.Full.ToString(CultureInfo.InvariantCulture) + " turned away (the shelf is full)" : string.Empty)
-                + (noPath > 0 ? ", " + noPath.ToString(CultureInfo.InvariantCulture) + " without a path on this PC" : string.Empty) + ".");
+            Park(parcel, "dropped");
 
             // Open on the shelf, as when hovered, until the pointer leaves.
             _dropping = false;
@@ -3954,12 +4011,14 @@ public sealed partial class DynalandWindow : Window
         _ = FillShelfRowsAsync();
     }
 
-    /// <summary>The kind of each parked path now: a file, a folder, or gone.</summary>
+    /// <summary>What each row is now: a file, a folder, gone (moved or deleted), a link, or a note.</summary>
     private enum ShelfKind
     {
         Gone,
         File,
         Folder,
+        Link,
+        Note,
     }
 
     private async Task FillShelfRowsAsync()
@@ -3967,15 +4026,21 @@ public sealed partial class DynalandWindow : Window
         try
         {
             int version = ++_shelfVersion;
-            string[] paths = new List<string>(_host.Shelf.Paths).ToArray();
+            ShelfItem[] items = new List<ShelfItem>(_host.Shelf.Items).ToArray();
             ShelfKind[] kinds = await Task.Run(() =>
             {
-                var found = new ShelfKind[paths.Length];
-                for (int i = 0; i < paths.Length; i++)
+                var found = new ShelfKind[items.Length];
+                for (int i = 0; i < items.Length; i++)
                 {
-                    found[i] = File.Exists(paths[i]) ? ShelfKind.File
-                        : Directory.Exists(paths[i]) ? ShelfKind.Folder
-                        : ShelfKind.Gone;
+                    string value = items[i].Value;
+                    found[i] = items[i].Kind switch
+                    {
+                        ShelfItemKind.Link => ShelfKind.Link,
+                        ShelfItemKind.Note => ShelfKind.Note,
+                        _ => File.Exists(value) ? ShelfKind.File
+                            : Directory.Exists(value) ? ShelfKind.Folder
+                            : ShelfKind.Gone,
+                    };
                 }
 
                 return found;
@@ -3988,9 +4053,11 @@ public sealed partial class DynalandWindow : Window
 
             // Drawn again only when the list or a file's presence changed.
             var signature = new System.Text.StringBuilder();
-            for (int i = 0; i < paths.Length; i++)
+            var keys = new string[items.Length];
+            for (int i = 0; i < items.Length; i++)
             {
-                signature.Append((int)kinds[i]).Append(paths[i]).Append('\n');
+                keys[i] = items[i].Key;
+                signature.Append((int)kinds[i]).Append(keys[i]).Append('\n');
             }
 
             string shown = signature.ToString();
@@ -4003,13 +4070,13 @@ public sealed partial class DynalandWindow : Window
             _shelfRows.Children.Clear();
             _shelfRowOf.Clear();
             _shelfHovered = null;
-            for (int i = 0; i < paths.Length; i++)
+            for (int i = 0; i < items.Length; i++)
             {
-                _shelfRows.Children.Add(ShelfRow(paths[i], kinds[i]));
+                _shelfRows.Children.Add(ShelfRow(items[i], kinds[i]));
             }
 
             // Picks of what left the shelf are let go.
-            _shelfPicked.IntersectWith(paths);
+            _shelfPicked.IntersectWith(keys);
             if (_shelfAnchor is not null && !_shelfPicked.Contains(_shelfAnchor) && !_shelfRowOf.ContainsKey(_shelfAnchor))
             {
                 _shelfAnchor = null;
@@ -4018,7 +4085,7 @@ public sealed partial class DynalandWindow : Window
             UpdateShelfPicks();
 
             // The icons of what left the shelf are let go.
-            var kept = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
+            var kept = new HashSet<string>(keys, StringComparer.OrdinalIgnoreCase);
             foreach (string key in new List<string>(_shelfIcons.Keys))
             {
                 if (!kept.Contains(key))
@@ -4041,7 +4108,7 @@ public sealed partial class DynalandWindow : Window
     /// </summary>
     private void UpdateShelfLook()
     {
-        int count = _host.Shelf.Paths.Count;
+        int count = _host.Shelf.Items.Count;
         string note = _host.Shelf.IsReadOnlyBecauseOfBadFile ? Strings.DynShelfNotSaved : _shelfMessage;
         Set(_shelfNote, note);
         Show(_shelfNote, note.Length > 0);
@@ -4076,47 +4143,59 @@ public sealed partial class DynalandWindow : Window
     }
 
     /// <summary>
-    /// One parked file or folder: its icon as Windows shows it, its name, and its folder. A
-    /// click opens it; a drag takes it out (into a folder, a chat, any app that takes files) by
+    /// One parked item. A file or folder: its icon as Windows shows it, its name, and its folder;
+    /// a click opens it; a drag takes it out (into a folder, a chat, any app that takes files) by
     /// Windows' own rules, as from File Explorer: moved on the same drive, copied to another
-    /// (Ctrl copies, Shift moves), together with the other picked ones when it is picked; the X
-    /// takes it off the shelf (the file stays where it is). Ctrl or Shift + click picks it.
-    /// One that was moved or deleted since says so and can only be picked or taken off.
+    /// (Ctrl copies, Shift moves), together with the other picked files when it is picked. A
+    /// link: its page title (or address) and its site; a click opens it in the browser; a drag
+    /// gives the link. A note: its first line and how many lines; a click copies it; a drag
+    /// gives the text. The X takes it off the shelf (a file stays where it is). Ctrl or Shift +
+    /// click picks it. A file moved or deleted since says so and can only be picked or taken off.
     /// </summary>
-    private Grid ShelfRow(string path, ShelfKind kind)
+    private Grid ShelfRow(ShelfItem item, ShelfKind kind)
     {
+        string key = item.Key;
         bool present = kind != ShelfKind.Gone;
         bool folder = kind == ShelfKind.Folder;
-        string name = ShelfName(path);
-        string place = present ? Path.GetDirectoryName(path) ?? string.Empty : Strings.DynShelfMissing;
+        bool words = kind is ShelfKind.Link or ShelfKind.Note;
+        (string name, string place) = ShelfTexts(item, kind);
 
-        // The type's glyph until Windows' own icon (or picture) is there.
-        FontIcon glyph = Glyph(folder ? 0xE8B7 : 0xE8A5, 18, _dimBrush);
-        glyph.HorizontalAlignment = HorizontalAlignment.Center;
-        var picture = new Image
-        {
-            Width = ShelfIconDip,
-            Height = ShelfIconDip,
-            Stretch = Stretch.Uniform,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
         var icon = new Grid { Width = ShelfIconDip, Height = ShelfIconDip, VerticalAlignment = VerticalAlignment.Center };
-        icon.Children.Add(glyph);
-        icon.Children.Add(picture);
-        if (present)
+        if (words)
         {
-            _ = LoadShelfIconAsync(path, folder, picture, glyph);
+            FontIcon mark = Glyph(kind == ShelfKind.Link ? ShelfLinkGlyph : ShelfNoteGlyph, 18, _dimBrush);
+            mark.HorizontalAlignment = HorizontalAlignment.Center;
+            icon.Children.Add(mark);
+        }
+        else
+        {
+            // The type's glyph until Windows' own icon (or picture) is there.
+            FontIcon glyph = Glyph(folder ? 0xE8B7 : 0xE8A5, 18, _dimBrush);
+            glyph.HorizontalAlignment = HorizontalAlignment.Center;
+            var picture = new Image
+            {
+                Width = ShelfIconDip,
+                Height = ShelfIconDip,
+                Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            icon.Children.Add(glyph);
+            icon.Children.Add(picture);
+            if (present)
+            {
+                _ = LoadShelfIconAsync(item.Value, folder, picture, glyph);
+            }
         }
 
         TextBlock title = Text(13, FontWeights.Normal, present ? _whiteBrush : _dimBrush);
         title.Text = name;
         TextBlock detail = Text(11, FontWeights.Normal, _dimBrush);
         detail.Text = place;
-        var words = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
-        words.Children.Add(title);
-        words.Children.Add(detail);
+        var texts = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
+        texts.Children.Add(title);
+        texts.Children.Add(detail);
 
-        Button remove = MakeControl(0xE711, Fmt.F(Strings.DynShelfRemove, name), () => Task.FromResult(_host.Shelf.Remove(path)), out FontIcon removeIcon);
+        Button remove = MakeControl(0xE711, Fmt.F(Strings.DynShelfRemove, name), () => Task.FromResult(_host.Shelf.Remove(key)), out FontIcon removeIcon);
         SmallArrow(remove, removeIcon);
         remove.VerticalAlignment = VerticalAlignment.Center;
 
@@ -4131,27 +4210,27 @@ public sealed partial class DynalandWindow : Window
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(words, 1);
+        Grid.SetColumn(texts, 1);
         Grid.SetColumn(remove, 2);
         row.Children.Add(icon);
-        row.Children.Add(words);
+        row.Children.Add(texts);
         row.Children.Add(remove);
         AutomationProperties.SetName(row, name + ", " + place);
 
-        _shelfRowOf[path] = (row, kind);
+        _shelfRowOf[key] = (row, kind);
         row.PointerEntered += (_, _) =>
         {
-            _shelfHovered = path;
-            PaintShelfRow(path);
+            _shelfHovered = key;
+            PaintShelfRow(key);
         };
         row.PointerExited += (_, _) =>
         {
-            if (string.Equals(_shelfHovered, path, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(_shelfHovered, key, StringComparison.OrdinalIgnoreCase))
             {
                 _shelfHovered = null;
             }
 
-            PaintShelfRow(path);
+            PaintShelfRow(key);
         };
         row.Tapped += (_, e) =>
         {
@@ -4161,15 +4240,23 @@ public sealed partial class DynalandWindow : Window
             }
 
             e.Handled = true;
-            ClickShelfRow(path, present);
+            ClickShelfRow(item, present);
         };
-        PaintShelfRow(path);
+        PaintShelfRow(key);
         if (!present)
         {
             return row;
         }
 
         row.CanDrag = true;
+        if (words)
+        {
+            row.DragStarting += (_, e) => StartWordsDrag(item, e);
+            row.DropCompleted += (_, _) => _draggingOut = false;
+            return row;
+        }
+
+        string path = item.Value;
         row.DragStarting += async (_, e) =>
         {
             List<(string Path, ShelfKind Kind)> taking = ToTakeOut(path, kind);
@@ -4183,17 +4270,17 @@ public sealed partial class DynalandWindow : Window
                 {
                     try
                     {
-                        IStorageItem item;
+                        IStorageItem storage;
                         if (oneKind == ShelfKind.Folder)
                         {
-                            item = await StorageFolder.GetFolderFromPathAsync(one);
+                            storage = await StorageFolder.GetFolderFromPathAsync(one);
                         }
                         else
                         {
-                            item = await StorageFile.GetFileFromPathAsync(one);
+                            storage = await StorageFile.GetFileFromPathAsync(one);
                         }
 
-                        items.Add(item);
+                        items.Add(storage);
                         paths.Add(one);
                     }
                     catch (Exception ex)
@@ -4211,6 +4298,7 @@ public sealed partial class DynalandWindow : Window
                 e.Data.SetStorageItems(items);
                 e.AllowedOperations = DataPackageOperation.Copy | DataPackageOperation.Move;
                 _shelfDragged = paths;
+                _draggingOut = true;
                 Log.Info("Dynaland: " + items.Count.ToString(CultureInfo.InvariantCulture) + " shelf item(s) being dragged out.");
             }
             catch (Exception ex)
@@ -4225,6 +4313,7 @@ public sealed partial class DynalandWindow : Window
         };
         row.DropCompleted += (_, _) =>
         {
+            _draggingOut = false;
             List<string> dragged = _shelfDragged ?? new List<string> { path };
             _shelfDragged = null;
             _ = ForgetMovedAsync(dragged);
@@ -4232,14 +4321,81 @@ public sealed partial class DynalandWindow : Window
         return row;
     }
 
+    /// <summary>A row's two lines: a file's name and folder; a link's title (or address) and site; a note's first line and how many lines.</summary>
+    private static (string Name, string Place) ShelfTexts(ShelfItem item, ShelfKind kind)
+    {
+        switch (kind)
+        {
+            case ShelfKind.Link:
+                if (!Uri.TryCreate(item.Value, UriKind.Absolute, out Uri? uri))
+                {
+                    return (item.Value, string.Empty);
+                }
+
+                string shown = item.Title.Length > 0 ? item.Title : (uri.Host + uri.PathAndQuery).TrimEnd('/');
+                return (shown, Fmt.F(Strings.DynShelfLink, uri.Host));
+            case ShelfKind.Note:
+                string text = item.Value.Replace("\r\n", "\n", StringComparison.Ordinal);
+                string first = string.Empty;
+                foreach (string line in text.Split('\n'))
+                {
+                    if (line.Trim().Length > 0)
+                    {
+                        first = line.Trim();
+                        break;
+                    }
+                }
+
+                if (first.Length > 200)
+                {
+                    first = first[..200];
+                }
+
+                int lines = text.TrimEnd().Split('\n').Length;
+                return (first, lines > 1 ? Fmt.F(Strings.DynShelfNoteLines, lines) : Strings.DynShelfNote);
+            default:
+                bool present = kind != ShelfKind.Gone;
+                return (ShelfName(item.Value), present ? Path.GetDirectoryName(item.Value) ?? string.Empty : Strings.DynShelfMissing);
+        }
+    }
+
+    /// <summary>A link or a note dragged out: the link (and its address as text), or the text; copied, never taken off the shelf.</summary>
+    private void StartWordsDrag(ShelfItem item, DragStartingEventArgs e)
+    {
+        try
+        {
+            bool link = item.Kind == ShelfItemKind.Link;
+            if (link && Uri.TryCreate(item.Value, UriKind.Absolute, out Uri? uri))
+            {
+                e.Data.SetWebLink(uri);
+                if (item.Title.Length > 0)
+                {
+                    e.Data.Properties.Title = item.Title;
+                }
+            }
+
+            e.Data.SetText(item.Value);
+            e.AllowedOperations = link ? DataPackageOperation.Copy | DataPackageOperation.Link : DataPackageOperation.Copy;
+            _draggingOut = true;
+            Log.Info("Dynaland: a shelf " + (link ? "link" : "note") + " being dragged out.");
+        }
+        catch (Exception ex)
+        {
+            e.Cancel = true;
+            Log.Warn("Dynaland: a shelf link or note could not be dragged out.", ex);
+        }
+    }
+
     /// <summary>
     /// A click on a row. Ctrl (or Shift with nothing picked yet) + click picks it or lets it go;
     /// Shift + click picks every row from the last one picked to this one (Ctrl + Shift adds them
-    /// to the picked ones). A plain click opens it (and Dynaland closes); a gone one does nothing.
+    /// to the picked ones). A plain click opens a file or a link (and Dynaland closes), or copies
+    /// a note (Dynaland stays); a gone file does nothing.
     /// The keys are read as they are now: Dynaland never takes the keyboard.
     /// </summary>
-    private void ClickShelfRow(string path, bool present)
+    private void ClickShelfRow(ShelfItem item, bool present)
     {
+        string key = item.Key;
         bool ctrl = KeyIsDown(User32.VK_CONTROL);
         bool shift = KeyIsDown(User32.VK_SHIFT);
         if (shift && _shelfAnchor is not null && _shelfRowOf.ContainsKey(_shelfAnchor))
@@ -4249,14 +4405,14 @@ public sealed partial class DynalandWindow : Window
                 _shelfPicked.Clear();
             }
 
-            IReadOnlyList<string> paths = _host.Shelf.Paths;
-            int from = ShelfIndex(paths, _shelfAnchor);
-            int to = ShelfIndex(paths, path);
+            List<string> keys = ShelfKeys();
+            int from = ShelfIndex(keys, _shelfAnchor);
+            int to = ShelfIndex(keys, key);
             if (from >= 0 && to >= 0)
             {
                 for (int i = Math.Min(from, to); i <= Math.Max(from, to); i++)
                 {
-                    _shelfPicked.Add(paths[i]);
+                    _shelfPicked.Add(keys[i]);
                 }
             }
 
@@ -4266,24 +4422,83 @@ public sealed partial class DynalandWindow : Window
 
         if (ctrl || shift)
         {
-            if (!_shelfPicked.Remove(path))
+            if (!_shelfPicked.Remove(key))
             {
-                _shelfPicked.Add(path);
+                _shelfPicked.Add(key);
             }
 
-            _shelfAnchor = path;
+            _shelfAnchor = key;
             UpdateShelfPicks();
             return;
         }
 
-        if (!present)
+        switch (item.Kind)
         {
-            return;
+            case ShelfItemKind.Link:
+                OpenShelfLink(item.Value);
+                EndHover();
+                break;
+            case ShelfItemKind.Note:
+                CopyShelfNote(item.Value);
+                break;
+            default:
+                if (!present)
+                {
+                    return;
+                }
+
+                Log.Info("Dynaland: a shelf item was opened.");
+                FileActions.Open(item.Value);
+                EndHover();
+                break;
+        }
+    }
+
+    /// <summary>A link from the shelf in the default browser (only http and https are ever parked).</summary>
+    private static void OpenShelfLink(string address)
+    {
+        try
+        {
+            using Process? started = Process.Start(new ProcessStartInfo(address) { UseShellExecute = true });
+            Log.Info("Dynaland: a shelf link was opened.");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Dynaland: a shelf link could not be opened.", ex);
+        }
+    }
+
+    /// <summary>A note from the shelf onto the clipboard, said under the shelf's title.</summary>
+    private void CopyShelfNote(string text)
+    {
+        try
+        {
+            var package = new DataPackage();
+            package.SetText(text);
+            WinClipboard.SetContent(package);
+            WinClipboard.Flush();
+            _shelfMessage = Strings.DynShelfCopied;
+            Log.Info("Dynaland: a shelf note was copied.");
+        }
+        catch (Exception ex)
+        {
+            _shelfMessage = Strings.DynShelfClipboardFailed;
+            Log.Error("Dynaland: a shelf note could not be copied.", ex);
         }
 
-        Log.Info("Dynaland: a shelf item was opened.");
-        FileActions.Open(path);
-        EndHover();
+        UpdateShelfLook();
+    }
+
+    /// <summary>The shelf's keys, newest first.</summary>
+    private List<string> ShelfKeys()
+    {
+        var keys = new List<string>(_host.Shelf.Items.Count);
+        foreach (ShelfItem item in _host.Shelf.Items)
+        {
+            keys.Add(item.Key);
+        }
+
+        return keys;
     }
 
     private static bool KeyIsDown(int virtualKey)
@@ -4304,19 +4519,24 @@ public sealed partial class DynalandWindow : Window
         return -1;
     }
 
-    /// <summary>What a drag from this row takes: all the picked ones still there, in the shelf's order, when it is picked; else itself.</summary>
+    /// <summary>
+    /// What a drag from a file's row takes: all the picked files and folders still there, in the
+    /// shelf's order, when it is picked (picked links and notes stay); else itself.
+    /// </summary>
     private List<(string Path, ShelfKind Kind)> ToTakeOut(string path, ShelfKind kind)
     {
         var taking = new List<(string Path, ShelfKind Kind)>();
         if (_shelfPicked.Contains(path))
         {
-            foreach (string one in _host.Shelf.Paths)
+            foreach (ShelfItem item in _host.Shelf.Items)
             {
-                if (_shelfPicked.Contains(one)
+                string one = item.Key;
+                if (item.Kind == ShelfItemKind.File
+                    && _shelfPicked.Contains(one)
                     && _shelfRowOf.TryGetValue(one, out (Grid Row, ShelfKind Kind) shown)
-                    && shown.Kind != ShelfKind.Gone)
+                    && shown.Kind is ShelfKind.File or ShelfKind.Folder)
                 {
-                    taking.Add((one, shown.Kind));
+                    taking.Add((item.Value, shown.Kind));
                 }
             }
         }
@@ -4390,7 +4610,7 @@ public sealed partial class DynalandWindow : Window
     {
         _shelfPicked.Clear();
         _shelfAnchor = null;
-        int removed = _host.Shelf.RemoveMany(new List<string>(_host.Shelf.Paths));
+        int removed = _host.Shelf.RemoveMany(ShelfKeys());
         Log.Info("Dynaland: the shelf was cleared (" + removed.ToString(CultureInfo.InvariantCulture) + " item(s) taken off).");
         UpdateShelfPicks();
     }
@@ -4460,6 +4680,139 @@ public sealed partial class DynalandWindow : Window
         }
     }
 
+    /// <summary>What a drop or the clipboard carries for the shelf: files and folders, else a web link, else text.</summary>
+    private sealed class ShelfParcel
+    {
+        internal List<string> Paths { get; } = new();
+
+        /// <summary>Items without a path on this PC (a file still inside an archive, say).</summary>
+        internal int NoPath { get; set; }
+
+        internal string? Link { get; set; }
+
+        internal string Title { get; set; } = string.Empty;
+
+        internal string? Text { get; set; }
+    }
+
+    /// <summary>
+    /// Reads a drop's or the clipboard's content: files and folders first; else a web link (with
+    /// its page title when given); else text, which is a link when it is one web address alone
+    /// and a note otherwise.
+    /// </summary>
+    private static async Task<ShelfParcel> ReadParcelAsync(DataPackageView view)
+    {
+        var parcel = new ShelfParcel();
+        if (view.Contains(StandardDataFormats.StorageItems))
+        {
+            IReadOnlyList<IStorageItem> items = await view.GetStorageItemsAsync();
+            foreach (IStorageItem item in items)
+            {
+                if (string.IsNullOrEmpty(item.Path))
+                {
+                    parcel.NoPath++;
+                }
+                else
+                {
+                    parcel.Paths.Add(item.Path);
+                }
+            }
+
+            return parcel;
+        }
+
+        if (view.Contains(StandardDataFormats.WebLink))
+        {
+            Uri? link = await view.GetWebLinkAsync();
+            if (ShelfStore.TryLink(link?.OriginalString, out string address))
+            {
+                parcel.Link = address;
+                parcel.Title = view.Properties.Title ?? string.Empty;
+                return parcel;
+            }
+        }
+
+        if (view.Contains(StandardDataFormats.Text))
+        {
+            string text = await view.GetTextAsync() ?? string.Empty;
+            if (ShelfStore.TryLink(text, out string address))
+            {
+                parcel.Link = address;
+            }
+            else
+            {
+                parcel.Text = text;
+            }
+        }
+
+        return parcel;
+    }
+
+    /// <summary>
+    /// Puts what was read on the shelf and says under its title what could not go (a full shelf,
+    /// items without a path, text cut, nothing usable). The log gets how many, never a link or text.
+    /// </summary>
+    private void Park(ShelfParcel parcel, string how)
+    {
+        if (parcel.Paths.Count > 0 || parcel.NoPath > 0)
+        {
+            ShelfAdded result = _host.Shelf.Add(parcel.Paths);
+            _shelfMessage = result.Full > 0 ? Fmt.F(Strings.DynShelfFull, ShelfStore.MaxItems, result.Full)
+                : parcel.NoPath > 0 ? Fmt.F(Strings.DynShelfNoPath, parcel.NoPath)
+                : string.Empty;
+            Log.Info("Dynaland: " + result.Added.ToString(CultureInfo.InvariantCulture) + " item(s) " + how + " on the shelf"
+                + (result.Full > 0 ? ", " + result.Full.ToString(CultureInfo.InvariantCulture) + " turned away (the shelf is full)" : string.Empty)
+                + (parcel.NoPath > 0 ? ", " + parcel.NoPath.ToString(CultureInfo.InvariantCulture) + " without a path on this PC" : string.Empty) + ".");
+            return;
+        }
+
+        if (parcel.Link is string link)
+        {
+            ShelfAdded result = _host.Shelf.AddLink(link, parcel.Title);
+            _shelfMessage = result.Full > 0 ? Fmt.F(Strings.DynShelfFull, ShelfStore.MaxItems, result.Full) : string.Empty;
+            Log.Info("Dynaland: a link " + how + (result.Full > 0 ? ", turned away (the shelf is full)." : " on the shelf."));
+            return;
+        }
+
+        if (parcel.Text is string text && text.Trim().Length > 0)
+        {
+            ShelfAdded result = _host.Shelf.AddNote(text);
+            bool cut = text.TrimEnd().Length > ShelfStore.MaxNoteLength;
+            _shelfMessage = result.Full > 0 ? Fmt.F(Strings.DynShelfFull, ShelfStore.MaxItems, result.Full)
+                : cut ? Fmt.F(Strings.DynShelfNoteCut, ShelfStore.MaxNoteLength)
+                : string.Empty;
+            Log.Info("Dynaland: a note (" + Math.Min(text.Length, ShelfStore.MaxNoteLength).ToString(CultureInfo.InvariantCulture) + " characters) " + how
+                + (result.Full > 0 ? ", turned away (the shelf is full)." : " on the shelf."));
+            return;
+        }
+
+        _shelfMessage = Strings.DynShelfNothing;
+        Log.Info("Dynaland: nothing to put on the shelf (" + how + ": no files, link or text).");
+    }
+
+    /// <summary>The shelf's Paste button: the clipboard's files and folders, link or text onto the shelf.</summary>
+    private async Task<bool> PasteToShelfAsync()
+    {
+        try
+        {
+            ShelfParcel parcel = await ReadParcelAsync(WinClipboard.GetContent());
+            if (_closed)
+            {
+                return false;
+            }
+
+            Park(parcel, "pasted");
+        }
+        catch (Exception ex)
+        {
+            _shelfMessage = Strings.DynShelfClipboardFailed;
+            Log.Error("Dynaland: the clipboard could not be read for the shelf.", ex);
+        }
+
+        UpdateShelfLook();
+        return true;
+    }
+
     /// <summary>
     /// After a drag out: the files that left their place (moved; Windows may finish a moment
     /// later) leave the shelf too; copies stay. Looked at for up to 10 seconds.
@@ -4514,7 +4867,7 @@ public sealed partial class DynalandWindow : Window
 
         if (has)
         {
-            _miniText.Text = media.Artist.Length > 0 ? media.Title + " - " + media.Artist : media.Title;
+            ShowMiniText(media);
             _miniState.Glyph = ((char)(media.IsPlaying ? 0xEC4F : 0xE769)).ToString();
             _miniState.Foreground = media.IsPlaying ? _accentBrush : _dimBrush;
             Show(_miniArt, _artFound);
@@ -4533,6 +4886,7 @@ public sealed partial class DynalandWindow : Window
             _playPauseIcon.Glyph = ((char)(media.IsPlaying ? 0xE769 : 0xE768)).ToString();
         }
 
+        FollowLyrics(media);
         UpdateTimeline();
         UpdateName();
         UpdateArrows();
@@ -5365,54 +5719,7 @@ public sealed partial class DynalandWindow : Window
     /// <summary>A readable name for the app Windows names the media session after.</summary>
     private string AppNameFor(string appId)
     {
-        if (appId.Length == 0)
-        {
-            return Strings.DynAnApp;
-        }
-
-        try
-        {
-            foreach (AppEntry app in _host.Catalog.Apps)
-            {
-                if (app.AppUserModelId is string id && string.Equals(id, appId, StringComparison.OrdinalIgnoreCase))
-                {
-                    return app.Name;
-                }
-            }
-
-            string name = appId;
-            int bang = name.LastIndexOf('!');
-            if (bang >= 0 && bang < name.Length - 1)
-            {
-                name = name[(bang + 1)..];
-            }
-
-            if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            {
-                foreach (AppEntry app in _host.Catalog.Apps)
-                {
-                    if (app.TargetPath is string target
-                        && string.Equals(Path.GetFileName(target), name, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return app.Name;
-                    }
-                }
-
-                name = name[..^4];
-            }
-
-            // The browsers name their sessions with a short ID.
-            return name switch
-            {
-                "MSEdge" => "Microsoft Edge",
-                "Chrome" => "Google Chrome",
-                _ => name,
-            };
-        }
-        catch (Exception)
-        {
-            return appId;
-        }
+        return MediaAppNames.NameFor(_host.Catalog, appId);
     }
 
     /// <summary>What screen readers hear for the pill.</summary>

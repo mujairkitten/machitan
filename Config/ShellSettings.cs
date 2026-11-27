@@ -248,6 +248,40 @@ public sealed record ShellSettings
     /// <summary>"Copied" or "Cut" shows on Dynaland's pill (v0.9.3; Sam asked for it). The clipboard's content is never read.</summary>
     public bool DynalandClipboard { get; set; } = true;
 
+    /// <summary>
+    /// Synced lyrics in Dynaland's pill and player, from LRCLIB (lrclib.net; v0.9.3, Sam asked for
+    /// it). Off by default: each song's title, artist and length are sent to lrclib.net.
+    /// </summary>
+    public bool DynalandLyrics { get; set; }
+
+    /// <summary>The widget sidebar (v0.9.3; Sam asked for it, 2026-11-26). Off by default.</summary>
+    public bool SidebarOn { get; set; }
+
+    /// <summary>The sidebar stays open at its side and maximised windows stop beside it; off (the default), it slides in.</summary>
+    public bool SidebarDocked { get; set; }
+
+    /// <summary>The sidebar's side: the left; off (the default), the right.</summary>
+    public bool SidebarLeft { get; set; }
+
+    /// <summary>
+    /// Docked, the sidebar leaves room for the indicators in its side's corners: they stay in the
+    /// screen's corners and it starts below (or ends above) them. Off (the default): it is as
+    /// tall as the screen's free height, Machitan's own top strip included, and those indicators
+    /// stand beside it (Sam, 2026-11-26: "either it's full vertically side-to-side, or leave some
+    /// room for Indicator(s)").
+    /// </summary>
+    public bool SidebarLeaveRoom { get; set; }
+
+    /// <summary>A sliding sidebar opens when the pointer rests at its edge of the screen. On by default (it only matters while the sidebar is on).</summary>
+    public bool SidebarEdgeHover { get; set; } = true;
+
+    public const int MinSidebarWidth = 280;
+    public const int MaxSidebarWidth = 640;
+    public const int DefaultSidebarWidth = 360;
+
+    /// <summary>The sidebar's width (DIP), set by dragging its inner edge or in Settings.</summary>
+    public int SidebarWidth { get; set; } = DefaultSidebarWidth;
+
     /// <summary>Dynaland's shape: notch (default) or island.</summary>
     public DynalandStyle DynalandStyle { get; set; } = global::Machitan.Config.DynalandStyle.Notch;
 
@@ -396,6 +430,55 @@ public sealed record ShellSettings
 
     // Start's buttons next to the power button, as in Windows' Start > Folders. All off.
 
+    /// <summary>
+    /// Win+A's tiles, in their default order (as Windows 11's own quick settings, without the
+    /// ones Machitan cannot switch yet). A tile Windows does not offer on this PC is never shown.
+    /// </summary>
+    public static readonly string[] QuickTileIds =
+    {
+        "WiFi", "Bluetooth", "LiveCaptions", "MobileHotspot", "Cast", "Project", "AirplaneMode",
+    };
+
+    /// <summary>Win+A's tiles' order: their ids, comma separated (see QuickTileIds); set by moving tiles in its edit mode.</summary>
+    public string QuickTileOrder { get; set; } = string.Join(",", QuickTileIds);
+
+    /// <summary>Win+A's tiles taken off in its edit mode: their ids, comma separated. None by default.</summary>
+    public string QuickTilesHidden { get; set; } = string.Empty;
+
+    /// <summary>The tile order as a list: every known id once, unknown ones dropped, missing ones (new tiles) added at their default place.</summary>
+    public static List<string> ParseQuickTileOrder(string? order)
+    {
+        return ParseOrder(order, QuickTileIds);
+    }
+
+    /// <summary>Win+A's sliders, in their default order: volume, then brightness (every screen's together).</summary>
+    public static readonly string[] QuickSliderIds = { "Volume", "Brightness" };
+
+    /// <summary>Win+A's sliders' order: their ids, comma separated (see QuickSliderIds); set by moving them in its edit mode.</summary>
+    public string QuickSliderOrder { get; set; } = string.Join(",", QuickSliderIds);
+
+    /// <summary>The slider order as a list: every known id once, unknown ones dropped, missing ones added at their default place.</summary>
+    public static List<string> ParseQuickSliderOrder(string? order)
+    {
+        return ParseOrder(order, QuickSliderIds);
+    }
+
+    /// <summary>The hidden tiles: known ids, each once.</summary>
+    public static List<string> ParseQuickTilesHidden(string? hidden)
+    {
+        var ids = new List<string>();
+        foreach (string part in (hidden ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            string? known = Array.Find(QuickTileIds, id => string.Equals(id, part, StringComparison.OrdinalIgnoreCase));
+            if (known is not null && !ids.Contains(known))
+            {
+                ids.Add(known);
+            }
+        }
+
+        return ids;
+    }
+
     /// <summary>The folder buttons' ids, in their default order (left to right, the power button after the last).</summary>
     public static readonly string[] FolderIds =
     {
@@ -453,26 +536,32 @@ public sealed record ShellSettings
     /// <summary>The folder order as a list: every known id once, unknown ones dropped, missing ones added at their default place.</summary>
     public static List<string> ParseFolderOrder(string? order)
     {
+        return ParseOrder(order, FolderIds);
+    }
+
+    /// <summary>An order of known ids: every id once, unknown ones dropped, missing ones added at their default place.</summary>
+    private static List<string> ParseOrder(string? order, string[] knownIds)
+    {
         var ids = new List<string>();
         foreach (string part in (order ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         {
-            string? known = Array.Find(FolderIds, id => string.Equals(id, part, StringComparison.OrdinalIgnoreCase));
+            string? known = Array.Find(knownIds, id => string.Equals(id, part, StringComparison.OrdinalIgnoreCase));
             if (known is not null && !ids.Contains(known))
             {
                 ids.Add(known);
             }
         }
 
-        for (int i = 0; i < FolderIds.Length; i++)
+        for (int i = 0; i < knownIds.Length; i++)
         {
-            if (ids.Contains(FolderIds[i]))
+            if (ids.Contains(knownIds[i]))
             {
                 continue;
             }
 
-            // After the one that comes before it by default, so a new button lands where it would be.
-            int after = i == 0 ? -1 : ids.IndexOf(FolderIds[i - 1]);
-            ids.Insert(after + 1, FolderIds[i]);
+            // After the one that comes before it by default, so a new one lands where it would be.
+            int after = i == 0 ? -1 : ids.IndexOf(knownIds[i - 1]);
+            ids.Insert(after + 1, knownIds[i]);
         }
 
         return ids;
@@ -524,6 +613,9 @@ public sealed record ShellSettings
         }
 
         FolderOrder = string.Join(",", ParseFolderOrder(FolderOrder));
+        QuickTileOrder = string.Join(",", ParseQuickTileOrder(QuickTileOrder));
+        QuickTilesHidden = string.Join(",", ParseQuickTilesHidden(QuickTilesHidden));
+        QuickSliderOrder = string.Join(",", ParseQuickSliderOrder(QuickSliderOrder));
 
         if (!Enum.IsDefined(DockEdge))
         {
@@ -591,6 +683,7 @@ public sealed record ShellSettings
         DuoRingSize = Math.Clamp(DuoRingSize, MinWidgetSize, MaxWidgetSize);
         DynalandSize = Math.Clamp(DynalandSize, MinWidgetSize, MaxWidgetSize);
         DynalandWidth = Math.Clamp(DynalandWidth, MinDynalandWidth, MaxDynalandWidth);
+        SidebarWidth = Math.Clamp(SidebarWidth, MinSidebarWidth, MaxSidebarWidth);
         DynalandTransparency = Math.Clamp(DynalandTransparency, 0, MaxDynalandTransparency);
         DuoRingLowBattery = Math.Clamp(DuoRingLowBattery, MinRingLowBattery, MaxRingLowBattery);
         DuoRingTransparency = Math.Clamp(DuoRingTransparency, 0, 100);

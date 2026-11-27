@@ -18,7 +18,9 @@ internal static partial class Shell32
 
     internal const uint ABS_AUTOHIDE = 1;
 
+    internal const uint ABE_LEFT = 0;
     internal const uint ABE_TOP = 1;
+    internal const uint ABE_RIGHT = 2;
     internal const uint ABE_BOTTOM = 3;
 
     internal const uint ABN_POSCHANGED = 1;

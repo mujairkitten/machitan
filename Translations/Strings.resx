@@ -201,7 +201,7 @@
     <value>None</value>
   </data>
   <data name="CmNoneAbout" xml:space="preserve">
-    <value>No corner widgets.</value>
+    <value>No indicators.</value>
   </data>
   <data name="CmNothingRemoved" xml:space="preserve">
     <value>Nothing removed: everything is on</value>
@@ -405,6 +405,12 @@
   <data name="DynShelfClearAll" xml:space="preserve">
     <value>Take everything off the shelf (the files stay where they are)</value>
   </data>
+  <data name="DynShelfClipboardFailed" xml:space="preserve">
+    <value>The clipboard could not be used.</value>
+  </data>
+  <data name="DynShelfCopied" xml:space="preserve">
+    <value>The note was copied.</value>
+  </data>
   <data name="DynShelfCount" xml:space="preserve">
     <value>{0} selected</value>
   </data>
@@ -412,13 +418,17 @@
     <value>Drop to add to the shelf</value>
   </data>
   <data name="DynShelfEmpty" xml:space="preserve">
-    <value>Drop files or folders on Dynaland to keep them here. Only where they are is remembered: nothing is copied.</value>
+    <value>Drop or paste files, folders, links or text to keep them here. For files, only where they are is kept: nothing is copied.</value>
   </data>
   <data name="DynShelfFull" xml:space="preserve">
     <value>The shelf is full ({0} at most): {1} not added.</value>
   </data>
   <data name="DynShelfIsSelected" xml:space="preserve">
     <value>Selected</value>
+  </data>
+  <data name="DynShelfLink" xml:space="preserve">
+    <value>Link, {0}</value>
+    <comment>{0} = the site, e.g. github.com</comment>
   </data>
   <data name="DynShelfMissing" xml:space="preserve">
     <value>Not found: moved or deleted</value>
@@ -428,6 +438,23 @@
   </data>
   <data name="DynShelfNotSaved" xml:space="preserve">
     <value>shelf.json could not be read, so changes to the shelf are not saved this time.</value>
+  </data>
+  <data name="DynShelfNote" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="DynShelfNoteCut" xml:space="preserve">
+    <value>The text was longer than {0} characters: the rest was left out.</value>
+    <comment>{0} = the longest text kept, 20000</comment>
+  </data>
+  <data name="DynShelfNoteLines" xml:space="preserve">
+    <value>Note, {0} lines</value>
+    <comment>{0} = how many lines the note has (2 or more)</comment>
+  </data>
+  <data name="DynShelfNothing" xml:space="preserve">
+    <value>Nothing to add: there are no files, link or text.</value>
+  </data>
+  <data name="DynShelfPaste" xml:space="preserve">
+    <value>Paste files, a link or text from the clipboard</value>
   </data>
   <data name="DynShelfRemove" xml:space="preserve">
     <value>Remove {0} from the shelf</value>
@@ -650,8 +677,18 @@
     <value>Preview of {0}</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="QsAdd" xml:space="preserve">
+    <value>Add</value>
+  </data>
   <data name="QsAirplaneMode" xml:space="preserve">
     <value>Airplane mode</value>
+  </data>
+  <data name="QsAllSettings" xml:space="preserve">
+    <value>All settings</value>
+  </data>
+  <data name="QsBack" xml:space="preserve">
+    <value>Back</value>
+    <comment>Quick settings: back from the Wi-Fi list to the tiles.</comment>
   </data>
   <data name="QsBluetooth" xml:space="preserve">
     <value>Bluetooth</value>
@@ -672,6 +709,21 @@
   <data name="QsChecking" xml:space="preserve">
     <value>Checking which screens can change brightness...</value>
   </data>
+  <data name="QsConnected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="QsDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="QsDragSliderToMove" xml:space="preserve">
+    <value>Drag onto the other slider to move it</value>
+  </data>
+  <data name="QsDragToMove" xml:space="preserve">
+    <value>Drag onto another tile to move it</value>
+  </data>
+  <data name="QsEdit" xml:space="preserve">
+    <value>Edit quick settings</value>
+  </data>
   <data name="QsHotspot" xml:space="preserve">
     <value>Mobile hotspot</value>
   </data>
@@ -681,11 +733,28 @@
   <data name="QsMute" xml:space="preserve">
     <value>Mute</value>
   </data>
+  <data name="QsNotConnected" xml:space="preserve">
+    <value>Not connected</value>
+  </data>
   <data name="QsNothing" xml:space="preserve">
     <value>Windows offers no volume or brightness control on this PC right now.</value>
   </data>
+  <data name="QsNothingToAdd" xml:space="preserve">
+    <value>Every tile is already shown</value>
+  </data>
+  <data name="QsPercent" xml:space="preserve">
+    <value>{0}%</value>
+    <comment>{0}: the battery level.</comment>
+  </data>
   <data name="QsProject" xml:space="preserve">
     <value>Project</value>
+  </data>
+  <data name="QsRemoveTile" xml:space="preserve">
+    <value>Remove {0}</value>
+    <comment>{0}: the tile's name, such as Bluetooth.</comment>
+  </data>
+  <data name="QsUnavailable" xml:space="preserve">
+    <value>Not available</value>
   </data>
   <data name="QsVolume" xml:space="preserve">
     <value>Volume</value>
@@ -696,6 +765,10 @@
   </data>
   <data name="QsWifi" xml:space="preserve">
     <value>Wi-Fi</value>
+  </data>
+  <data name="QsWifiNetworks" xml:space="preserve">
+    <value>Show Wi-Fi networks</value>
+    <comment>Quick settings: the chevron beside the Wi-Fi switch (name and tooltip).</comment>
   </data>
   <data name="RingBattery" xml:space="preserve">
     <value>Battery {0}%</value>
@@ -756,6 +829,28 @@
   </data>
   <data name="RunAsAdmin" xml:space="preserve">
     <value>Run as administrator</value>
+  </data>
+  <data name="SbAdd" xml:space="preserve">
+    <value>Add a widget</value>
+  </data>
+  <data name="SbDock" xml:space="preserve">
+    <value>Keep it open (docked)</value>
+  </data>
+  <data name="SbEmpty" xml:space="preserve">
+    <value>No widgets in the sidebar yet. Add one with the + above.</value>
+  </data>
+  <data name="SbReadOnly" xml:space="preserve">
+    <value>widgets.json could not be read, so changes are not saved this run. A copy was kept next to it.</value>
+  </data>
+  <data name="SbResize" xml:space="preserve">
+    <value>Drag to change the sidebar's width</value>
+    <comment>The sidebar's inner edge.</comment>
+  </data>
+  <data name="SbSettings" xml:space="preserve">
+    <value>Widget settings</value>
+  </data>
+  <data name="SbUndock" xml:space="preserve">
+    <value>Let it slide in</value>
   </data>
   <data name="SearchActBluetooth" xml:space="preserve">
     <value>Bluetooth &amp; devices</value>
@@ -972,6 +1067,12 @@
   <data name="SetDynLevelsNote" xml:space="preserve">
     <value>Machitan handles the volume keys and hides Windows' volume and brightness flyout, so only Dynaland shows the level. While Dynaland is hidden (a full-screen app), Windows' own flyout is back.</value>
   </data>
+  <data name="SetDynLyrics" xml:space="preserve">
+    <value>Synced lyrics</value>
+  </data>
+  <data name="SetDynLyricsNote" xml:space="preserve">
+    <value>The words of the playing song, in step with it, from LRCLIB (lrclib.net), in Dynaland and in the Now playing widget. For each song, its title, artist and length are sent there.</value>
+  </data>
   <data name="SetDynNotifications" xml:space="preserve">
     <value>New notifications show in Dynaland</value>
   </data>
@@ -1145,6 +1246,10 @@
   <data name="SetPageAbout" xml:space="preserve">
     <value>About</value>
   </data>
+  <data name="SetPageBoard" xml:space="preserve">
+    <value>Widgets</value>
+    <comment>Settings page and the sidebar's title: the widget sidebar.</comment>
+  </data>
   <data name="SetPageDynaland" xml:space="preserve">
     <value>Dynaland</value>
   </data>
@@ -1167,7 +1272,7 @@
     <value>Taskbar</value>
   </data>
   <data name="SetPageWidgets" xml:space="preserve">
-    <value>Corner widgets</value>
+    <value>Indicators</value>
   </data>
   <data name="SetPeekDesktop" xml:space="preserve">
     <value>Peek at the desktop</value>
@@ -1237,17 +1342,24 @@
     <value>A troubleshooting log at {0}. It can hold app names, file paths and window titles, and stays on this PC unless you share it.</value>
     <comment>Keep {0}: Machitan fills it in.</comment>
   </data>
+  <data name="SetPrivacyLyrics" xml:space="preserve">
+    <value>With synced lyrics on, Machitan sends the playing song's title, artist and length to LRCLIB (lrclib.net) to find its lyrics, and for a Winamp-style player the words of its file name when nothing else is found. A .lrc file next to the song is read on this PC.</value>
+  </data>
   <data name="SetPrivacyRing" xml:space="preserve">
     <value>Battery, network and volume come from Windows on this PC. The Wi-Fi name comes from Windows' network list, so no location permission is needed.</value>
   </data>
   <data name="SetPrivacyShelf" xml:space="preserve">
-    <value>The paths of the files and folders you park on Dynaland's shelf, in {0}. Only the paths: nothing is copied, and nothing leaves this PC.</value>
+    <value>What you park on Dynaland's shelf, in {0}: the paths of files and folders (only the paths: nothing is copied), and links and text as they are. Nothing leaves this PC.</value>
   </data>
   <data name="SetPrivacyUpdates" xml:space="preserve">
     <value>When updates are checked (at start and once a day while that is on, and when you check), Machitan asks GitHub (api.github.com) for its newest release, so GitHub sees this PC's internet address and Machitan's version. An update is downloaded from GitHub only when you say so.</value>
   </data>
   <data name="SetPrivacyWeather" xml:space="preserve">
-    <value>With weather on, Machitan asks Windows for this PC's location at most once an hour, rounds it to about 1 km, and sends it to Open-Meteo (open-meteo.com) every 15 minutes. If Windows blocks location for desktop apps, the weather stays hidden. With a place you picked, its rounded coordinates go instead, and a place search sends the name you typed to Open-Meteo. Nothing else leaves this PC.</value>
+    <value>With weather on in the info line, or a Weather widget shown, Machitan asks Windows for this PC's location at most once an hour, rounds it to about 1 km, and sends it to Open-Meteo (open-meteo.com) every 15 minutes. If Windows blocks location for desktop apps, the weather stays hidden. With a place you picked, its rounded coordinates go instead, and a place search sends the name you typed to Open-Meteo. Nothing else leaves this PC.</value>
+  </data>
+  <data name="SetPrivacyWidgets" xml:space="preserve">
+    <value>The widgets you add, what you type in notes, and where and how big widgets are, in {0}. Nothing leaves this PC.</value>
+    <comment>{0} = the path of widgets.json</comment>
   </data>
   <data name="SetRecentItems" xml:space="preserve">
     <value>Recent items</value>
@@ -1290,10 +1402,61 @@
     <value>Shape</value>
   </data>
   <data name="SetShelf" xml:space="preserve">
-    <value>File shelf</value>
+    <value>Shelf</value>
   </data>
   <data name="SetShowsWhileUpdate" xml:space="preserve">
     <value>Shows while an update is waiting.</value>
+  </data>
+  <data name="SetSidebar" xml:space="preserve">
+    <value>Sidebar</value>
+  </data>
+  <data name="SetSidebarAddNote" xml:space="preserve">
+    <value>Add widgets with the + at the top of the sidebar. None are added by default.</value>
+  </data>
+  <data name="SetSidebarDocked" xml:space="preserve">
+    <value>Docked</value>
+  </data>
+  <data name="SetSidebarEdge" xml:space="preserve">
+    <value>Open by pointing at the edge</value>
+  </data>
+  <data name="SetSidebarEdgeNote" xml:space="preserve">
+    <value>Rest the pointer at the screen's edge for a moment (not near its top or bottom).</value>
+  </data>
+  <data name="SetSidebarFull" xml:space="preserve">
+    <value>Full height</value>
+  </data>
+  <data name="SetSidebarHeight" xml:space="preserve">
+    <value>Height when docked</value>
+  </data>
+  <data name="SetSidebarHeightNote" xml:space="preserve">
+    <value>Full height: from the top of the screen to the bottom; an indicator in that corner stands beside it. Leave room: the indicator keeps its corner, and the sidebar starts below it (or ends above it).</value>
+  </data>
+  <data name="SetSidebarMode" xml:space="preserve">
+    <value>How it shows</value>
+  </data>
+  <data name="SetSidebarModeNote" xml:space="preserve">
+    <value>Docked keeps it open, and maximised windows stop beside it.</value>
+  </data>
+  <data name="SetSidebarNote" xml:space="preserve">
+    <value>A panel at the side of the screen that holds your widgets.</value>
+  </data>
+  <data name="SetSidebarRoom" xml:space="preserve">
+    <value>Leave room for indicators</value>
+  </data>
+  <data name="SetSidebarShow" xml:space="preserve">
+    <value>Show the sidebar</value>
+  </data>
+  <data name="SetSidebarShowNote" xml:space="preserve">
+    <value>Opens it now, ready for the keyboard.</value>
+  </data>
+  <data name="SetSidebarSide" xml:space="preserve">
+    <value>Side</value>
+  </data>
+  <data name="SetSidebarSlides" xml:space="preserve">
+    <value>Slides in</value>
+  </data>
+  <data name="SetSidebarWidthNote" xml:space="preserve">
+    <value>Or drag the sidebar's inner edge; double-click it for the standard width. From 560, widgets sit two side by side.</value>
   </data>
   <data name="SetSize" xml:space="preserve">
     <value>Size</value>
@@ -1656,6 +1819,310 @@
   </data>
   <data name="UpdWhatsNew" xml:space="preserve">
     <value>What's new</value>
+  </data>
+  <data name="WgClock" xml:space="preserve">
+    <value>Clock</value>
+  </data>
+  <data name="WgClockCalendar" xml:space="preserve">
+    <value>Clock and calendar</value>
+  </data>
+  <data name="WgCustomize" xml:space="preserve">
+    <value>Customize</value>
+  </data>
+  <data name="WgDragHint" xml:space="preserve">
+    <value>{0}: drag here to move it</value>
+    <comment>{0} is the widget's name; its name row on the desktop.</comment>
+  </data>
+  <data name="WgMoveDown" xml:space="preserve">
+    <value>Move down</value>
+  </data>
+  <data name="WgMoveUp" xml:space="preserve">
+    <value>Move up</value>
+  </data>
+  <data name="WgNote" xml:space="preserve">
+    <value>Text note</value>
+  </data>
+  <data name="WgNoteHint" xml:space="preserve">
+    <value>Type a note</value>
+  </data>
+  <data name="WgNothingPlaying" xml:space="preserve">
+    <value>Nothing is playing.</value>
+  </data>
+  <data name="WgNowPlaying" xml:space="preserve">
+    <value>Now playing</value>
+  </data>
+  <data name="WgOpt12" xml:space="preserve">
+    <value>12-hour</value>
+  </data>
+  <data name="WgOpt24" xml:space="preserve">
+    <value>24-hour</value>
+  </data>
+  <data name="WgOptAlign" xml:space="preserve">
+    <value>Alignment</value>
+  </data>
+  <data name="WgOptAnalog" xml:space="preserve">
+    <value>Analog</value>
+  </data>
+  <data name="WgOptBar" xml:space="preserve">
+    <value>Progress bar</value>
+  </data>
+  <data name="WgOptButtons" xml:space="preserve">
+    <value>Buttons</value>
+  </data>
+  <data name="WgOptCelsius" xml:space="preserve">
+    <value>Celsius</value>
+  </data>
+  <data name="WgOptCenter" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="WgOptCompact" xml:space="preserve">
+    <value>Compact</value>
+  </data>
+  <data name="WgOptCover" xml:space="preserve">
+    <value>Cover</value>
+  </data>
+  <data name="WgOptDate" xml:space="preserve">
+    <value>Date</value>
+  </data>
+  <data name="WgOptDateOnly" xml:space="preserve">
+    <value>Date only</value>
+  </data>
+  <data name="WgOptDigital" xml:space="preserve">
+    <value>Digital</value>
+  </data>
+  <data name="WgOptFace" xml:space="preserve">
+    <value>Clock face</value>
+  </data>
+  <data name="WgOptFahrenheit" xml:space="preserve">
+    <value>Fahrenheit</value>
+  </data>
+  <data name="WgOptFull" xml:space="preserve">
+    <value>Full</value>
+  </data>
+  <data name="WgOptHours" xml:space="preserve">
+    <value>Hours</value>
+  </data>
+  <data name="WgOptLarge" xml:space="preserve">
+    <value>Large</value>
+  </data>
+  <data name="WgOptLayout" xml:space="preserve">
+    <value>Layout</value>
+  </data>
+  <data name="WgOptLeft" xml:space="preserve">
+    <value>Left</value>
+  </data>
+  <data name="WgOptLong" xml:space="preserve">
+    <value>Long</value>
+  </data>
+  <data name="WgOptLyrics" xml:space="preserve">
+    <value>Lyrics (with Synced lyrics on in Settings &gt; Dynaland)</value>
+  </data>
+  <data name="WgOptMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="WgOptPlace" xml:space="preserve">
+    <value>Place</value>
+  </data>
+  <data name="WgOptRange" xml:space="preserve">
+    <value>Today's high and low</value>
+  </data>
+  <data name="WgOptRight" xml:space="preserve">
+    <value>Right</value>
+  </data>
+  <data name="WgOptSeconds" xml:space="preserve">
+    <value>Seconds</value>
+  </data>
+  <data name="WgOptShort" xml:space="preserve">
+    <value>Short</value>
+  </data>
+  <data name="WgOptShow" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="WgOptSize" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="WgOptSmall" xml:space="preserve">
+    <value>Small</value>
+  </data>
+  <data name="WgOptSystem" xml:space="preserve">
+    <value>As Windows</value>
+  </data>
+  <data name="WgOptTextSize" xml:space="preserve">
+    <value>Text size</value>
+  </data>
+  <data name="WgOptTimeDate" xml:space="preserve">
+    <value>Time and date</value>
+  </data>
+  <data name="WgOptTimeOnly" xml:space="preserve">
+    <value>Time only</value>
+  </data>
+  <data name="WgOptUnit" xml:space="preserve">
+    <value>Temperature</value>
+  </data>
+  <data name="WgOptions" xml:space="preserve">
+    <value>Options for {0}</value>
+    <comment>{0} is the widget's name.</comment>
+  </data>
+  <data name="WgRemove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="WgRemoveAsk" xml:space="preserve">
+    <value>Remove this widget? What you typed in it is deleted.</value>
+  </data>
+  <data name="WgResize" xml:space="preserve">
+    <value>{0}: drag to resize; double-click for the standard size</value>
+    <comment>{0} = the widget's name</comment>
+  </data>
+  <data name="WgResizeHeight" xml:space="preserve">
+    <value>{0}: drag to change the height; double-click to fit the content</value>
+    <comment>{0} = the widget's name</comment>
+  </data>
+  <data name="WgToDesktop" xml:space="preserve">
+    <value>Move to the desktop</value>
+    <comment>A sidebar widget's menu: it goes on the desktop, behind the windows.</comment>
+  </data>
+  <data name="WgToSidebar" xml:space="preserve">
+    <value>Move to the sidebar</value>
+  </data>
+  <data name="WgWeather" xml:space="preserve">
+    <value>Weather</value>
+  </data>
+  <data name="WgWeatherHere" xml:space="preserve">
+    <value>Here (Windows' location)</value>
+  </data>
+  <data name="WgWeatherNone" xml:space="preserve">
+    <value>No weather to show yet. It needs the internet and Windows' location (allowed for desktop apps), or a place chosen in Settings &gt; Indicators.</value>
+  </data>
+  <data name="WgWeatherRange" xml:space="preserve">
+    <value>High {0}, low {1}</value>
+    <comment>{0}, {1} = today's highest and lowest temperature, with the degree sign</comment>
+  </data>
+  <data name="WgWeatherSettings" xml:space="preserve">
+    <value>Weather settings</value>
+  </data>
+  <data name="WgWeatherSource" xml:space="preserve">
+    <value>Open-Meteo, at {0}</value>
+    <comment>{0} = the time the weather was read</comment>
+  </data>
+  <data name="WifiConnect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="WifiConnectAuto" xml:space="preserve">
+    <value>Connect automatically</value>
+  </data>
+  <data name="WifiConnectedOpen" xml:space="preserve">
+    <value>Connected, open</value>
+  </data>
+  <data name="WifiConnectedSecured" xml:space="preserve">
+    <value>Connected, secured</value>
+  </data>
+  <data name="WifiConnecting" xml:space="preserve">
+    <value>Connecting...</value>
+  </data>
+  <data name="WifiDisconnect" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="WifiEnterKey" xml:space="preserve">
+    <value>Enter the network security key</value>
+  </data>
+  <data name="WifiEnterSsid" xml:space="preserve">
+    <value>Enter the name (SSID) of the network</value>
+  </data>
+  <data name="WifiErrDisconnect" xml:space="preserve">
+    <value>Windows could not disconnect.</value>
+  </data>
+  <data name="WifiErrFailed" xml:space="preserve">
+    <value>Windows could not connect to this network.</value>
+  </data>
+  <data name="WifiErrGone" xml:space="preserve">
+    <value>This network is out of reach now.</value>
+  </data>
+  <data name="WifiErrKey" xml:space="preserve">
+    <value>That network security key is not right.</value>
+  </data>
+  <data name="WifiErrNoAccess" xml:space="preserve">
+    <value>Windows no longer lets Machitan connect to Wi-Fi.</value>
+  </data>
+  <data name="WifiErrSignIn" xml:space="preserve">
+    <value>That user name or password is not right.</value>
+  </data>
+  <data name="WifiErrTimeout" xml:space="preserve">
+    <value>Windows took too long to connect. Try again.</value>
+  </data>
+  <data name="WifiErrUnsupported" xml:space="preserve">
+    <value>Windows cannot sign in to this network from here. Use More Wi-Fi settings.</value>
+  </data>
+  <data name="WifiFailed" xml:space="preserve">
+    <value>Windows could not list the Wi-Fi networks. The reason is in diagnostics.log.</value>
+  </data>
+  <data name="WifiHidden" xml:space="preserve">
+    <value>Hidden network</value>
+  </data>
+  <data name="WifiLocationSettings" xml:space="preserve">
+    <value>Open location settings</value>
+  </data>
+  <data name="WifiLooking" xml:space="preserve">
+    <value>Looking for networks...</value>
+    <comment>Wi-Fi list: while Windows looks and nothing is listed yet.</comment>
+  </data>
+  <data name="WifiMoreSettings" xml:space="preserve">
+    <value>More Wi-Fi settings</value>
+    <comment>Wi-Fi list: opens Windows' Wi-Fi settings.</comment>
+  </data>
+  <data name="WifiNext" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="WifiNoAdapter" xml:space="preserve">
+    <value>Windows reports no Wi-Fi adapter on this PC.</value>
+  </data>
+  <data name="WifiNoInternetOpen" xml:space="preserve">
+    <value>No internet, open</value>
+  </data>
+  <data name="WifiNoInternetSecured" xml:space="preserve">
+    <value>No internet, secured</value>
+  </data>
+  <data name="WifiNoLocation" xml:space="preserve">
+    <value>Windows shows Wi-Fi networks only to apps that may use your location. Turn on "Let desktop apps access your location", then open this list again.</value>
+    <comment>Wi-Fi list: Windows 11 24H2 and later. Use Windows' own name for the location setting in your language.</comment>
+  </data>
+  <data name="WifiNone" xml:space="preserve">
+    <value>No Wi-Fi networks found.</value>
+  </data>
+  <data name="WifiOffNote" xml:space="preserve">
+    <value>Wi-Fi is off. Turn it on to see the networks nearby.</value>
+  </data>
+  <data name="WifiOpen" xml:space="preserve">
+    <value>Open</value>
+    <comment>Wi-Fi list: a network without a key (not the verb).</comment>
+  </data>
+  <data name="WifiPassword" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="WifiRefresh" xml:space="preserve">
+    <value>Look for networks again</value>
+    <comment>Wi-Fi list: the refresh button (name and tooltip).</comment>
+  </data>
+  <data name="WifiSavedFailed" xml:space="preserve">
+    <value>Windows could not connect to it. It may be out of reach.</value>
+  </data>
+  <data name="WifiSavedNote" xml:space="preserve">
+    <value>Without location access, Windows does not show the networks nearby. These are the networks Windows has saved; one connects when it is in reach.</value>
+  </data>
+  <data name="WifiSavedState" xml:space="preserve">
+    <value>Saved</value>
+    <comment>Wi-Fi list without location: a network Windows has saved.</comment>
+  </data>
+  <data name="WifiSavedTitle" xml:space="preserve">
+    <value>Saved networks</value>
+  </data>
+  <data name="WifiSecured" xml:space="preserve">
+    <value>Secured</value>
+  </data>
+  <data name="WifiUnavailableNote" xml:space="preserve">
+    <value>Windows reports Wi-Fi as not available right now.</value>
+  </data>
+  <data name="WifiUserName" xml:space="preserve">
+    <value>User name</value>
   </data>
   <data name="WinXComputerManagement" xml:space="preserve">
     <value>Computer Mana&amp;gement</value>

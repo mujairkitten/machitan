@@ -8,6 +8,9 @@ namespace Machitan.Interop;
 /// Deliberately NOT used: the current-connection query (network name, signal). Since
 /// Windows 11 24H2 that call needs location permission and shows up as location use in the
 /// tray each time; the name and signal come from Windows' network list instead.
+/// Also Windows' saved networks (profiles), and connecting to or disconnecting from one: not
+/// on Microsoft's list of calls that need location, so Win+A's Wi-Fi list offers them when
+/// location access is off (Shell/WifiList.cs, WifiSaved).
 /// </summary>
 internal static partial class Wlanapi
 {
@@ -62,4 +65,45 @@ internal static partial class Wlanapi
 
     [LibraryImport("wlanapi.dll")]
     internal static partial void WlanFreeMemory(nint memory);
+
+    /// <summary>WLAN_PROFILE_INFO_LIST: two DWORDs, then the items.</summary>
+    internal const int ProfileListHeader = 8;
+
+    /// <summary>WLAN_PROFILE_INFO: WCHAR[256] (512) + flags (4).</summary>
+    internal const int ProfileInfoSize = 516;
+
+    /// <summary>WLAN_CONNECTION_MODE wlan_connection_mode_profile.</summary>
+    internal const int ConnectionModeProfile = 0;
+
+    /// <summary>DOT11_BSS_TYPE dot11_BSS_type_any.</summary>
+    internal const int BssTypeAny = 3;
+
+    [LibraryImport("wlanapi.dll")]
+    internal static partial uint WlanGetProfileList(nint clientHandle, ref Guid interfaceGuid, nint reserved, out nint profileList);
+
+    [LibraryImport("wlanapi.dll")]
+    internal static partial uint WlanConnect(nint clientHandle, ref Guid interfaceGuid, ref ConnectionParameters parameters, nint reserved);
+
+    [LibraryImport("wlanapi.dll")]
+    internal static partial uint WlanDisconnect(nint clientHandle, ref Guid interfaceGuid, nint reserved);
+
+    /// <summary>WLAN_CONNECTION_PARAMETERS (connect by a saved profile: only the mode, the profile's name and the BSS type).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct ConnectionParameters
+    {
+        internal int ConnectionMode;
+
+        /// <summary>LPCWSTR: the profile's name.</summary>
+        internal nint Profile;
+
+        /// <summary>PDOT11_SSID: none.</summary>
+        internal nint Ssid;
+
+        /// <summary>PDOT11_BSSID_LIST: none.</summary>
+        internal nint DesiredBssidList;
+
+        internal int BssType;
+
+        internal uint Flags;
+    }
 }

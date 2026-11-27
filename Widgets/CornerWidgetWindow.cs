@@ -310,7 +310,9 @@ public abstract partial class CornerWidgetWindow : Window
             // how far along the row this widget is, "row" the whole row's width.
             int offset = (int)Math.Round(Host.WidthBefore(this) * scale);
             int row = (int)Math.Round(Host.CornerRowWidth(corner) * scale);
-            int start = left ? work.Left + side : work.Right - side;
+            // Beside a docked sidebar on this side, or at the screen's edge past it while it
+            // leaves room for the indicators (ShellHost.CornerSideEdge).
+            int start = left ? Host.CornerSideEdge(true, work.Left) + side : Host.CornerSideEdge(false, work.Right) - side;
 
             // Visible top of the widgets' row (the window starts one pad above it).
             int lineTop;

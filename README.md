@@ -34,7 +34,7 @@ To uninstall, use Windows Settings, Apps. Uninstalling also removes Machitan's R
 
 The bar (a.k.a. 'taskbar') is a see-through pill at the bottom of the screen. The Start cluster and the app dock are separate pills, or joined into one, or stretched full width. Pinned apps sit on the bar. A Show Desktop strip sits at the bar's end. Auto-hide is on by default.
 
-Drag Start, an app bubble, the search icon or any app to rearrange the bar. Ctrl+click apps, or right-click and choose Group apps, to make a new bubble. Right-click the bar and choose Customize to pick, remove and change the bar's bubbles, Dynaland and the corner widgets.
+Drag Start, an app bubble, the search icon or any app to rearrange the bar. Ctrl+click apps, or right-click and choose Group apps, to make a new bubble. Right-click the bar and choose Customize to pick, remove and change the bar's bubbles, Dynaland and the indicators.
 
 The tray can sit on the bar as its own bubble (Settings, Taskbar, Tray on the bar). Its icons live in a box behind a ^ button, as on Windows' taskbar, and any of them can be dragged out onto the bar. Tray icons drag to a new order, on the bar and in Dynaland.
 
@@ -48,15 +48,21 @@ Machitan has its own Start menu. Search covers apps with `apps:` and files with 
 
 Dynaland is a small pill at the top or bottom centre, opposite the bar by default. It comes in a notch or island shape. It grows only for live things: music in the colour of its cover, a volume change, camera or microphone use with green and orange dots.
 
-Point at it to open it. The player comes first while music plays. The general page shows who uses the camera and microphone, as Windows' audio sessions and camera monitor report it, the apps' tray icons, received straight from the apps, with clicks, double-clicks and their menus, and a button for Windows' notification centre.
+Point at it to open it. The player comes first while music plays. With synced lyrics on (Settings, Dynaland; off by default), the line being sung shows in the pill, and large in the player with the next line below (and in the Now playing widget), from LRCLIB (lrclib.net), which gets each song's title, artist and length; with WACUP and other Winamp-style players, a .lrc file next to the song is used when LRCLIB has none. The general page shows who uses the camera and microphone, as Windows' audio sessions and camera monitor report it, the apps' tray icons, received straight from the apps, with clicks, double-clicks and their menus, and a button for Windows' notification centre.
+
+Drag files, folders, links or text onto Dynaland, or use the shelf's Paste button, to park them on its shelf. Click a file or link to open it, click a note to copy it, or drag any of them out again. For files only where they are is kept; links and text are kept as they are, on this PC.
 
 The strip kept at the free edge can have a colour cover, like a menu bar.
 
-### Corner widgets
+### Indicators
 
 An info line and a status ring sit in the corners, side by side when they share one, beside the bar on its edge. Both stay clear of maximised windows.
 
 The info line shows date, time and weather from Open-Meteo, for Windows' location or a place you choose. A click opens Windows' notification centre. The status ring shows the battery rim, Wi-Fi and volume dots, in colours that follow the wallpaper. A click opens Windows' quick settings.
+
+### Widgets
+
+A sidebar at the right or left edge of the screen holds the widgets you add: a clock, a clock with a month calendar, the weather (from the same Open-Meteo reading as the info line), what is playing with its controls, and text notes that save as you type. Choose Customize in a widget's menu for its look: an analog clock, time only, centred, larger, Fahrenheit, and more. It slides in when you rest the pointer at the edge, or stays docked so maximised windows stop beside it (Settings, Widgets); docked, it is as tall as the screen or leaves the corners to the indicators. Each widget can also move to the desktop, anywhere you drag it, behind your windows; when the desktop is shown (Win+D), they show on it. Drag a desktop widget's edges or corners to resize it, or a sidebar widget's bottom edge to make it taller or shorter. Drag a widget by its name row to rearrange: onto another sidebar widget to swap them, out of the sidebar to put it on the desktop, or onto the sidebar to bring it back. A sidebar 560 DIP wide or more shows its widgets two side by side. The sidebar is off by default, and no widget is there until you add one.
 
 ### Shortcuts
 
@@ -82,7 +88,7 @@ English and Bahasa Indonesia supported for now (Settings, General, Language). Se
 <!-- ![Bar](docs/images/bar.png) -->
 <!-- ![Start menu](docs/images/start-menu.png) -->
 <!-- ![Dynaland playing music](docs/images/dynaland.png) -->
-<!-- ![Corner widgets](docs/images/corner-widgets.png) -->
+<!-- ![Indicators](docs/images/corner-widgets.png) -->
 <!-- ![Settings](docs/images/settings.png) -->
 
 ## Tested on

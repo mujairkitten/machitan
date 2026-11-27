@@ -475,7 +475,7 @@ namespace Machitan {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to No corner widgets..
+        ///   Looks up a localized string similar to No indicators..
         /// </summary>
         internal static string CmNoneAbout {
             get {
@@ -1069,6 +1069,24 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The clipboard could not be used..
+        /// </summary>
+        internal static string DynShelfClipboardFailed {
+            get {
+                return ResourceManager.GetString("DynShelfClipboardFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The note was copied..
+        /// </summary>
+        internal static string DynShelfCopied {
+            get {
+                return ResourceManager.GetString("DynShelfCopied", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} selected.
         /// </summary>
         internal static string DynShelfCount {
@@ -1087,7 +1105,7 @@ namespace Machitan {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Drop files or folders on Dynaland to keep them here. Only where they are is remembered: nothing is copied..
+        ///   Looks up a localized string similar to Drop or paste files, folders, links or text to keep them here. For files, only where they are is kept: nothing is copied..
         /// </summary>
         internal static string DynShelfEmpty {
             get {
@@ -1114,6 +1132,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Link, {0}.
+        /// </summary>
+        internal static string DynShelfLink {
+            get {
+                return ResourceManager.GetString("DynShelfLink", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Not found: moved or deleted.
         /// </summary>
         internal static string DynShelfMissing {
@@ -1132,11 +1159,56 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Note.
+        /// </summary>
+        internal static string DynShelfNote {
+            get {
+                return ResourceManager.GetString("DynShelfNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The text was longer than {0} characters: the rest was left out..
+        /// </summary>
+        internal static string DynShelfNoteCut {
+            get {
+                return ResourceManager.GetString("DynShelfNoteCut", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Note, {0} lines.
+        /// </summary>
+        internal static string DynShelfNoteLines {
+            get {
+                return ResourceManager.GetString("DynShelfNoteLines", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing to add: there are no files, link or text..
+        /// </summary>
+        internal static string DynShelfNothing {
+            get {
+                return ResourceManager.GetString("DynShelfNothing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to shelf.json could not be read, so changes to the shelf are not saved this time..
         /// </summary>
         internal static string DynShelfNotSaved {
             get {
                 return ResourceManager.GetString("DynShelfNotSaved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Paste files, a link or text from the clipboard.
+        /// </summary>
+        internal static string DynShelfPaste {
+            get {
+                return ResourceManager.GetString("DynShelfPaste", resourceCulture);
             }
         }
         
@@ -1762,11 +1834,38 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Add.
+        /// </summary>
+        internal static string QsAdd {
+            get {
+                return ResourceManager.GetString("QsAdd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Airplane mode.
         /// </summary>
         internal static string QsAirplaneMode {
             get {
                 return ResourceManager.GetString("QsAirplaneMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to All settings.
+        /// </summary>
+        internal static string QsAllSettings {
+            get {
+                return ResourceManager.GetString("QsAllSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Back.
+        /// </summary>
+        internal static string QsBack {
+            get {
+                return ResourceManager.GetString("QsBack", resourceCulture);
             }
         }
         
@@ -1825,6 +1924,51 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Connected.
+        /// </summary>
+        internal static string QsConnected {
+            get {
+                return ResourceManager.GetString("QsConnected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Done.
+        /// </summary>
+        internal static string QsDone {
+            get {
+                return ResourceManager.GetString("QsDone", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Drag onto the other slider to move it.
+        /// </summary>
+        internal static string QsDragSliderToMove {
+            get {
+                return ResourceManager.GetString("QsDragSliderToMove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Drag onto another tile to move it.
+        /// </summary>
+        internal static string QsDragToMove {
+            get {
+                return ResourceManager.GetString("QsDragToMove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Edit quick settings.
+        /// </summary>
+        internal static string QsEdit {
+            get {
+                return ResourceManager.GetString("QsEdit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Mobile hotspot.
         /// </summary>
         internal static string QsHotspot {
@@ -1852,6 +1996,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Not connected.
+        /// </summary>
+        internal static string QsNotConnected {
+            get {
+                return ResourceManager.GetString("QsNotConnected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Windows offers no volume or brightness control on this PC right now..
         /// </summary>
         internal static string QsNothing {
@@ -1861,11 +2014,47 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Every tile is already shown.
+        /// </summary>
+        internal static string QsNothingToAdd {
+            get {
+                return ResourceManager.GetString("QsNothingToAdd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0}%.
+        /// </summary>
+        internal static string QsPercent {
+            get {
+                return ResourceManager.GetString("QsPercent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Project.
         /// </summary>
         internal static string QsProject {
             get {
                 return ResourceManager.GetString("QsProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove {0}.
+        /// </summary>
+        internal static string QsRemoveTile {
+            get {
+                return ResourceManager.GetString("QsRemoveTile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not available.
+        /// </summary>
+        internal static string QsUnavailable {
+            get {
+                return ResourceManager.GetString("QsUnavailable", resourceCulture);
             }
         }
         
@@ -1893,6 +2082,15 @@ namespace Machitan {
         internal static string QsWifi {
             get {
                 return ResourceManager.GetString("QsWifi", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Show Wi-Fi networks.
+        /// </summary>
+        internal static string QsWifiNetworks {
+            get {
+                return ResourceManager.GetString("QsWifiNetworks", resourceCulture);
             }
         }
         
@@ -2055,6 +2253,69 @@ namespace Machitan {
         internal static string RunAsAdmin {
             get {
                 return ResourceManager.GetString("RunAsAdmin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add a widget.
+        /// </summary>
+        internal static string SbAdd {
+            get {
+                return ResourceManager.GetString("SbAdd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Keep it open (docked).
+        /// </summary>
+        internal static string SbDock {
+            get {
+                return ResourceManager.GetString("SbDock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No widgets in the sidebar yet. Add one with the + above..
+        /// </summary>
+        internal static string SbEmpty {
+            get {
+                return ResourceManager.GetString("SbEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to widgets.json could not be read, so changes are not saved this run. A copy was kept next to it..
+        /// </summary>
+        internal static string SbReadOnly {
+            get {
+                return ResourceManager.GetString("SbReadOnly", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Drag to change the sidebar&apos;s width.
+        /// </summary>
+        internal static string SbResize {
+            get {
+                return ResourceManager.GetString("SbResize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Widget settings.
+        /// </summary>
+        internal static string SbSettings {
+            get {
+                return ResourceManager.GetString("SbSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Let it slide in.
+        /// </summary>
+        internal static string SbUndock {
+            get {
+                return ResourceManager.GetString("SbUndock", resourceCulture);
             }
         }
         
@@ -2707,6 +2968,24 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Synced lyrics.
+        /// </summary>
+        internal static string SetDynLyrics {
+            get {
+                return ResourceManager.GetString("SetDynLyrics", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The words of the playing song, in step with it, from LRCLIB (lrclib.net), in Dynaland and in the Now playing widget. For each song, its title, artist and length are sent there..
+        /// </summary>
+        internal static string SetDynLyricsNote {
+            get {
+                return ResourceManager.GetString("SetDynLyricsNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to New notifications show in Dynaland.
         /// </summary>
         internal static string SetDynNotifications {
@@ -3202,6 +3481,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Widgets.
+        /// </summary>
+        internal static string SetPageBoard {
+            get {
+                return ResourceManager.GetString("SetPageBoard", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Dynaland.
         /// </summary>
         internal static string SetPageDynaland {
@@ -3265,7 +3553,7 @@ namespace Machitan {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Corner widgets.
+        ///   Looks up a localized string similar to Indicators.
         /// </summary>
         internal static string SetPageWidgets {
             get {
@@ -3472,6 +3760,15 @@ namespace Machitan {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to With synced lyrics on, Machitan sends the playing song&apos;s title, artist and length to LRCLIB (lrclib.net) to find its lyrics, and for a Winamp-style player the words of its file name when nothing else is found. A .lrc file next to the song is read on this PC..
+        /// </summary>
+        internal static string SetPrivacyLyrics {
+            get {
+                return ResourceManager.GetString("SetPrivacyLyrics", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Battery, network and volume come from Windows on this PC. The Wi-Fi name comes from Windows&apos; network list, so no location permission is needed..
         /// </summary>
         internal static string SetPrivacyRing {
@@ -3481,7 +3778,7 @@ namespace Machitan {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The paths of the files and folders you park on Dynaland&apos;s shelf, in {0}. Only the paths: nothing is copied, and nothing leaves this PC..
+        ///   Looks up a localized string similar to What you park on Dynaland&apos;s shelf, in {0}: the paths of files and folders (only the paths: nothing is copied), and links and text as they are. Nothing leaves this PC..
         /// </summary>
         internal static string SetPrivacyShelf {
             get {
@@ -3499,11 +3796,20 @@ namespace Machitan {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to With weather on, Machitan asks Windows for this PC&apos;s location at most once an hour, rounds it to about 1 km, and sends it to Open-Meteo (open-meteo.com) every 15 minutes. If Windows blocks location for desktop apps, the weather stays hidden. With a place you picked, its rounded coordinates go instead, and a place search sends the name you typed to Open-Meteo. Nothing else leaves this PC..
+        ///   Looks up a localized string similar to With weather on in the info line, or a Weather widget shown, Machitan asks Windows for this PC&apos;s location at most once an hour, rounds it to about 1 km, and sends it to Open-Meteo (open-meteo.com) every 15 minutes. If Windows blocks location for desktop apps, the weather stays hidden. With a place you picked, its rounded coordinates go instead, and a place search sends the name you typed to Open-Meteo. Nothing else leaves this PC..
         /// </summary>
         internal static string SetPrivacyWeather {
             get {
                 return ResourceManager.GetString("SetPrivacyWeather", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The widgets you add, what you type in notes, and where and how big widgets are, in {0}. Nothing leaves this PC..
+        /// </summary>
+        internal static string SetPrivacyWidgets {
+            get {
+                return ResourceManager.GetString("SetPrivacyWidgets", resourceCulture);
             }
         }
         
@@ -3625,7 +3931,7 @@ namespace Machitan {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to File shelf.
+        ///   Looks up a localized string similar to Shelf.
         /// </summary>
         internal static string SetShelf {
             get {
@@ -3639,6 +3945,159 @@ namespace Machitan {
         internal static string SetShowsWhileUpdate {
             get {
                 return ResourceManager.GetString("SetShowsWhileUpdate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sidebar.
+        /// </summary>
+        internal static string SetSidebar {
+            get {
+                return ResourceManager.GetString("SetSidebar", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add widgets with the + at the top of the sidebar. None are added by default..
+        /// </summary>
+        internal static string SetSidebarAddNote {
+            get {
+                return ResourceManager.GetString("SetSidebarAddNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Docked.
+        /// </summary>
+        internal static string SetSidebarDocked {
+            get {
+                return ResourceManager.GetString("SetSidebarDocked", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open by pointing at the edge.
+        /// </summary>
+        internal static string SetSidebarEdge {
+            get {
+                return ResourceManager.GetString("SetSidebarEdge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Rest the pointer at the screen&apos;s edge for a moment (not near its top or bottom)..
+        /// </summary>
+        internal static string SetSidebarEdgeNote {
+            get {
+                return ResourceManager.GetString("SetSidebarEdgeNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Full height.
+        /// </summary>
+        internal static string SetSidebarFull {
+            get {
+                return ResourceManager.GetString("SetSidebarFull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Height when docked.
+        /// </summary>
+        internal static string SetSidebarHeight {
+            get {
+                return ResourceManager.GetString("SetSidebarHeight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Full height: from the top of the screen to the bottom; an indicator in that corner stands beside it. Leave room: the indicator keeps its corner, and the sidebar starts below it (or ends above it)..
+        /// </summary>
+        internal static string SetSidebarHeightNote {
+            get {
+                return ResourceManager.GetString("SetSidebarHeightNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How it shows.
+        /// </summary>
+        internal static string SetSidebarMode {
+            get {
+                return ResourceManager.GetString("SetSidebarMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Docked keeps it open, and maximised windows stop beside it..
+        /// </summary>
+        internal static string SetSidebarModeNote {
+            get {
+                return ResourceManager.GetString("SetSidebarModeNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A panel at the side of the screen that holds your widgets..
+        /// </summary>
+        internal static string SetSidebarNote {
+            get {
+                return ResourceManager.GetString("SetSidebarNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Leave room for indicators.
+        /// </summary>
+        internal static string SetSidebarRoom {
+            get {
+                return ResourceManager.GetString("SetSidebarRoom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Show the sidebar.
+        /// </summary>
+        internal static string SetSidebarShow {
+            get {
+                return ResourceManager.GetString("SetSidebarShow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Opens it now, ready for the keyboard..
+        /// </summary>
+        internal static string SetSidebarShowNote {
+            get {
+                return ResourceManager.GetString("SetSidebarShowNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Side.
+        /// </summary>
+        internal static string SetSidebarSide {
+            get {
+                return ResourceManager.GetString("SetSidebarSide", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Slides in.
+        /// </summary>
+        internal static string SetSidebarSlides {
+            get {
+                return ResourceManager.GetString("SetSidebarSlides", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Or drag the sidebar&apos;s inner edge; double-click it for the standard width. From 560, widgets sit two side by side..
+        /// </summary>
+        internal static string SetSidebarWidthNote {
+            get {
+                return ResourceManager.GetString("SetSidebarWidthNote", resourceCulture);
             }
         }
         
@@ -4710,6 +5169,879 @@ namespace Machitan {
         internal static string UpdWhatsNew {
             get {
                 return ResourceManager.GetString("UpdWhatsNew", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clock.
+        /// </summary>
+        internal static string WgClock {
+            get {
+                return ResourceManager.GetString("WgClock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clock and calendar.
+        /// </summary>
+        internal static string WgClockCalendar {
+            get {
+                return ResourceManager.GetString("WgClockCalendar", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Customize.
+        /// </summary>
+        internal static string WgCustomize {
+            get {
+                return ResourceManager.GetString("WgCustomize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: drag here to move it.
+        /// </summary>
+        internal static string WgDragHint {
+            get {
+                return ResourceManager.GetString("WgDragHint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Move down.
+        /// </summary>
+        internal static string WgMoveDown {
+            get {
+                return ResourceManager.GetString("WgMoveDown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Move up.
+        /// </summary>
+        internal static string WgMoveUp {
+            get {
+                return ResourceManager.GetString("WgMoveUp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Text note.
+        /// </summary>
+        internal static string WgNote {
+            get {
+                return ResourceManager.GetString("WgNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type a note.
+        /// </summary>
+        internal static string WgNoteHint {
+            get {
+                return ResourceManager.GetString("WgNoteHint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing is playing..
+        /// </summary>
+        internal static string WgNothingPlaying {
+            get {
+                return ResourceManager.GetString("WgNothingPlaying", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Now playing.
+        /// </summary>
+        internal static string WgNowPlaying {
+            get {
+                return ResourceManager.GetString("WgNowPlaying", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 12-hour.
+        /// </summary>
+        internal static string WgOpt12 {
+            get {
+                return ResourceManager.GetString("WgOpt12", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 24-hour.
+        /// </summary>
+        internal static string WgOpt24 {
+            get {
+                return ResourceManager.GetString("WgOpt24", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Alignment.
+        /// </summary>
+        internal static string WgOptAlign {
+            get {
+                return ResourceManager.GetString("WgOptAlign", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Analog.
+        /// </summary>
+        internal static string WgOptAnalog {
+            get {
+                return ResourceManager.GetString("WgOptAnalog", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Progress bar.
+        /// </summary>
+        internal static string WgOptBar {
+            get {
+                return ResourceManager.GetString("WgOptBar", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Buttons.
+        /// </summary>
+        internal static string WgOptButtons {
+            get {
+                return ResourceManager.GetString("WgOptButtons", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Celsius.
+        /// </summary>
+        internal static string WgOptCelsius {
+            get {
+                return ResourceManager.GetString("WgOptCelsius", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Center.
+        /// </summary>
+        internal static string WgOptCenter {
+            get {
+                return ResourceManager.GetString("WgOptCenter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Compact.
+        /// </summary>
+        internal static string WgOptCompact {
+            get {
+                return ResourceManager.GetString("WgOptCompact", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cover.
+        /// </summary>
+        internal static string WgOptCover {
+            get {
+                return ResourceManager.GetString("WgOptCover", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Date.
+        /// </summary>
+        internal static string WgOptDate {
+            get {
+                return ResourceManager.GetString("WgOptDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Date only.
+        /// </summary>
+        internal static string WgOptDateOnly {
+            get {
+                return ResourceManager.GetString("WgOptDateOnly", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Digital.
+        /// </summary>
+        internal static string WgOptDigital {
+            get {
+                return ResourceManager.GetString("WgOptDigital", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clock face.
+        /// </summary>
+        internal static string WgOptFace {
+            get {
+                return ResourceManager.GetString("WgOptFace", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Fahrenheit.
+        /// </summary>
+        internal static string WgOptFahrenheit {
+            get {
+                return ResourceManager.GetString("WgOptFahrenheit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Full.
+        /// </summary>
+        internal static string WgOptFull {
+            get {
+                return ResourceManager.GetString("WgOptFull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hours.
+        /// </summary>
+        internal static string WgOptHours {
+            get {
+                return ResourceManager.GetString("WgOptHours", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Options for {0}.
+        /// </summary>
+        internal static string WgOptions {
+            get {
+                return ResourceManager.GetString("WgOptions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Large.
+        /// </summary>
+        internal static string WgOptLarge {
+            get {
+                return ResourceManager.GetString("WgOptLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Layout.
+        /// </summary>
+        internal static string WgOptLayout {
+            get {
+                return ResourceManager.GetString("WgOptLayout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Left.
+        /// </summary>
+        internal static string WgOptLeft {
+            get {
+                return ResourceManager.GetString("WgOptLeft", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Long.
+        /// </summary>
+        internal static string WgOptLong {
+            get {
+                return ResourceManager.GetString("WgOptLong", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Lyrics (with Synced lyrics on in Settings &gt; Dynaland).
+        /// </summary>
+        internal static string WgOptLyrics {
+            get {
+                return ResourceManager.GetString("WgOptLyrics", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Medium.
+        /// </summary>
+        internal static string WgOptMedium {
+            get {
+                return ResourceManager.GetString("WgOptMedium", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Place.
+        /// </summary>
+        internal static string WgOptPlace {
+            get {
+                return ResourceManager.GetString("WgOptPlace", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Today&apos;s high and low.
+        /// </summary>
+        internal static string WgOptRange {
+            get {
+                return ResourceManager.GetString("WgOptRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Right.
+        /// </summary>
+        internal static string WgOptRight {
+            get {
+                return ResourceManager.GetString("WgOptRight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Seconds.
+        /// </summary>
+        internal static string WgOptSeconds {
+            get {
+                return ResourceManager.GetString("WgOptSeconds", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Short.
+        /// </summary>
+        internal static string WgOptShort {
+            get {
+                return ResourceManager.GetString("WgOptShort", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Show.
+        /// </summary>
+        internal static string WgOptShow {
+            get {
+                return ResourceManager.GetString("WgOptShow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Size.
+        /// </summary>
+        internal static string WgOptSize {
+            get {
+                return ResourceManager.GetString("WgOptSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Small.
+        /// </summary>
+        internal static string WgOptSmall {
+            get {
+                return ResourceManager.GetString("WgOptSmall", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to As Windows.
+        /// </summary>
+        internal static string WgOptSystem {
+            get {
+                return ResourceManager.GetString("WgOptSystem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Text size.
+        /// </summary>
+        internal static string WgOptTextSize {
+            get {
+                return ResourceManager.GetString("WgOptTextSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Time and date.
+        /// </summary>
+        internal static string WgOptTimeDate {
+            get {
+                return ResourceManager.GetString("WgOptTimeDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Time only.
+        /// </summary>
+        internal static string WgOptTimeOnly {
+            get {
+                return ResourceManager.GetString("WgOptTimeOnly", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Temperature.
+        /// </summary>
+        internal static string WgOptUnit {
+            get {
+                return ResourceManager.GetString("WgOptUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove.
+        /// </summary>
+        internal static string WgRemove {
+            get {
+                return ResourceManager.GetString("WgRemove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove this widget? What you typed in it is deleted..
+        /// </summary>
+        internal static string WgRemoveAsk {
+            get {
+                return ResourceManager.GetString("WgRemoveAsk", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: drag to resize; double-click for the standard size.
+        /// </summary>
+        internal static string WgResize {
+            get {
+                return ResourceManager.GetString("WgResize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: drag to change the height; double-click to fit the content.
+        /// </summary>
+        internal static string WgResizeHeight {
+            get {
+                return ResourceManager.GetString("WgResizeHeight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Move to the desktop.
+        /// </summary>
+        internal static string WgToDesktop {
+            get {
+                return ResourceManager.GetString("WgToDesktop", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Move to the sidebar.
+        /// </summary>
+        internal static string WgToSidebar {
+            get {
+                return ResourceManager.GetString("WgToSidebar", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Weather.
+        /// </summary>
+        internal static string WgWeather {
+            get {
+                return ResourceManager.GetString("WgWeather", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Here (Windows&apos; location).
+        /// </summary>
+        internal static string WgWeatherHere {
+            get {
+                return ResourceManager.GetString("WgWeatherHere", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No weather to show yet. It needs the internet and Windows&apos; location (allowed for desktop apps), or a place chosen in Settings &gt; Indicators..
+        /// </summary>
+        internal static string WgWeatherNone {
+            get {
+                return ResourceManager.GetString("WgWeatherNone", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to High {0}, low {1}.
+        /// </summary>
+        internal static string WgWeatherRange {
+            get {
+                return ResourceManager.GetString("WgWeatherRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Weather settings.
+        /// </summary>
+        internal static string WgWeatherSettings {
+            get {
+                return ResourceManager.GetString("WgWeatherSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open-Meteo, at {0}.
+        /// </summary>
+        internal static string WgWeatherSource {
+            get {
+                return ResourceManager.GetString("WgWeatherSource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connect.
+        /// </summary>
+        internal static string WifiConnect {
+            get {
+                return ResourceManager.GetString("WifiConnect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connect automatically.
+        /// </summary>
+        internal static string WifiConnectAuto {
+            get {
+                return ResourceManager.GetString("WifiConnectAuto", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connected, open.
+        /// </summary>
+        internal static string WifiConnectedOpen {
+            get {
+                return ResourceManager.GetString("WifiConnectedOpen", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connected, secured.
+        /// </summary>
+        internal static string WifiConnectedSecured {
+            get {
+                return ResourceManager.GetString("WifiConnectedSecured", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connecting....
+        /// </summary>
+        internal static string WifiConnecting {
+            get {
+                return ResourceManager.GetString("WifiConnecting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Disconnect.
+        /// </summary>
+        internal static string WifiDisconnect {
+            get {
+                return ResourceManager.GetString("WifiDisconnect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enter the network security key.
+        /// </summary>
+        internal static string WifiEnterKey {
+            get {
+                return ResourceManager.GetString("WifiEnterKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enter the name (SSID) of the network.
+        /// </summary>
+        internal static string WifiEnterSsid {
+            get {
+                return ResourceManager.GetString("WifiEnterSsid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows could not disconnect..
+        /// </summary>
+        internal static string WifiErrDisconnect {
+            get {
+                return ResourceManager.GetString("WifiErrDisconnect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows could not connect to this network..
+        /// </summary>
+        internal static string WifiErrFailed {
+            get {
+                return ResourceManager.GetString("WifiErrFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This network is out of reach now..
+        /// </summary>
+        internal static string WifiErrGone {
+            get {
+                return ResourceManager.GetString("WifiErrGone", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to That network security key is not right..
+        /// </summary>
+        internal static string WifiErrKey {
+            get {
+                return ResourceManager.GetString("WifiErrKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows no longer lets Machitan connect to Wi-Fi..
+        /// </summary>
+        internal static string WifiErrNoAccess {
+            get {
+                return ResourceManager.GetString("WifiErrNoAccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to That user name or password is not right..
+        /// </summary>
+        internal static string WifiErrSignIn {
+            get {
+                return ResourceManager.GetString("WifiErrSignIn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows took too long to connect. Try again..
+        /// </summary>
+        internal static string WifiErrTimeout {
+            get {
+                return ResourceManager.GetString("WifiErrTimeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows cannot sign in to this network from here. Use More Wi-Fi settings..
+        /// </summary>
+        internal static string WifiErrUnsupported {
+            get {
+                return ResourceManager.GetString("WifiErrUnsupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows could not list the Wi-Fi networks. The reason is in diagnostics.log..
+        /// </summary>
+        internal static string WifiFailed {
+            get {
+                return ResourceManager.GetString("WifiFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hidden network.
+        /// </summary>
+        internal static string WifiHidden {
+            get {
+                return ResourceManager.GetString("WifiHidden", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open location settings.
+        /// </summary>
+        internal static string WifiLocationSettings {
+            get {
+                return ResourceManager.GetString("WifiLocationSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Looking for networks....
+        /// </summary>
+        internal static string WifiLooking {
+            get {
+                return ResourceManager.GetString("WifiLooking", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to More Wi-Fi settings.
+        /// </summary>
+        internal static string WifiMoreSettings {
+            get {
+                return ResourceManager.GetString("WifiMoreSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Next.
+        /// </summary>
+        internal static string WifiNext {
+            get {
+                return ResourceManager.GetString("WifiNext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows reports no Wi-Fi adapter on this PC..
+        /// </summary>
+        internal static string WifiNoAdapter {
+            get {
+                return ResourceManager.GetString("WifiNoAdapter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No internet, open.
+        /// </summary>
+        internal static string WifiNoInternetOpen {
+            get {
+                return ResourceManager.GetString("WifiNoInternetOpen", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No internet, secured.
+        /// </summary>
+        internal static string WifiNoInternetSecured {
+            get {
+                return ResourceManager.GetString("WifiNoInternetSecured", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows shows Wi-Fi networks only to apps that may use your location. Turn on &quot;Let desktop apps access your location&quot;, then open this list again..
+        /// </summary>
+        internal static string WifiNoLocation {
+            get {
+                return ResourceManager.GetString("WifiNoLocation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No Wi-Fi networks found..
+        /// </summary>
+        internal static string WifiNone {
+            get {
+                return ResourceManager.GetString("WifiNone", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wi-Fi is off. Turn it on to see the networks nearby..
+        /// </summary>
+        internal static string WifiOffNote {
+            get {
+                return ResourceManager.GetString("WifiOffNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open.
+        /// </summary>
+        internal static string WifiOpen {
+            get {
+                return ResourceManager.GetString("WifiOpen", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Password.
+        /// </summary>
+        internal static string WifiPassword {
+            get {
+                return ResourceManager.GetString("WifiPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Look for networks again.
+        /// </summary>
+        internal static string WifiRefresh {
+            get {
+                return ResourceManager.GetString("WifiRefresh", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows could not connect to it. It may be out of reach..
+        /// </summary>
+        internal static string WifiSavedFailed {
+            get {
+                return ResourceManager.GetString("WifiSavedFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Without location access, Windows does not show the networks nearby. These are the networks Windows has saved; one connects when it is in reach..
+        /// </summary>
+        internal static string WifiSavedNote {
+            get {
+                return ResourceManager.GetString("WifiSavedNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Saved.
+        /// </summary>
+        internal static string WifiSavedState {
+            get {
+                return ResourceManager.GetString("WifiSavedState", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Saved networks.
+        /// </summary>
+        internal static string WifiSavedTitle {
+            get {
+                return ResourceManager.GetString("WifiSavedTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Secured.
+        /// </summary>
+        internal static string WifiSecured {
+            get {
+                return ResourceManager.GetString("WifiSecured", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows reports Wi-Fi as not available right now..
+        /// </summary>
+        internal static string WifiUnavailableNote {
+            get {
+                return ResourceManager.GetString("WifiUnavailableNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to User name.
+        /// </summary>
+        internal static string WifiUserName {
+            get {
+                return ResourceManager.GetString("WifiUserName", resourceCulture);
             }
         }
         

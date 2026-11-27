@@ -24,6 +24,7 @@ internal static class SettingsPages
     internal const string Taskbar = "taskbar";
     internal const string Start = "start";
     internal const string Widgets = "widgets";
+    internal const string Board = "board";
     internal const string Dynaland = "dynaland";
     internal const string Edge = "edge";
     internal const string Shortcuts = "shortcuts";
@@ -39,6 +40,7 @@ internal static class SettingsPages
             new SettingsPage(Taskbar, Strings.SetPageTaskbar, 0xE71D),
             new SettingsPage(Start, Strings.SetPageStart, 0xE80F),
             new SettingsPage(Widgets, Strings.SetPageWidgets, 0xE823),
+            new SettingsPage(Board, Strings.SetPageBoard, 0xF246),
             new SettingsPage(Dynaland, Strings.SetPageDynaland, 0xE8D6),
             new SettingsPage(Edge, Strings.SetPageEdge, 0xE7F4),
             new SettingsPage(Shortcuts, Strings.SetPageShortcuts, 0xE765),

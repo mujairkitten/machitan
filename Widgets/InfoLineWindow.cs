@@ -111,7 +111,8 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
             }
         };
 
-        _weather = new WeatherService(DispatcherQueue);
+        // Shared with the Weather widgets (one request to Open-Meteo for all).
+        _weather = host.Weather;
         _weather.Changed += OnWeatherChanged;
 
         // Once a second, so a new minute shows on time; text is only touched when it changes.
@@ -161,7 +162,7 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
 
         // Weather runs only while it can be shown, for Windows' location or the chosen place.
         _weather.UsePlace(settings.WeatherUseManualPlace, settings.WeatherLatitude, settings.WeatherLongitude);
-        _weather.SetWanted(settings.InfoLineEnabled && settings.InfoLineShowWeather);
+        _weather.SetWanted(this, settings.InfoLineEnabled && settings.InfoLineShowWeather);
         UpdateText();
     }
 
@@ -186,7 +187,7 @@ public sealed partial class InfoLineWindow : CornerWidgetWindow
     private protected override void OnClosing()
     {
         _clock.Stop();
-        _weather.SetWanted(false);
+        _weather.SetWanted(this, false);
         _weather.Changed -= OnWeatherChanged;
         SurfaceFill.Release(_fill);
     }

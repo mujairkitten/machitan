@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
@@ -15,7 +16,9 @@ namespace Machitan.Shell;
 /// <param name="Code">WMO weather code (0 clear ... 99 thunderstorm with hail).</param>
 /// <param name="IsDay">False between sunset and sunrise at the location.</param>
 /// <param name="FetchedAt">When Machitan got it.</param>
-public sealed record WeatherReading(double TemperatureC, int Code, bool IsDay, DateTimeOffset FetchedAt)
+/// <param name="TodayMaxC">Today's highest temperature there (degrees Celsius), when Open-Meteo gave it.</param>
+/// <param name="TodayMinC">Today's lowest, the same.</param>
+public sealed record WeatherReading(double TemperatureC, int Code, bool IsDay, DateTimeOffset FetchedAt, double? TodayMaxC = null, double? TodayMinC = null)
 {
     /// <summary>A reading older than this is not shown (real data or nothing).</summary>
     public static readonly TimeSpan ShowFor = TimeSpan.FromHours(2);
@@ -61,11 +64,12 @@ public sealed record WeatherReading(double TemperatureC, int Code, bool IsDay, D
 internal readonly record struct WeatherPlace(string Name, double Latitude, double Longitude);
 
 /// <summary>
-/// The weather for the info line. Uses either a place chosen in Settings or Windows' location
-/// (asked at most once an hour), rounded to about a kilometre, and asks Open-Meteo for the
-/// current weather there every 15 minutes (5 minutes after a failure). Nothing is shown
-/// without a real, recent reading. Runs only while something wants it (<see cref="SetWanted"/>).
-/// Use on the UI thread.
+/// The weather for the info line and the Weather widgets: one for all of them (ShellHost.Weather),
+/// so Open-Meteo is asked once however many show it. Uses either a place chosen in Settings or
+/// Windows' location (asked at most once an hour), rounded to about a kilometre, and asks
+/// Open-Meteo for the current weather there, with today's highest and lowest, every 15 minutes
+/// (5 minutes after a failure). Nothing is shown without a real, recent reading. Runs only
+/// while something wants it (<see cref="SetWanted"/>). Use on the UI thread.
 /// </summary>
 internal sealed class WeatherService
 {
@@ -75,6 +79,7 @@ internal sealed class WeatherService
     private static readonly HttpClient Http = MakeClient();
 
     private readonly DispatcherQueueTimer _timer;
+    private readonly HashSet<object> _users = new();
     private bool _wanted;
     private bool _busy;
     private (double Latitude, double Longitude)? _place;
@@ -96,8 +101,19 @@ internal sealed class WeatherService
     /// <summary>The latest reading, or null. Check <see cref="WeatherReading.IsFresh"/> before showing it.</summary>
     internal WeatherReading? Current { get; private set; }
 
-    internal void SetWanted(bool wanted)
+    /// <summary>One user (the info line, a Weather widget) wants the weather or no longer does; it runs while any does.</summary>
+    internal void SetWanted(object user, bool wanted)
     {
+        if (wanted)
+        {
+            _users.Add(user);
+        }
+        else
+        {
+            _users.Remove(user);
+        }
+
+        wanted = _users.Count > 0;
         if (wanted == _wanted)
         {
             return;
@@ -355,7 +371,7 @@ internal sealed class WeatherService
     {
         string url = string.Create(
             CultureInfo.InvariantCulture,
-            $"https://api.open-meteo.com/v1/forecast?latitude={latitude:0.00}&longitude={longitude:0.00}&current=temperature_2m,weather_code,is_day&timezone=auto");
+            $"https://api.open-meteo.com/v1/forecast?latitude={latitude:0.00}&longitude={longitude:0.00}&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto");
 
         using HttpResponseMessage response = await Http.GetAsync(url);
         if (!response.IsSuccessStatusCode)
@@ -380,7 +396,26 @@ internal sealed class WeatherService
             || day.ValueKind != JsonValueKind.Number
             || day.GetInt32() != 0;
 
-        return new WeatherReading(temperature.GetDouble(), code.GetInt32(), isDay, DateTimeOffset.Now);
+        double? max = null;
+        double? min = null;
+        if (document.RootElement.TryGetProperty("daily", out JsonElement daily))
+        {
+            max = FirstNumber(daily, "temperature_2m_max");
+            min = FirstNumber(daily, "temperature_2m_min");
+        }
+
+        return new WeatherReading(temperature.GetDouble(), code.GetInt32(), isDay, DateTimeOffset.Now, max, min);
+    }
+
+    /// <summary>The first number of a daily list (today), or null.</summary>
+    private static double? FirstNumber(JsonElement daily, string name)
+    {
+        return daily.TryGetProperty(name, out JsonElement list)
+            && list.ValueKind == JsonValueKind.Array
+            && list.GetArrayLength() > 0
+            && list[0].ValueKind == JsonValueKind.Number
+            ? list[0].GetDouble()
+            : null;
     }
 
     private static HttpClient MakeClient()

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace Machitan.Interop;
 
@@ -7,14 +8,20 @@ namespace Machitan.Interop;
 /// Winamp's message interface, which WACUP (and players that copy Winamp's, like AIMP) still
 /// answer on their main window, class "Winamp v1.x". Used for what an app does not offer
 /// through Windows' media controls: the position, the track length, and jumping to a place.
-/// Only plain numbers go back and forth (no memory is shared), each with a short time limit.
+/// Plain numbers go back and forth, each with a short time limit. One thing is read from the
+/// player's memory: the playing file's path (Winamp answers with where it keeps it), only for
+/// synced lyrics' local .lrc fallback, read-only, at most 32,767 characters.
 /// </summary>
-internal static class WinampInterop
+internal static partial class WinampInterop
 {
     private const string WindowClass = "Winamp v1.x";
     private const uint WM_WA_IPC = 0x0400;
     private const nint IPC_GETOUTPUTTIME = 105;
     private const nint IPC_JUMPTOTIME = 106;
+    private const nint IPC_GETLISTPOS = 125;
+    private const nint IPC_GETPLAYLISTFILEW = 214;
+    private const uint ProcessVmRead = 0x0010;
+    private const int MaxPathChars = 32767;
     private const uint TimeoutMs = 150;
 
     /// <summary>
@@ -100,6 +107,72 @@ internal static class WinampInterop
         long ms = (long)Math.Max(to.TotalMilliseconds, 0);
         return Ask(window, (nint)ms, IPC_JUMPTOTIME, out nint answer) && answer == 0;
     }
+
+    /// <summary>
+    /// The path of the file the player plays now (its playlist's current entry), or false: no
+    /// answer, not a file (a stream), or its memory could not be read. Winamp answers with the
+    /// address of the path inside its own memory, so it is read from there (read access only).
+    /// </summary>
+    internal static bool TryGetPlayingFile(nint window, out string path)
+    {
+        path = string.Empty;
+        if (!Ask(window, 0, IPC_GETLISTPOS, out nint index) || index < 0
+            || !Ask(window, index, IPC_GETPLAYLISTFILEW, out nint address) || address == 0)
+        {
+            return false;
+        }
+
+        User32.GetWindowThreadProcessId(window, out uint processId);
+        nint process = Kernel32.OpenProcess(ProcessVmRead, false, processId);
+        if (process == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            // Read in pieces until the closing zero; no piece crosses a 4 KB page, so the end of
+            // the path is never missed because the memory after it cannot be read.
+            var text = new System.Text.StringBuilder();
+            byte[] piece = new byte[1024];
+            nint at = address;
+            while (text.Length < MaxPathChars)
+            {
+                int toPage = 4096 - (int)(at & 4095);
+                int size = Math.Min(piece.Length, toPage);
+                if (!ReadProcessMemory(process, at, piece, size, out nint read) || read < 2)
+                {
+                    return false;
+                }
+
+                at += read;
+                string chunk = System.Text.Encoding.Unicode.GetString(piece, 0, (int)read & ~1);
+                int end = chunk.IndexOf('\0', StringComparison.Ordinal);
+                if (end >= 0)
+                {
+                    text.Append(chunk, 0, end);
+                    break;
+                }
+
+                text.Append(chunk);
+            }
+
+            path = text.ToString();
+            return path.Length > 3 && Path.IsPathFullyQualified(path) && !path.Contains("://", StringComparison.Ordinal);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        finally
+        {
+            Kernel32.CloseHandle(process);
+        }
+    }
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool ReadProcessMemory(nint process, nint address, byte[] buffer, nint size, out nint read);
 
     private static bool Ask(nint window, nint data, nint what, out nint answer)
     {

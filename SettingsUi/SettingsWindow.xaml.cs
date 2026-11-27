@@ -256,6 +256,9 @@ public sealed partial class SettingsWindow : Window
             case SettingsPages.Widgets:
                 BuildWidgetsPage();
                 break;
+            case SettingsPages.Board:
+                BuildBoardPage();
+                break;
             case SettingsPages.Dynaland:
                 BuildDynalandPage();
                 break;
@@ -996,6 +999,56 @@ public sealed partial class SettingsWindow : Window
                 s => !s.DuoRingTransparencyAuto));
     }
 
+    /// <summary>Widgets: the sidebar (off by default; the widgets themselves are added in it).</summary>
+    private void BuildBoardPage()
+    {
+        AddSection(Strings.SetSidebar);
+        AddCard(
+            ToggleRow(Strings.SetSidebar, Strings.SetSidebarNote, s => s.SidebarOn, (s, on) => s.SidebarOn = on),
+            EnabledWhen(
+                ComboRow(
+                    Strings.SetSidebarSide,
+                    string.Empty,
+                    new[] { Strings.SetRight, Strings.SetLeft },
+                    s => s.SidebarLeft ? 1 : 0,
+                    (s, i) => s.SidebarLeft = i == 1),
+                s => s.SidebarOn),
+            EnabledWhen(
+                ComboRow(
+                    Strings.SetSidebarMode,
+                    Strings.SetSidebarModeNote,
+                    new[] { Strings.SetSidebarSlides, Strings.SetSidebarDocked },
+                    s => s.SidebarDocked ? 1 : 0,
+                    (s, i) => s.SidebarDocked = i == 1),
+                s => s.SidebarOn),
+            EnabledWhen(
+                ComboRow(
+                    Strings.SetSidebarHeight,
+                    Strings.SetSidebarHeightNote,
+                    new[] { Strings.SetSidebarFull, Strings.SetSidebarRoom },
+                    s => s.SidebarLeaveRoom ? 1 : 0,
+                    (s, i) => s.SidebarLeaveRoom = i == 1),
+                s => s.SidebarOn && s.SidebarDocked),
+            EnabledWhen(
+                ToggleRow(Strings.SetSidebarEdge, Strings.SetSidebarEdgeNote, s => s.SidebarEdgeHover, (s, on) => s.SidebarEdgeHover = on),
+                s => s.SidebarOn && !s.SidebarDocked),
+            EnabledWhen(
+                SliderRow(
+                    Strings.SetWidth,
+                    Strings.SetSidebarWidthNote,
+                    ShellSettings.MinSidebarWidth,
+                    ShellSettings.MaxSidebarWidth,
+                    10,
+                    s => s.SidebarWidth,
+                    (s, v) => s.SidebarWidth = (int)Math.Round(v),
+                    v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture)),
+                s => s.SidebarOn),
+            EnabledWhen(
+                ButtonRow(Strings.SetSidebarShow, Strings.SetSidebarShowNote, _host.ShowSidebar),
+                s => s.SidebarOn));
+        AddNote(Strings.SetSidebarAddNote);
+    }
+
     private void BuildDynalandPage()
     {
         AddCard(
@@ -1075,7 +1128,12 @@ public sealed partial class SettingsWindow : Window
                 Strings.SetDynClipboard,
                 Strings.SetDynClipboardNote,
                 s => s.DynalandClipboard,
-                (s, on) => s.DynalandClipboard = on));
+                (s, on) => s.DynalandClipboard = on),
+            ToggleRow(
+                Strings.SetDynLyrics,
+                Strings.SetDynLyricsNote,
+                s => s.DynalandLyrics,
+                (s, on) => s.DynalandLyrics = on));
     }
 
     private void BuildEdgePage()
@@ -1180,6 +1238,12 @@ public sealed partial class SettingsWindow : Window
             TextRow(
                 Strings.SetShelf,
                 Fmt.F(Strings.SetPrivacyShelf, AppPaths.ShelfFile)),
+            TextRow(
+                Strings.SetDynLyrics,
+                Strings.SetPrivacyLyrics),
+            TextRow(
+                Strings.SetPageBoard,
+                Fmt.F(Strings.SetPrivacyWidgets, AppPaths.WidgetsFile)),
             TextRow(
                 Strings.SetUpdates,
                 Strings.SetPrivacyUpdates),

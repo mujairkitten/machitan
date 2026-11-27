@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.3 (in progress)
+## 0.9.3 (2026-11-27)
 
 ### Added
 

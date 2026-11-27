@@ -2,6 +2,9 @@
 
 An alternative modern shell for Windows 11
 
+<img width="1920" height="1200" alt="image" src="https://github.com/user-attachments/assets/a4a434bd-a0ff-4215-a150-e7dbe1bf7840" />
+
+
 [![Latest release](https://img.shields.io/github/v/release/mujairkitten/machitan)](https://github.com/mujairkitten/machitan/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Windows](https://img.shields.io/badge/Windows-11-blue)](https://github.com/mujairkitten/machitan/releases/latest)
